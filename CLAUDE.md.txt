@@ -1,0 +1,27 @@
+# HIA Walkthrough Application
+
+## Project overview
+Interactive web app guiding users through quantitative health
+impact assessments of air pollution. Modeled on EPA BenMAP-CE
+and BenMAPR, but browser-based with global CRF frameworks.
+
+## Tech stack
+- Frontend: React 18 + Vite + Tailwind CSS + Zustand + MapBox GL JS
+- Backend: Python FastAPI + SQLAlchemy + SQLite
+- No Docker. No admin rights. Everything runs in userspace.
+- Database: SQLite (via SQLAlchemy, migration-ready for PostgreSQL)
+- Task execution: Synchronous / ProcessPoolExecutor (no Celery)
+- File storage: Local filesystem ./data/ directory
+- HIA Wizard: Anthropic API (Claude)
+
+## Key environment variables
+DATABASE_URL, STORAGE_BACKEND, STORAGE_PATH, TASK_BACKEND,
+ANTHROPIC_API_KEY, MAPBOX_TOKEN, BASE_URL
+
+## Architecture decisions
+- DATABASE_BACKEND=sqlite for beta, =postgres for production
+- TASK_BACKEND=sync for beta, =celery for production
+- STORAGE_BACKEND=local for beta, =s3 for production
+- All spatial operations via GeoPandas (no PostGIS during beta)
+
+## Current sprint: 1 (scaffolding)
