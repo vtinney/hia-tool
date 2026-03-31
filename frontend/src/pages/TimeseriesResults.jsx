@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import useAnalysisStore from '../store/useAnalysisStore'
+import useAnalysisStore from '../stores/useAnalysisStore'
 
 export default function TimeseriesResults() {
   const { results } = useAnalysisStore()

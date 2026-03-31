@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import useAnalysisStore from '../store/useAnalysisStore'
+import useAnalysisStore from '../stores/useAnalysisStore'
 
 const STEP_TITLES = {
   1: 'Select Pollutant',
