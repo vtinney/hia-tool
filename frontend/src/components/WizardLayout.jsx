@@ -55,7 +55,7 @@ function ProgressBar({ currentStep, completedSteps, onStepClick }) {
         {STEPS.map(({ num, label }, idx) => {
           const isActive = num === currentStep
           const isCompleted = completedSteps.includes(num)
-          const isClickable = isCompleted && !isActive
+          const isClickable = !isActive
 
           return (
             <li key={num} className="flex items-center">
@@ -76,7 +76,7 @@ function ProgressBar({ currentStep, completedSteps, onStepClick }) {
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
                     : isCompleted
                       ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer'
-                      : 'bg-gray-100 text-gray-400 cursor-default'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200 cursor-pointer'
                   }
                 `}
               >
