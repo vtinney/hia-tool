@@ -1,5 +1,7 @@
 import { useParams } from 'react-router-dom'
 import Step1StudyArea from './steps/Step1StudyArea'
+import Step2AirQuality from './steps/Step2AirQuality'
+import Step3Population from './steps/Step3Population'
 
 const STEP_TITLES = {
   1: 'Study Area',
@@ -13,6 +15,8 @@ const STEP_TITLES = {
 
 const STEP_COMPONENTS = {
   1: Step1StudyArea,
+  2: Step2AirQuality,
+  3: Step3Population,
 }
 
 export default function AnalysisStep() {
