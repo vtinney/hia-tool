@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.models.database import create_tables
 from backend.models.analysis import Analysis  # noqa: F401 — register model
 from backend.models.template import Template  # noqa: F401 — register model
-from backend.routers import health
+from backend.routers import health, compute, templates
 
 load_dotenv()
 
@@ -24,6 +24,8 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(compute.router)
+app.include_router(templates.router)
 
 
 @app.on_event("startup")

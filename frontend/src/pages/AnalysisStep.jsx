@@ -4,6 +4,8 @@ import Step2AirQuality from './steps/Step2AirQuality'
 import Step3Population from './steps/Step3Population'
 import Step4HealthData from './steps/Step4HealthData'
 import Step5CRFs from './steps/Step5CRFs'
+import Step6Run from './steps/Step6Run'
+import Step7Valuation from './steps/Step7Valuation'
 
 const STEP_TITLES = {
   1: 'Study Area',
@@ -21,6 +23,8 @@ const STEP_COMPONENTS = {
   3: Step3Population,
   4: Step4HealthData,
   5: Step5CRFs,
+  6: Step6Run,
+  7: Step7Valuation,
 }
 
 export default function AnalysisStep() {

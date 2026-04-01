@@ -43,10 +43,12 @@ const DEFAULT_STEP6 = {
 }
 
 const DEFAULT_STEP7 = {
-  runValuation: true,
-  vsl: 7_400_000,
+  runValuation: false,
+  vsl: 11_800_000,
   currency: 'USD',
   dollarYear: 2024,
+  incomeElasticity: 1.0,
+  transferredVsl: null,
 }
 
 const STEP_DEFAULTS = {
