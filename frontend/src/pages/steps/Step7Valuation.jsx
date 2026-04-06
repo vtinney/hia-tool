@@ -48,7 +48,8 @@ export default function Step7Valuation() {
   // Step 7 is always valid — it's optional
   useEffect(() => {
     setStepValidity(7, true)
-  }, [setStepValidity])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Country data lookup ─────────────────────────────────────────
 

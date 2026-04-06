@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Outlet } from 'react-router-dom'
+import Markdown from 'react-markdown'
 import useAnalysisStore from '../stores/useAnalysisStore'
+import stepContent from '../content/steps/index'
+import ChatWizard, { ChatWizardToggle } from './ChatWizard'
+import ErrorBoundary from './ErrorBoundary'
 
 const STEPS = [
   { num: 1, label: 'Study Area' },
@@ -18,35 +22,7 @@ const SIDEBAR_TABS = [
   { key: 'practices', label: 'Best Practices' },
 ]
 
-const SIDEBAR_CONTENT = {
-  help: {
-    1: 'Define the geographic boundaries and time period for your health impact analysis. The study area determines which population and environmental data will be used.',
-    2: 'Specify baseline and scenario air quality concentrations. These values drive the exposure-response calculation at the core of the HIA.',
-    3: 'Enter or upload population counts for the study area. Population size directly scales the estimated health impacts.',
-    4: 'Select health endpoints and provide baseline incidence rates. These determine which health effects are quantified in the analysis.',
-    5: 'Choose concentration-response functions (CRFs) from the epidemiological literature. CRFs link changes in air quality to changes in health outcomes.',
-    6: 'Review your inputs and run the health impact calculation. The model applies the CRFs to your exposure and population data.',
-    7: 'Assign economic values to the estimated health impacts using willingness-to-pay or cost-of-illness approaches.',
-  },
-  uncertainties: {
-    1: 'Study area boundaries may not align perfectly with available air quality monitoring or population data grids.',
-    2: 'Air quality concentrations are often interpolated from sparse monitoring networks. Spatial resolution affects accuracy.',
-    3: 'Population estimates rely on census data that may be outdated. Subgroup distributions carry additional uncertainty.',
-    4: 'Baseline incidence rates may vary by subpopulation and may not reflect current local conditions.',
-    5: 'CRFs are derived from specific study populations and may not be fully transferable to your study area.',
-    6: 'Model results are deterministic point estimates unless Monte Carlo uncertainty analysis is enabled.',
-    7: 'Economic valuation estimates vary widely across methodologies and reflect societal willingness-to-pay at a point in time.',
-  },
-  practices: {
-    1: 'Use the finest spatial resolution available. Align study boundaries with administrative units for easier interpretation.',
-    2: 'Use monitored data where available. Document any spatial interpolation or modeling assumptions.',
-    3: 'Use age-stratified population data when possible. Match population years to your study period.',
-    4: 'Use local incidence rates when available. National rates are acceptable but note the limitation.',
-    5: 'Prefer CRFs from meta-analyses or multi-city studies. Report the confidence interval alongside the central estimate.',
-    6: 'Run sensitivity analyses on key inputs. Document all parameter choices for reproducibility.',
-    7: 'Report a range of economic values rather than a single point estimate. Clearly state the valuation methodology used.',
-  },
-}
+// Sidebar content is now loaded from markdown files via stepContent
 
 function ProgressBar({ currentStep, completedSteps, onStepClick }) {
   return (
@@ -107,7 +83,7 @@ function ProgressBar({ currentStep, completedSteps, onStepClick }) {
 function SidebarPanel({ currentStep, isOpen, onToggle }) {
   const [activeTab, setActiveTab] = useState('help')
 
-  const content = SIDEBAR_CONTENT[activeTab]?.[currentStep] || 'No content available for this step.'
+  const markdownContent = stepContent[activeTab]?.[currentStep] || ''
 
   return (
     <>
@@ -148,16 +124,26 @@ function SidebarPanel({ currentStep, isOpen, onToggle }) {
           ))}
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <p className="text-sm text-gray-600 leading-relaxed">{content}</p>
+        {/* Content — rendered from markdown */}
+        <div className="flex-1 overflow-y-auto p-4 prose prose-sm prose-gray max-w-none
+                        prose-headings:text-gray-800 prose-h2:text-base prose-h2:mt-0 prose-h3:text-sm
+                        prose-p:text-gray-600 prose-p:leading-relaxed
+                        prose-li:text-gray-600 prose-li:leading-relaxed
+                        prose-strong:text-gray-700
+                        prose-table:text-xs prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1
+                        prose-a:text-blue-600">
+          {markdownContent ? (
+            <Markdown>{markdownContent}</Markdown>
+          ) : (
+            <p className="text-sm text-gray-400">No content available for this step.</p>
+          )}
         </div>
       </div>
     </>
   )
 }
 
-function NavigationBar({ currentStep, totalSteps, isStepValid, onBack, onNext }) {
+function NavigationBar({ currentStep, totalSteps, isStepValid, onBack, onNext, wizardOpen, onWizardToggle }) {
   const isFirst = currentStep === 1
   const isLast = currentStep === totalSteps
 
@@ -177,9 +163,12 @@ function NavigationBar({ currentStep, totalSteps, isStepValid, onBack, onNext })
         Back
       </button>
 
-      <span className="text-sm text-gray-400">
-        {currentStep} / {totalSteps}
-      </span>
+      <div className="flex items-center gap-8">
+        <span className="text-sm text-gray-400">
+          {currentStep} / {totalSteps}
+        </span>
+        <ChatWizardToggle open={wizardOpen} onToggle={onWizardToggle} />
+      </div>
 
       <button
         onClick={onNext}
@@ -214,10 +203,11 @@ export default function WizardLayout() {
     markStepCompleted,
   } = useAnalysisStore()
 
-  // Default sidebar: open on desktop (>=1024px), closed otherwise
+  // Default sidebar: open on desktop (>=1200px), closed otherwise
   const [sidebarOpen, setSidebarOpen] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+    typeof window !== 'undefined' ? window.innerWidth >= 1200 : true
   )
+  const [wizardOpen, setWizardOpen] = useState(false)
 
   const isStepValid = stepValidity[currentStep] ?? false
 
@@ -267,7 +257,7 @@ export default function WizardLayout() {
       {/* Middle: Content + Sidebar */}
       <div className="flex-1 flex overflow-hidden">
         {/* Main content area */}
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8 pb-12">
           <div
             ref={contentRef}
             className={`
@@ -276,7 +266,9 @@ export default function WizardLayout() {
               ${transitioning ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}
             `}
           >
-            <Outlet />
+            <ErrorBoundary fallbackMessage="This step encountered an error. Try going back or refreshing.">
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
 
@@ -297,7 +289,12 @@ export default function WizardLayout() {
         isStepValid={isStepValid}
         onBack={goBack}
         onNext={goNext}
+        wizardOpen={wizardOpen}
+        onWizardToggle={() => setWizardOpen((prev) => !prev)}
       />
+
+      {/* Chat Wizard — available on every step */}
+      <ChatWizard open={wizardOpen} />
     </div>
   )
 }

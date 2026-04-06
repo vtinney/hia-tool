@@ -1,0 +1,37 @@
+{
+  "name": "Brazil Amazon PM2.5 (Biomass Burning)",
+  "description": "PM2.5 health impact analysis for the Brazilian Amazon region, focused on biomass burning exposure. Uses GEMM for high-concentration extrapolation.",
+  "step1": {
+    "studyArea": { "type": "country", "id": "brazil", "name": "Brazil" },
+    "pollutant": "pm25",
+    "years": { "start": 2022, "end": 2022 },
+    "analysisName": "Brazil Amazon PM2.5 — Biomass Burning"
+  },
+  "step2": {
+    "baseline": { "type": "manual", "value": null },
+    "control": { "type": "benchmark", "value": 5, "benchmarkId": "who_guideline" }
+  },
+  "step3": {
+    "populationType": "manual",
+    "totalPopulation": 28000000
+  },
+  "step4": {
+    "incidenceType": "manual"
+  },
+  "step5": {
+    "selectedCRFs": ["gemm_pm25_acm", "gemm_pm25_cvd", "gemm_pm25_resp"]
+  },
+  "step6": {
+    "poolingMethod": "separate",
+    "monteCarloIterations": 1000
+  },
+  "step7": {
+    "runValuation": true,
+    "vsl": 11800000,
+    "currency": "USD",
+    "dollarYear": 2024,
+    "incomeElasticity": 1.0
+  },
+  "stepValidity": { "1": true, "2": false, "3": true, "4": false, "5": true, "6": true, "7": true },
+  "completedSteps": [1, 3, 5, 6, 7]
+}

@@ -521,7 +521,7 @@ export function computeHIA(config) {
   // excluded from the death total.
   const mortalityKeywords = ['mortality', 'death', 'deaths']
   const isMortality = (endpoint) =>
-    mortalityKeywords.some((kw) => endpoint.toLowerCase().includes(kw))
+    mortalityKeywords.some((kw) => (endpoint || '').toLowerCase().includes(kw))
 
   // We sum per-iteration across mortality CRFs to properly capture
   // correlated uncertainty.  Since each CRF is sampled independently,
@@ -536,6 +536,156 @@ export function computeHIA(config) {
   }
 
   return { results, totalDeaths }
+}
+
+// ────────────────────────────────────────────────────────────────────
+//  Time-series (short-term) analysis
+// ────────────────────────────────────────────────────────────────────
+
+/**
+ * Run a time-series (short-term) health impact assessment.
+ *
+ * For each day in the time series, computes:
+ *
+ *     ΔY_daily = (1 − 1/exp(β × ΔC_daily)) × (y₀ / 365) × Pop
+ *
+ * where ΔC_daily is the per-day difference between baseline and control
+ * concentration, and y₀ / 365 converts the annual incidence rate to a
+ * daily rate.
+ *
+ * Uncertainty is propagated via Monte Carlo sampling, as in the chronic
+ * engine: β is sampled from N(β̂, SE²) for each iteration.
+ *
+ * @param {object} config
+ * @param {Array<{date: string, concentration: number}>} config.baselineTimeSeries
+ *   Daily baseline concentrations.
+ * @param {number|Array<{date: string, concentration: number}>} config.controlConcentration
+ *   Either a scalar constant or a daily time series matching baselineTimeSeries.
+ * @param {number} config.baselineIncidence - Annual incidence rate (per person/yr).
+ * @param {number} config.population - Exposed population.
+ * @param {object[]} config.selectedCRFs - Short-term CRF objects.
+ * @param {number} [config.monteCarloIterations=1000]
+ * @returns {{
+ *   daily: Array<{date: string, concentration: number, controlConcentration: number, deltaC: number, attributableCases: number}>,
+ *   monthly: Array<{month: string, cases: number}>,
+ *   results: Array<{crfId: string, study: string, endpoint: string,
+ *     totalCases: {mean: number, lower95: number, upper95: number},
+ *     attributableFraction: {mean: number, lower95: number, upper95: number},
+ *     attributableRate: {mean: number, lower95: number, upper95: number}}>,
+ *   totalCases: {mean: number, lower95: number, upper95: number}
+ * }}
+ */
+export function computeTimeSeriesHIA(config) {
+  const {
+    baselineTimeSeries,
+    controlConcentration,
+    baselineIncidence,
+    population,
+    selectedCRFs,
+    monteCarloIterations = 1000,
+  } = config
+
+  if (!selectedCRFs || selectedCRFs.length === 0 || !baselineTimeSeries || baselineTimeSeries.length === 0) {
+    return {
+      daily: [],
+      monthly: [],
+      results: [],
+      totalCases: { mean: 0, lower95: 0, upper95: 0 },
+    }
+  }
+
+  const nDays = baselineTimeSeries.length
+  const dailyRate = baselineIncidence / 365
+  const isControlArray = Array.isArray(controlConcentration)
+  const PER_100K = 100_000
+
+  const results = selectedCRFs.map((crf) => {
+    const se = betaSE(crf.betaLow, crf.betaHigh)
+    const totalSamples = []
+
+    // Daily breakdown using the central beta (for charts)
+    const dailyBreakdown = []
+    let cumulativeCentral = 0
+
+    for (let d = 0; d < nDays; d++) {
+      const row = baselineTimeSeries[d]
+      const cBase = row.concentration
+      const cCtrl = isControlArray ? controlConcentration[d].concentration : controlConcentration
+      const deltaC = cBase - cCtrl
+      const { cases } = logLinear(crf.beta, deltaC, dailyRate, population)
+
+      cumulativeCentral += Math.max(0, cases)
+      dailyBreakdown.push({
+        date: row.date,
+        concentration: cBase,
+        controlConcentration: cCtrl,
+        deltaC,
+        attributableCases: Math.max(0, cases),
+        cumulativeCases: cumulativeCentral,
+      })
+    }
+
+    // Monte Carlo for uncertainty on the total
+    for (let iter = 0; iter < monteCarloIterations; iter++) {
+      const sampledBeta = sampleNormal(crf.beta, se)
+      let iterTotal = 0
+
+      for (let d = 0; d < nDays; d++) {
+        const cBase = baselineTimeSeries[d].concentration
+        const cCtrl = isControlArray ? controlConcentration[d].concentration : controlConcentration
+        const deltaC = cBase - cCtrl
+        const { cases } = logLinear(sampledBeta, deltaC, dailyRate, population)
+        iterTotal += cases
+      }
+      totalSamples.push(iterTotal)
+    }
+
+    const totalCases = summarise(totalSamples)
+    const totalPafSamples = totalSamples.map((c) => (population > 0 ? c / (baselineIncidence * population) : 0))
+    const totalRateSamples = totalSamples.map((c) => (population > 0 ? (c / population) * PER_100K : 0))
+
+    return {
+      crfId: crf.id,
+      study: crf.source,
+      endpoint: crf.endpoint,
+      totalCases,
+      attributableFraction: summarise(totalPafSamples),
+      attributableRate: summarise(totalRateSamples),
+      daily: dailyBreakdown,
+    }
+  })
+
+  // Merge daily breakdowns across CRFs (use the first CRF for the chart)
+  const daily = results[0]?.daily || []
+
+  // Monthly aggregation
+  const monthlyMap = {}
+  for (const day of daily) {
+    const month = day.date.slice(0, 7) // "YYYY-MM"
+    monthlyMap[month] = (monthlyMap[month] || 0) + day.attributableCases
+  }
+  const monthly = Object.entries(monthlyMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, cases]) => ({ month, cases }))
+
+  // Total across mortality CRFs
+  const mortalityKeywords = ['mortality', 'death', 'deaths']
+  const isMortality = (endpoint) =>
+    mortalityKeywords.some((kw) => (endpoint || '').toLowerCase().includes(kw))
+
+  const mortalityResults = results.filter((r) => isMortality(r.endpoint))
+  const totalCases = {
+    mean: mortalityResults.reduce((s, r) => s + r.totalCases.mean, 0),
+    lower95: mortalityResults.reduce((s, r) => s + r.totalCases.lower95, 0),
+    upper95: mortalityResults.reduce((s, r) => s + r.totalCases.upper95, 0),
+  }
+
+  return {
+    daily,
+    monthly,
+    results: results.map(({ daily: _d, ...rest }) => rest),
+    totalCases,
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────

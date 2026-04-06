@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
+import { uploadFile, fetchPopulation } from '../../lib/api'
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ function CsvUpload({ fileData, onFile, onClear }) {
       const text = e.target.result
       const lines = text.split(/\r?\n/).filter((l) => l.trim())
       if (lines.length === 0) {
-        onFile({ name: file.name, size: file.size, error: 'File is empty.' })
+        onFile({ name: file.name, size: file.size, error: 'File is empty.' }, null)
         return
       }
 
@@ -85,7 +86,7 @@ function CsvUpload({ fileData, onFile, onClear }) {
           name: file.name,
           size: file.size,
           error: `Missing required columns: ${missing.join(', ')}. Expected: ${CSV_EXPECTED_COLUMNS.join(', ')}.`,
-        })
+        }, null)
         return
       }
 
@@ -103,22 +104,27 @@ function CsvUpload({ fileData, onFile, onClear }) {
         preview: rows,
         totalRows: lines.length - 1,
         error: null,
-      })
+      }, null)
     }
     reader.readAsText(file)
   }
 
   const handleFile = (file) => {
     const ext = file.name.split('.').pop().toLowerCase()
-    if (ext !== 'csv') {
-      onFile({ name: file.name, size: file.size, error: 'Only CSV files are accepted.' })
+    if (!['csv', 'tif', 'tiff'].includes(ext)) {
+      onFile({ name: file.name, size: file.size, error: 'Accepted: CSV or GeoTIFF (.tif, .tiff).' }, null)
       return
     }
-    if (file.size > 200 * 1024 * 1024) {
-      onFile({ name: file.name, size: file.size, error: 'File exceeds 200 MB limit.' })
+    if (file.size > 500 * 1024 * 1024) {
+      onFile({ name: file.name, size: file.size, error: 'File exceeds 500 MB limit.' }, null)
       return
     }
-    parsePreview(file)
+    if (ext === 'csv') {
+      parsePreview(file)
+    } else {
+      // GeoTIFF — pass to parent for backend upload
+      onFile({ name: file.name, size: file.size, type: ext, error: null }, file)
+    }
   }
 
   const handleDrop = (e) => {
@@ -148,6 +154,19 @@ function CsvUpload({ fileData, onFile, onClear }) {
             Remove
           </button>
         </div>
+
+        {/* Raster metadata */}
+        {fileData.crs && (
+          <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 space-y-0.5">
+            <p><span className="font-medium">CRS:</span> {fileData.crs}</p>
+            {fileData.metadata?.resolution && (
+              <p><span className="font-medium">Resolution:</span> {fileData.metadata.resolution.map(r => r.toFixed(4)).join(' x ')}</p>
+            )}
+            {fileData.metadata?.width && (
+              <p><span className="font-medium">Size:</span> {fileData.metadata.width} x {fileData.metadata.height} pixels</p>
+            )}
+          </div>
+        )}
 
         {/* Preview table */}
         {fileData.preview?.length > 0 && (
@@ -202,12 +221,12 @@ function CsvUpload({ fileData, onFile, onClear }) {
           Drag & drop or <span className="text-blue-600 font-medium">browse</span>
         </p>
         <p className="text-xs text-gray-400 mt-1">
-          CSV with columns: {CSV_EXPECTED_COLUMNS.join(', ')}
+          CSV with columns: {CSV_EXPECTED_COLUMNS.join(', ')} — or GeoTIFF population raster
         </p>
         <input
           ref={inputRef}
           type="file"
-          accept=".csv"
+          accept=".csv,.tif,.tiff"
           className="hidden"
           onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }}
         />
@@ -340,10 +359,113 @@ function CrosswalkTable() {
   )
 }
 
+// ── Built-in population loader ────────────────────────────────────
+
+function BuiltinPopulationLoader({ studyArea, years, selectedDatasetId, onSelect, onDataLoaded }) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [loadedData, setLoadedData] = useState(null)
+
+  const country = studyArea?.id || studyArea?.name?.toLowerCase().replace(/\s+/g, '-') || ''
+  const year = years?.start || years?.end || new Date().getFullYear()
+
+  // Fetch population data when a dataset is selected
+  useEffect(() => {
+    if (!selectedDatasetId || !country) return
+
+    setLoading(true)
+    setError(null)
+    setLoadedData(null)
+
+    fetchPopulation(country, year)
+      .then((data) => {
+        if (!data) {
+          setError(`Built-in data not yet available for ${studyArea?.name || country}. Please use manual entry or upload.`)
+          return
+        }
+        setLoadedData(data)
+        const units = data.units || []
+        // Sum total population across units
+        const total = units.reduce((s, u) => s + (u.total || 0), 0)
+
+        // Aggregate age groups if available
+        let ageGroups = null
+        const firstWithAges = units.find((u) => u.age_groups)
+        if (firstWithAges) {
+          const ageTotals = {}
+          for (const unit of units) {
+            if (!unit.age_groups) continue
+            for (const [key, val] of Object.entries(unit.age_groups)) {
+              ageTotals[key] = (ageTotals[key] || 0) + (val || 0)
+            }
+          }
+          // Convert absolute counts to percentages
+          const totalPop = Object.values(ageTotals).reduce((s, v) => s + v, 0)
+          if (totalPop > 0) {
+            ageGroups = {}
+            for (const [key, val] of Object.entries(ageTotals)) {
+              // Convert age_0_4 format to 0–4 display format
+              const label = key.replace(/^age_/, '').replace(/_/g, '–')
+              ageGroups[label] = Math.round((val / totalPop) * 1000) / 10
+            }
+          }
+        }
+
+        onDataLoaded(total, ageGroups)
+      })
+      .catch((err) => {
+        setError(err.message)
+      })
+      .finally(() => setLoading(false))
+  }, [selectedDatasetId, country, year]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="space-y-3">
+      <select
+        value={selectedDatasetId || ''}
+        onChange={(e) => onSelect(e.target.value)}
+        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
+                   focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+      >
+        <option value="">Select a dataset…</option>
+        {BUILTIN_DATASETS.map((d) => (
+          <option key={d.id} value={d.id}>{d.label}</option>
+        ))}
+      </select>
+
+      {loading && (
+        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          Loading population data…
+        </div>
+      )}
+
+      {error && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+          {error}
+        </div>
+      )}
+
+      {loadedData && !error && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+          <p className="font-medium">Population data loaded</p>
+          <p className="text-xs text-green-600 mt-1">
+            {loadedData.units?.length || 0} admin units — total{' '}
+            {(loadedData.units || []).reduce((s, u) => s + (u.total || 0), 0).toLocaleString()} people
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main component ─────────────────────────────────────────────────
 
 export default function Step3Population() {
-  const { step3, setStep3, setStepValidity } = useAnalysisStore()
+  const { step1, step3, setStep3, setStepValidity } = useAnalysisStore()
   const { populationType, totalPopulation, ageGroups } = step3
 
   const [activeTab, setActiveTab] = useState(
@@ -360,7 +482,8 @@ export default function Step3Population() {
       (populationType === 'file' && step3.fileData?.name && !step3.fileData?.error) ||
       (populationType === 'dataset' && step3.datasetId != null)
     setStepValidity(3, valid)
-  }, [populationType, totalPopulation, step3.fileData, step3.datasetId, setStepValidity])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [populationType, totalPopulation, step3.fileData, step3.datasetId])
 
   // ── Handlers ───────────────────────────────────────────────────
 
@@ -379,12 +502,32 @@ export default function Step3Population() {
     setStep3({ ageGroups: groups })
   }, [setStep3])
 
-  const handleFile = useCallback((fileData) => {
-    setStep3({ fileData, populationType: 'file' })
+  const handleFile = useCallback(async (fileData, rawFile) => {
+    setStep3({ fileData, populationType: 'file', uploadId: null })
+    // Upload raster files to backend
+    if (rawFile && !fileData.error) {
+      const ext = rawFile.name.split('.').pop().toLowerCase()
+      if (['tif', 'tiff'].includes(ext)) {
+        try {
+          const result = await uploadFile(rawFile, 'population')
+          setStep3({
+            fileData: { ...fileData, crs: result.crs, metadata: result.metadata_json },
+            populationType: 'file',
+            uploadId: result.id,
+          })
+        } catch (err) {
+          setStep3({
+            fileData: { ...fileData, error: err.message },
+            populationType: 'file',
+            uploadId: null,
+          })
+        }
+      }
+    }
   }, [setStep3])
 
   const handleClearFile = useCallback(() => {
-    setStep3({ fileData: null })
+    setStep3({ fileData: null, uploadId: null })
   }, [setStep3])
 
   const handleDataset = useCallback((datasetId) => {
@@ -430,9 +573,14 @@ export default function Step3Population() {
                   value={totalPopulation ?? ''}
                   onChange={(e) => handleTotalPopulation(e.target.value)}
                   placeholder="e.g. 2700000"
-                  className="w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2 text-sm
-                             focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className={`w-full max-w-xs rounded-lg border px-3 py-2 text-sm focus:ring-1
+                    ${totalPopulation != null && totalPopulation <= 0
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
                 />
+                {totalPopulation != null && totalPopulation <= 0 && (
+                  <p className="text-xs text-red-600 mt-1">Population must be greater than zero.</p>
+                )}
                 {totalPopulation != null && totalPopulation > 0 && (
                   <p className="text-xs text-gray-400 mt-1">
                     {Number(totalPopulation).toLocaleString()} people
@@ -458,24 +606,20 @@ export default function Step3Population() {
 
           {/* Built-in Data */}
           {activeTab === 'builtin' && (
-            <div>
-              <select
-                value={step3.datasetId || ''}
-                onChange={(e) => handleDataset(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
-                           focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="">Select a dataset…</option>
-                {BUILTIN_DATASETS.map((d) => (
-                  <option key={d.id} value={d.id}>{d.label}</option>
-                ))}
-              </select>
-              {step3.datasetId && (
-                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-                  Data loading not yet implemented. This dataset will be available in a future release.
-                </div>
-              )}
-            </div>
+            <BuiltinPopulationLoader
+              studyArea={step1.studyArea}
+              years={step1.years}
+              selectedDatasetId={step3.datasetId}
+              onSelect={handleDataset}
+              onDataLoaded={(total, ageGroups) => {
+                setStep3({
+                  totalPopulation: total,
+                  ageGroups: ageGroups || step3.ageGroups,
+                  datasetId: step3.datasetId,
+                  populationType: 'dataset',
+                })
+              }}
+            />
           )}
         </fieldset>
 

@@ -70,15 +70,76 @@ function SummaryCard({ label, value, ci, subtitle, bgClass }) {
 
 // ── Tab: Map placeholder ────────────────────────────────────────
 
-function MapTab() {
+function MapTab({ zones }) {
+  if (!zones || zones.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-80 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
+        <div className="text-center">
+          <svg className="mx-auto h-12 w-12 text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+          <p className="text-gray-400 font-medium">Spatial map available for gridded analyses</p>
+          <p className="text-xs text-gray-300 mt-1">Run a gridded analysis to generate spatial results</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex items-center justify-center h-80 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
-      <div className="text-center">
-        <svg className="mx-auto h-12 w-12 text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-        </svg>
-        <p className="text-gray-400 font-medium">Spatial map available for gridded analyses</p>
-        <p className="text-xs text-gray-300 mt-1">Run a gridded analysis to generate spatial results</p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-center h-64 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
+        <div className="text-center">
+          <svg className="mx-auto h-12 w-12 text-blue-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+          <p className="text-blue-500 font-medium">Choropleth map rendering coming soon</p>
+          <p className="text-xs text-gray-400 mt-1">{zones.length} zones with spatial results available</p>
+        </div>
+      </div>
+
+      {/* Zone-level summary table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+          <thead>
+            <tr className="bg-gray-50">
+              <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">Zone</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Population</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Baseline Conc.</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Control Conc.</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Attr. Cases</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">95% CI</th>
+            </tr>
+          </thead>
+          <tbody>
+            {zones.map((zone) => {
+              const totalCases = zone.results?.reduce((s, r) => s + (r.attributableCases?.mean || 0), 0) || 0
+              const totalLower = zone.results?.reduce((s, r) => s + (r.attributableCases?.lower95 || 0), 0) || 0
+              const totalUpper = zone.results?.reduce((s, r) => s + (r.attributableCases?.upper95 || 0), 0) || 0
+              return (
+                <tr key={zone.zoneId} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 border-b border-gray-100 font-medium text-gray-900">
+                    {zone.zoneName || zone.zoneId}
+                  </td>
+                  <td className="px-3 py-2 border-b border-gray-100 text-right text-gray-700">
+                    {fmtNumber(zone.population)}
+                  </td>
+                  <td className="px-3 py-2 border-b border-gray-100 text-right text-gray-700">
+                    {fmtNumber(zone.baselineConcentration, 1)}
+                  </td>
+                  <td className="px-3 py-2 border-b border-gray-100 text-right text-gray-700">
+                    {fmtNumber(zone.controlConcentration, 1)}
+                  </td>
+                  <td className="px-3 py-2 border-b border-gray-100 text-right font-medium text-gray-900">
+                    {fmtNumber(totalCases)}
+                  </td>
+                  <td className="px-3 py-2 border-b border-gray-100 text-right text-gray-500 text-xs">
+                    {fmtNumber(totalLower)} – {fmtNumber(totalUpper)}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   )
@@ -435,7 +496,9 @@ export default function Results() {
   const summaryRef = useRef(null)
   const tableRef = useRef(null)
 
-  const summary = results?.summary ?? {}
+  const isSpatial = Boolean(results?.zones)
+  const summary = isSpatial ? (results?.aggregate ?? {}) : (results?.summary ?? {})
+  const totalDeaths = isSpatial ? results?.totalDeaths : summary.totalDeaths
   const hasValuation = step7?.runValuation && summary.economicValue != null
   const analysisName = results?.meta?.analysisName || step1?.analysisName || ''
 
@@ -518,12 +581,13 @@ export default function Results() {
             >
               <SummaryCard
                 label="Total Attributable Deaths"
-                value={fmtNumber(summary.totalDeaths?.mean)}
+                value={fmtNumber(totalDeaths?.mean)}
                 ci={
-                  summary.totalDeaths
-                    ? `${fmtNumber(summary.totalDeaths.lower95)} – ${fmtNumber(summary.totalDeaths.upper95)}`
+                  totalDeaths
+                    ? `${fmtNumber(totalDeaths.lower95)} – ${fmtNumber(totalDeaths.upper95)}`
                     : null
                 }
+                subtitle={isSpatial ? `Across ${results.zones.length} zones` : undefined}
                 bgClass="bg-blue-50"
               />
               <SummaryCard
@@ -569,7 +633,7 @@ export default function Results() {
               </div>
 
               <div className="p-6">
-                {activeTab === 'map' && <MapTab />}
+                {activeTab === 'map' && <MapTab zones={results?.zones} />}
                 {activeTab === 'table' && (
                   <div ref={tableRef}>
                     <TableTab results={results} hasValuation={hasValuation} />

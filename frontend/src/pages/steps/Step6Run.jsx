@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAnalysisStore from '../../stores/useAnalysisStore'
 import { computeHIA } from '../../lib/hia-engine'
+import { runSpatialCompute } from '../../lib/api'
 import crfLibrary from '../../data/crf-library.json'
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -22,9 +23,9 @@ const FRAMEWORK_LABELS = {
 }
 
 const POOLING_OPTIONS = [
-  { value: 'fixed', label: 'Fixed effects' },
-  { value: 'random', label: 'Random effects' },
-  { value: 'separate', label: 'Run separately' },
+  { value: 'separate', label: 'Run separately (default)' },
+  { value: 'fixed', label: 'Fixed effects pooling' },
+  { value: 'random', label: 'Random effects pooling' },
 ]
 
 const MC_OPTIONS = [100, 500, 1000, 5000]
@@ -143,7 +144,8 @@ export default function Step6Run() {
   // Always valid — analysis options have defaults
   useEffect(() => {
     setStepValidity(6, true)
-  }, [setStepValidity])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Derived summaries ───────────────────────────────────────────
 
@@ -213,40 +215,107 @@ export default function Step6Run() {
     }
   }, [exportConfig])
 
+  const hasSpatialInputs = Boolean(
+    step2.baseline?.uploadId || step3.uploadId || step1.studyArea?.boundaryUploadId
+  )
+
   const handleRunAnalysis = useCallback(async () => {
     setRunning(true)
     setError(null)
 
     try {
-      // Build config for the HIA engine
-      const config = {
-        pollutant: step1.pollutant,
-        baselineConcentration: step2.baseline?.value,
-        controlConcentration: step2.control?.value ?? step2.baseline?.value,
-        totalPopulation: step3.totalPopulation,
-        ageGroups: step3.ageGroups,
-        selectedCRFs: step5.selectedCRFs,
-        incidenceRates: step4.rates,
-        poolingMethod: step6.poolingMethod,
-        monteCarloIterations: step6.monteCarloIterations,
-      }
+      if (hasSpatialInputs && step2.baseline?.uploadId && step3.uploadId && step1.studyArea?.boundaryUploadId) {
+        // Spatial pathway: call backend
+        const spatialConfig = {
+          concentrationFileId: step2.baseline.uploadId,
+          controlFileId: step2.control?.uploadId || null,
+          controlConcentration: step2.control?.value ?? null,
+          populationFileId: step3.uploadId,
+          boundaryFileId: step1.studyArea.boundaryUploadId,
+          baselineIncidence: 0.008, // default; will be configurable from step4
+          selectedCRFs: selectedCRFDetails.map((crf) => ({
+            id: crf.id,
+            source: crf.source,
+            endpoint: crf.endpoint,
+            beta: crf.beta,
+            betaLow: crf.betaLow,
+            betaHigh: crf.betaHigh,
+            functionalForm: crf.functionalForm,
+            defaultRate: crf.defaultRate,
+          })),
+          monteCarloIterations: step6.monteCarloIterations,
+        }
+        const results = await runSpatialCompute(spatialConfig)
+        setResults(results)
+      } else {
+        // Scalar pathway: client-side engine
+        const config = {
+          pollutant: step1.pollutant,
+          baselineConcentration: step2.baseline?.value,
+          controlConcentration: step2.control?.value ?? step2.baseline?.value,
+          population: step3.totalPopulation,
+          ageGroups: step3.ageGroups,
+          selectedCRFs: selectedCRFDetails,
+          incidenceRates: step4.rates,
+          poolingMethod: step6.poolingMethod,
+          monteCarloIterations: step6.monteCarloIterations,
+        }
+        const raw = await Promise.resolve(computeHIA(config))
 
-      // Run client-side engine (single-value analysis)
-      const results = await Promise.resolve(computeHIA(config))
-      setResults(results)
+        // Reshape engine output to match the structure Results page expects
+        const detail = raw.results.map((r) => ({
+          crfStudy: r.study,
+          framework: crfLookup[r.crfId]?.framework || '',
+          endpoint: r.endpoint,
+          attributableCases: r.attributableCases.mean,
+          lower95: r.attributableCases.lower95,
+          upper95: r.attributableCases.upper95,
+          attributableFraction: r.attributableFraction.mean,
+          ratePer100k: r.attributableRate.mean,
+        }))
+
+        const totalDeaths = raw.totalDeaths
+        const totalPop = step3.totalPopulation || 1
+        const avgFraction = detail.length > 0
+          ? detail.reduce((s, d) => s + (d.attributableFraction || 0), 0) / detail.length
+          : 0
+        const avgRate = detail.length > 0
+          ? detail.reduce((s, d) => s + (d.ratePer100k || 0), 0) / detail.length
+          : 0
+
+        setResults({
+          meta: { analysisName: step1.analysisName || '' },
+          summary: {
+            totalDeaths,
+            attributableFraction: avgFraction,
+            attributableRate: avgRate,
+          },
+          detail,
+        })
+      }
       navigate('/analysis/results')
     } catch (err) {
       setError(err.message || 'Analysis failed. Please check your inputs.')
     } finally {
       setRunning(false)
     }
-  }, [step1, step2, step3, step4, step5, step6, setResults, navigate])
+  }, [step1, step2, step3, step4, step5, step6, hasSpatialInputs, selectedCRFDetails, setResults, navigate])
 
   // ── Render ──────────────────────────────────────────────────────
 
   return (
     <>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Review &amp; Run Analysis</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">Review &amp; Run Analysis</h1>
+      {hasSpatialInputs && (
+        <div className="mb-6 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+          <span>
+            <span className="font-medium">Spatial mode:</span> Analysis will run on the backend using uploaded raster and boundary files.
+          </span>
+        </div>
+      )}
 
       {/* Summary sections */}
       <div className="grid gap-4 md:grid-cols-2 mb-6">

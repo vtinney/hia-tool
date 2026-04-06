@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
+import { fetchIncidence } from '../../lib/api'
 import crfLibrary from '../../data/crf-library.json'
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -222,6 +223,115 @@ function EndpointRateRow({ crf, value, onChange }) {
   )
 }
 
+// ── Built-in incidence loader ─────────────────────────────────────
+
+function BuiltinIncidenceLoader({ studyArea, years, uniqueEndpoints, selectedDatasetId, onSelect, onDataLoaded }) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [loadedCount, setLoadedCount] = useState(0)
+
+  const country = studyArea?.id || studyArea?.name?.toLowerCase().replace(/\s+/g, '-') || ''
+  const year = years?.start || years?.end || new Date().getFullYear()
+
+  // Fetch incidence data when a dataset is selected
+  useEffect(() => {
+    if (!selectedDatasetId || !country) return
+
+    setLoading(true)
+    setError(null)
+    setLoadedCount(0)
+
+    // Try fetching incidence for each unique endpoint's cause
+    const causes = [...new Set(uniqueEndpoints.filter((ep) => ep.endpoint).map((ep) =>
+      ep.endpoint.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+    ))]
+
+    // Try a general "all" cause first, then individual causes
+    const causesToTry = ['all', ...causes]
+
+    Promise.all(
+      causesToTry.map((cause) =>
+        fetchIncidence(country, cause, year).catch(() => null),
+      ),
+    )
+      .then((results) => {
+        // Merge all non-null results
+        const allUnits = results.filter(Boolean).flatMap((r) => r.units || [])
+
+        if (allUnits.length === 0) {
+          setError(`Built-in data not yet available for ${studyArea?.name || country}. Please use manual entry or upload.`)
+          return
+        }
+
+        // Map incidence rates to CRF endpoint IDs
+        const ratesMap = {}
+        let matched = 0
+        for (const ep of uniqueEndpoints) {
+          const epLower = (ep.endpoint || '').toLowerCase()
+          // Find a matching unit by endpoint/cause name
+          const match = allUnits.find((u) => {
+            const cause = (u.cause || '').toLowerCase()
+            return epLower.includes(cause) || cause.includes(epLower.split(' ')[0])
+          })
+          if (match && match.incidence_rate != null) {
+            ratesMap[ep.id] = match.incidence_rate
+            matched++
+          }
+        }
+
+        setLoadedCount(matched)
+        if (matched > 0) {
+          onDataLoaded(ratesMap)
+        } else {
+          setError(`Built-in data not yet available for ${studyArea?.name || country}. Please use manual entry or upload.`)
+        }
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [selectedDatasetId, country, year]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="space-y-3">
+      <select
+        value={selectedDatasetId || ''}
+        onChange={(e) => onSelect(e.target.value)}
+        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
+                   focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+      >
+        <option value="">Select a dataset…</option>
+        {BUILTIN_DATASETS.map((d) => (
+          <option key={d.id} value={d.id}>{d.label}</option>
+        ))}
+      </select>
+
+      {loading && (
+        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          Loading incidence data…
+        </div>
+      )}
+
+      {error && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+          {error}
+        </div>
+      )}
+
+      {loadedCount > 0 && !error && !loading && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+          <p className="font-medium">Incidence data loaded</p>
+          <p className="text-xs text-green-600 mt-1">
+            Pre-filled rates for {loadedCount} of {uniqueEndpoints.length} endpoints
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main component ─────────────────────────────────────────────────
 
 export default function Step4HealthData() {
@@ -292,7 +402,8 @@ export default function Step4HealthData() {
       valid = step4.datasetId != null
     }
     setStepValidity(4, valid)
-  }, [incidenceType, currentRates, step4.fileData, step4.datasetId, pollutant, setStepValidity])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incidenceType, currentRates, step4.fileData, step4.datasetId, pollutant])
 
   // ── Handlers ───────────────────────────────────────────────────
 
@@ -444,24 +555,16 @@ export default function Step4HealthData() {
 
           {/* Built-in Data */}
           {activeTab === 'builtin' && (
-            <div>
-              <select
-                value={step4.datasetId || ''}
-                onChange={(e) => handleDataset(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
-                           focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="">Select a dataset…</option>
-                {BUILTIN_DATASETS.map((d) => (
-                  <option key={d.id} value={d.id}>{d.label}</option>
-                ))}
-              </select>
-              {step4.datasetId && (
-                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-                  Data loading not yet implemented. This dataset will be available in a future release.
-                </div>
-              )}
-            </div>
+            <BuiltinIncidenceLoader
+              studyArea={step1.studyArea}
+              years={step1.years}
+              uniqueEndpoints={uniqueEndpoints}
+              selectedDatasetId={step4.datasetId}
+              onSelect={handleDataset}
+              onDataLoaded={(ratesMap) => {
+                setStep4({ rates: { ...currentRates, ...ratesMap }, incidenceType: 'dataset' })
+              }}
+            />
           )}
         </fieldset>
 

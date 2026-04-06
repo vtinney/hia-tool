@@ -451,7 +451,8 @@ export default function Step5CRFs() {
 
   useEffect(() => {
     setStepValidity(5, selectedCRFs.length > 0 || customCRFs.length > 0)
-  }, [selectedCRFs, customCRFs, setStepValidity])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCRFs, customCRFs])
 
   // ── Handlers ───────────────────────────────────────────────────
 

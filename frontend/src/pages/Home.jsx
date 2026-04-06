@@ -1,33 +1,32 @@
-import { Link } from 'react-router-dom'
+import { useCallback } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import useAnalysisStore from '../stores/useAnalysisStore'
+
+import usNationalPm25 from '../data/templates/us_national_pm25.json'
+import usTractPm25Ej from '../data/templates/us_tract_pm25_ej.json'
+import singleCityPm25Who from '../data/templates/single_city_pm25_who.json'
+import globalPm25Gbd from '../data/templates/global_pm25_gbd.json'
+import mexicoNo2 from '../data/templates/mexico_no2.json'
+import brazilAmazonPm25 from '../data/templates/brazil_amazon_pm25.json'
 
 const TEMPLATES = [
-  {
-    name: 'U.S. National PM2.5 (EPA CRFs)',
-    description: 'Nationwide long-term PM2.5 analysis using EPA concentration-response functions.',
-  },
-  {
-    name: 'U.S. Census Tract PM2.5 (Environmental Justice)',
-    description: 'Tract-level disparities analysis with demographic breakdowns.',
-  },
-  {
-    name: 'Single City PM2.5 (WHO Guideline)',
-    description: 'City-scale assessment benchmarked against WHO air quality guidelines.',
-  },
-  {
-    name: 'Global PM2.5 Burden (GBD 2023 MR-BRT)',
-    description: 'Global burden of disease estimates using the latest MR-BRT spline model.',
-  },
-  {
-    name: 'Mexico NO2 (TROPOMI + Eum CRF)',
-    description: 'Satellite-derived NO2 exposure with the Eum et al. risk function.',
-  },
-  {
-    name: 'Brazil Amazonian Cities PM2.5',
-    description: 'Fire-season PM2.5 health impacts across Amazonian urban areas.',
-  },
+  { data: usNationalPm25, badge: 'PM2.5', badgeColor: 'bg-blue-100 text-blue-700' },
+  { data: usTractPm25Ej, badge: 'Spatial', badgeColor: 'bg-purple-100 text-purple-700' },
+  { data: singleCityPm25Who, badge: 'PM2.5', badgeColor: 'bg-blue-100 text-blue-700' },
+  { data: globalPm25Gbd, badge: 'GBD', badgeColor: 'bg-teal-100 text-teal-700' },
+  { data: mexicoNo2, badge: 'NO₂', badgeColor: 'bg-amber-100 text-amber-700' },
+  { data: brazilAmazonPm25, badge: 'PM2.5', badgeColor: 'bg-green-100 text-green-700' },
 ]
 
 export default function Home() {
+  const navigate = useNavigate()
+  const loadFromTemplate = useAnalysisStore((s) => s.loadFromTemplate)
+
+  const handleTemplate = useCallback((template) => {
+    loadFromTemplate(template)
+    navigate('/analysis/1')
+  }, [loadFromTemplate, navigate])
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Header */}
@@ -107,30 +106,30 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {TEMPLATES.map((template) => (
+          {TEMPLATES.map(({ data, badge, badgeColor }) => (
             <div
-              key={template.name}
-              className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+              key={data.name}
+              className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md hover:border-slate-300 transition-all"
             >
               <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${badgeColor}`}>
+                    {badge}
+                  </span>
+                </div>
                 <h3 className="font-medium text-slate-900 leading-snug mb-2">
-                  {template.name}
+                  {data.name}
                 </h3>
                 <p className="text-sm text-slate-400 leading-relaxed">
-                  {template.description}
+                  {data.description}
                 </p>
               </div>
-              <div className="mt-5 relative group/btn inline-flex self-start">
-                <button
-                  disabled
-                  className="px-4 py-1.5 text-sm font-medium rounded-lg bg-slate-100 text-slate-400 cursor-not-allowed"
-                >
-                  Start
-                </button>
-                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 text-xs font-medium text-white bg-slate-800 rounded-md opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                  Coming soon
-                </span>
-              </div>
+              <button
+                onClick={() => handleTemplate(data)}
+                className="mt-5 self-start px-4 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                Use Template
+              </button>
             </div>
           ))}
         </div>

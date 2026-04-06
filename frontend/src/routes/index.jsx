@@ -4,6 +4,7 @@ import AnalysisStep from '../pages/AnalysisStep'
 import Results from '../pages/Results'
 import TimeseriesStep from '../pages/TimeseriesStep'
 import TimeseriesResults from '../pages/TimeseriesResults'
+import NotFound from '../pages/NotFound'
 
 const routes = [
   { path: '/', element: <Home /> },
@@ -17,6 +18,7 @@ const routes = [
   { path: '/analysis/results', element: <Results /> },
   { path: '/timeseries/:step', element: <TimeseriesStep /> },
   { path: '/timeseries/results', element: <TimeseriesResults /> },
+  { path: '*', element: <NotFound /> },
 ]
 
 export default routes

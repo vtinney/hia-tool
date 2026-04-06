@@ -82,5 +82,5 @@ async def delete_template(
         raise HTTPException(status_code=404, detail="Template not found")
     if template.is_builtin:
         raise HTTPException(status_code=403, detail="Built-in templates cannot be deleted")
-    await db.delete(template)
+    db.delete(template)
     await db.commit()

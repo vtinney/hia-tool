@@ -1,0 +1,37 @@
+{
+  "name": "U.S. Census Tract PM2.5 (Environmental Justice)",
+  "description": "Tract-level spatial analysis for environmental justice screening. Requires gridded PM2.5 and population raster uploads. Uses Di 2017 CRFs.",
+  "step1": {
+    "studyArea": { "type": "country", "id": "united-states", "name": "United States" },
+    "pollutant": "pm25",
+    "years": { "start": 2020, "end": 2020 },
+    "analysisName": "U.S. Tract-Level PM2.5 — EJ Analysis"
+  },
+  "step2": {
+    "baseline": { "type": "dataset", "datasetId": "acag_v5" },
+    "control": { "type": "benchmark", "value": 9, "benchmarkId": "us_naaqs" }
+  },
+  "step3": {
+    "populationType": "dataset",
+    "datasetId": "census_acs"
+  },
+  "step4": {
+    "incidenceType": "manual"
+  },
+  "step5": {
+    "selectedCRFs": ["epa_pm25_acm_adult", "epa_pm25_ihd_adult"]
+  },
+  "step6": {
+    "poolingMethod": "separate",
+    "monteCarloIterations": 1000
+  },
+  "step7": {
+    "runValuation": false,
+    "vsl": 11800000,
+    "currency": "USD",
+    "dollarYear": 2024,
+    "incomeElasticity": 1.0
+  },
+  "stepValidity": { "1": true, "2": false, "3": false, "4": false, "5": true, "6": true, "7": true },
+  "completedSteps": [1, 5, 6, 7]
+}

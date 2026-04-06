@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
+import { uploadFile } from '../../lib/api'
 import countries from '../../data/countries.json'
 import usStates from '../../data/us-states.json'
 
@@ -322,7 +323,8 @@ export default function Step1StudyArea() {
   useEffect(() => {
     const valid = Boolean(studyArea.id) && Boolean(pollutant)
     setStepValidity(1, valid)
-  }, [studyArea.id, pollutant, setStepValidity])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studyArea.id, pollutant])
 
   // ── Handlers ───────────────────────────────────────────────────
 
@@ -359,6 +361,50 @@ export default function Step1StudyArea() {
     setStep1({
       studyArea: { ...step1.studyArea, type: level, analysisLevel: level },
     })
+  }, [setStep1, step1.studyArea])
+
+  const [boundaryUploading, setBoundaryUploading] = useState(false)
+  const [boundaryError, setBoundaryError] = useState(null)
+  const [boundaryMeta, setBoundaryMeta] = useState(null)
+  const boundaryInputRef = useRef(null)
+
+  const handleBoundaryUpload = useCallback(async (file) => {
+    const ext = file.name.split('.').pop().toLowerCase()
+    if (!['zip', 'gpkg', 'geojson'].includes(ext)) {
+      setBoundaryError('Accepted formats: .zip (shapefile), .gpkg, .geojson')
+      return
+    }
+    if (file.size > 500 * 1024 * 1024) {
+      setBoundaryError('File exceeds 500 MB limit.')
+      return
+    }
+    setBoundaryUploading(true)
+    setBoundaryError(null)
+    try {
+      const result = await uploadFile(file, 'boundary')
+      setStep1({
+        studyArea: {
+          ...step1.studyArea,
+          type: 'custom',
+          id: 'custom',
+          name: file.name,
+          boundaryUploadId: result.id,
+        },
+      })
+      setBoundaryMeta(result.metadata_json)
+    } catch (err) {
+      setBoundaryError(err.message)
+    } finally {
+      setBoundaryUploading(false)
+    }
+  }, [setStep1, step1.studyArea])
+
+  const handleClearBoundary = useCallback(() => {
+    setStep1({
+      studyArea: { ...step1.studyArea, type: 'country', id: '', name: '', boundaryUploadId: null },
+    })
+    setBoundaryMeta(null)
+    setBoundaryError(null)
   }, [setStep1, step1.studyArea])
 
   // ── Render ─────────────────────────────────────────────────────
@@ -422,6 +468,65 @@ export default function Step1StudyArea() {
                       ))}
                     </div>
                   </div>
+                )}
+              </div>
+            )}
+          </fieldset>
+
+          {/* Custom Boundary Upload */}
+          <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <legend className="text-sm font-semibold text-gray-700 px-1">
+              Custom Boundary <span className="text-xs font-normal text-gray-400">(optional)</span>
+            </legend>
+            <p className="text-xs text-gray-500 mb-3">
+              Upload a shapefile (.zip), GeoPackage (.gpkg), or GeoJSON to define custom study area boundaries for spatial analysis.
+            </p>
+
+            {studyArea.boundaryUploadId ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-sm text-green-800">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="font-medium">{studyArea.name}</span>
+                  </div>
+                  <button onClick={handleClearBoundary} className="text-green-600 hover:text-green-800 text-sm underline">
+                    Remove
+                  </button>
+                </div>
+                {boundaryMeta && (
+                  <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 space-y-0.5">
+                    <p><span className="font-medium">Features:</span> {boundaryMeta.feature_count} zones</p>
+                    {boundaryMeta.geometry_types && (
+                      <p><span className="font-medium">Geometry:</span> {boundaryMeta.geometry_types.join(', ')}</p>
+                    )}
+                    {boundaryMeta.columns?.length > 0 && (
+                      <p><span className="font-medium">Columns:</span> {boundaryMeta.columns.slice(0, 5).join(', ')}{boundaryMeta.columns.length > 5 ? '...' : ''}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => boundaryInputRef.current?.click()}
+                  disabled={boundaryUploading}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700
+                             hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  {boundaryUploading ? 'Uploading...' : 'Upload Boundary File'}
+                </button>
+                <input
+                  ref={boundaryInputRef}
+                  type="file"
+                  accept=".zip,.gpkg,.geojson"
+                  className="hidden"
+                  onChange={(e) => { if (e.target.files?.[0]) handleBoundaryUpload(e.target.files[0]) }}
+                />
+                {boundaryError && (
+                  <p className="mt-2 text-sm text-red-600">{boundaryError}</p>
                 )}
               </div>
             )}

@@ -1,0 +1,37 @@
+{
+  "name": "Single City PM2.5 (WHO Guideline)",
+  "description": "City-level PM2.5 analysis comparing current levels to the WHO annual guideline of 5 μg/m³. Uses the GEMM NCD+LRI model.",
+  "step1": {
+    "studyArea": { "type": "custom", "id": "", "name": "" },
+    "pollutant": "pm25",
+    "years": null,
+    "analysisName": "City PM2.5 — WHO Guideline Comparison"
+  },
+  "step2": {
+    "baseline": { "type": "manual", "value": null },
+    "control": { "type": "benchmark", "value": 5, "benchmarkId": "who_guideline" }
+  },
+  "step3": {
+    "populationType": "manual",
+    "totalPopulation": null
+  },
+  "step4": {
+    "incidenceType": "manual"
+  },
+  "step5": {
+    "selectedCRFs": ["gemm_pm25_acm", "gemm_pm25_cvd", "gemm_pm25_resp"]
+  },
+  "step6": {
+    "poolingMethod": "separate",
+    "monteCarloIterations": 1000
+  },
+  "step7": {
+    "runValuation": false,
+    "vsl": 11800000,
+    "currency": "USD",
+    "dollarYear": 2024,
+    "incomeElasticity": 1.0
+  },
+  "stepValidity": { "1": false, "2": false, "3": false, "4": false, "5": true, "6": true, "7": true },
+  "completedSteps": [5, 6, 7]
+}

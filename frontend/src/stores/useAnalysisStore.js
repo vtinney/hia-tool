@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware'
 // ── Default state for each step ──────────────────────────────────
 
 const DEFAULT_STEP1 = {
-  studyArea: { type: 'country', id: '', name: '', geometry: null },
+  studyArea: { type: 'country', id: '', name: '', geometry: null, boundaryUploadId: null },
   pollutant: null,
   years: null,
   analysisName: '',
@@ -12,12 +12,13 @@ const DEFAULT_STEP1 = {
 }
 
 const DEFAULT_STEP2 = {
-  baseline: { type: 'manual', value: null, datasetId: null, fileData: null },
+  baseline: { type: 'manual', value: null, datasetId: null, fileData: null, uploadId: null },
   control: {
     type: 'none',
     value: null,
     benchmarkId: null,
     rollbackPercent: null,
+    uploadId: null,
   },
 }
 
@@ -25,6 +26,7 @@ const DEFAULT_STEP3 = {
   populationType: 'manual',
   totalPopulation: null,
   ageGroups: null,
+  uploadId: null,
 }
 
 const DEFAULT_STEP4 = {
@@ -34,10 +36,11 @@ const DEFAULT_STEP4 = {
 
 const DEFAULT_STEP5 = {
   selectedCRFs: [],
+  customCRFs: [],
 }
 
 const DEFAULT_STEP6 = {
-  poolingMethod: 'fixed',
+  poolingMethod: 'separate',
   monteCarloIterations: 1000,
   spatialAggregation: null,
 }
@@ -106,9 +109,10 @@ const useAnalysisStore = create(
         })),
 
       setStepValidity: (step, valid) =>
-        set((state) => ({
-          stepValidity: { ...state.stepValidity, [step]: valid },
-        })),
+        set((state) => {
+          if (state.stepValidity[step] === valid) return state
+          return { stepValidity: { ...state.stepValidity, [step]: valid } }
+        }),
 
       // ── Per-step setters (shallow-merge into the step key) ──
 
@@ -170,7 +174,7 @@ const useAnalysisStore = create(
     }),
     {
       name: 'hia-analysis',
-      version: 1,
+      version: 3,
       partialize: (state) => ({
         // Persist only the data that matters for resume — skip transient UI state
         currentStep: state.currentStep,
@@ -186,7 +190,7 @@ const useAnalysisStore = create(
       }),
       migrate: (persisted, version) => {
         // Future-proof: if the stored version is older, start fresh
-        if (version === 0) return initialState()
+        if (version < 3) return initialState()
         return persisted
       },
     },

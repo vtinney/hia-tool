@@ -1,0 +1,39 @@
+{
+  "1": [
+    "Which geographic scale should I use for my analysis?",
+    "What's the difference between PM2.5 and ozone for HIAs?",
+    "Can I analyze multiple years at once?"
+  ],
+  "2": [
+    "Which PM2.5 dataset should I use for my country?",
+    "What is the WHO guideline for PM2.5?",
+    "How do I choose between monitor data and satellite data?",
+    "What is a rollback analysis?"
+  ],
+  "3": [
+    "Why do I need age-specific population data?",
+    "What if I only have total population, not by age group?",
+    "Which population dataset should I use?"
+  ],
+  "4": [
+    "Where can I find baseline mortality rates for my country?",
+    "Should I use national or subnational incidence rates?",
+    "What baseline rate should I use for all-cause mortality?"
+  ],
+  "5": [
+    "Which CRF framework should I use?",
+    "What are the pros and cons of GEMM vs GBD MR-BRT?",
+    "Can I use multiple CRFs and compare results?",
+    "What is the difference between linear and non-linear CRFs?"
+  ],
+  "6": [
+    "What does pooling across CRFs mean?",
+    "How many Monte Carlo iterations should I use?",
+    "What is the difference between fixed and random effects?"
+  ],
+  "7": [
+    "What is the Value of a Statistical Life?",
+    "How does the OECD benefit transfer work?",
+    "Is economic valuation controversial?"
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "name": "Global PM2.5 Burden (GBD Framework)",
+  "description": "Global burden-of-disease style analysis using all GBD 2023 MR-BRT cause-specific CRFs for PM2.5. Requires gridded data.",
+  "step1": {
+    "studyArea": { "type": "country", "id": "global", "name": "Global" },
+    "pollutant": "pm25",
+    "years": { "start": 2021, "end": 2021 },
+    "analysisName": "Global PM2.5 Burden — GBD 2023"
+  },
+  "step2": {
+    "baseline": { "type": "dataset", "datasetId": "acag_v5" },
+    "control": { "type": "manual", "value": 5 }
+  },
+  "step3": {
+    "populationType": "dataset",
+    "datasetId": "worldpop_2020"
+  },
+  "step4": {
+    "incidenceType": "dataset",
+    "datasetId": "gbd2019_rates"
+  },
+  "step5": {
+    "selectedCRFs": [
+      "gbd_pm25_ihd",
+      "gbd_pm25_stroke",
+      "gbd_pm25_lc",
+      "gbd_pm25_copd",
+      "gbd_pm25_lri",
+      "gbd_pm25_dm2"
+    ]
+  },
+  "step6": {
+    "poolingMethod": "separate",
+    "monteCarloIterations": 1000
+  },
+  "step7": {
+    "runValuation": false,
+    "vsl": 11800000,
+    "currency": "USD",
+    "dollarYear": 2024,
+    "incomeElasticity": 1.0
+  },
+  "stepValidity": { "1": true, "2": false, "3": false, "4": false, "5": true, "6": true, "7": true },
+  "completedSteps": [1, 5, 6, 7]
+}

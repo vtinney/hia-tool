@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
+import { uploadFile, fetchConcentration, fetchDatasets } from '../../lib/api'
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -82,9 +83,9 @@ function FileDropzone({ fileData, onFile, onClear }) {
   const handleFile = (file) => {
     const error = validateFile(file)
     if (error) {
-      onFile({ name: file.name, size: file.size, error })
+      onFile({ name: file.name, size: file.size, error }, null)
     } else {
-      onFile({ name: file.name, size: file.size, type: file.name.split('.').pop().toLowerCase(), error: null })
+      onFile({ name: file.name, size: file.size, type: file.name.split('.').pop().toLowerCase(), error: null }, file)
     }
   }
 
@@ -99,17 +100,30 @@ function FileDropzone({ fileData, onFile, onClear }) {
 
   if (fileData?.name && !fileData.error) {
     return (
-      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-        <div className="flex items-center gap-2 text-sm text-green-800">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <span className="font-medium">{fileData.name}</span>
-          <span className="text-green-600">({(fileData.size / 1024).toFixed(1)} KB)</span>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center gap-2 text-sm text-green-800">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="font-medium">{fileData.name}</span>
+            <span className="text-green-600">({(fileData.size / 1024).toFixed(1)} KB)</span>
+          </div>
+          <button onClick={onClear} className="text-green-600 hover:text-green-800 text-sm underline">
+            Remove
+          </button>
         </div>
-        <button onClick={onClear} className="text-green-600 hover:text-green-800 text-sm underline">
-          Remove
-        </button>
+        {fileData.crs && (
+          <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 space-y-0.5">
+            <p><span className="font-medium">CRS:</span> {fileData.crs}</p>
+            {fileData.metadata?.resolution && (
+              <p><span className="font-medium">Resolution:</span> {fileData.metadata.resolution.map(r => r.toFixed(4)).join(' x ')}</p>
+            )}
+            {fileData.metadata?.width && (
+              <p><span className="font-medium">Size:</span> {fileData.metadata.width} x {fileData.metadata.height} pixels</p>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -208,6 +222,104 @@ function DeltaPreview({ baseline, control, unit }) {
   )
 }
 
+// ── Built-in data loader ──────────────────────────────────────────
+
+function BuiltinConcentrationLoader({ pollutant, studyArea, years, selectedDatasetId, onSelect, onDataLoaded }) {
+  const [datasets, setDatasets] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [geojsonPreview, setGeojsonPreview] = useState(null)
+
+  const country = studyArea?.id || studyArea?.name?.toLowerCase().replace(/\s+/g, '-') || ''
+  const year = years?.start || years?.end || new Date().getFullYear()
+
+  // Fetch available datasets on mount
+  useEffect(() => {
+    if (!pollutant) return
+    fetchDatasets({ pollutant, type: 'concentration' })
+      .then((res) => setDatasets(res.datasets || []))
+      .catch(() => setDatasets([]))
+  }, [pollutant])
+
+  // Fetch concentration data when a dataset is selected
+  useEffect(() => {
+    if (!selectedDatasetId || !pollutant || !country) return
+
+    setLoading(true)
+    setError(null)
+    setGeojsonPreview(null)
+
+    fetchConcentration(pollutant, country, year)
+      .then((geojson) => {
+        if (!geojson) {
+          setError(`Built-in data not yet available for ${studyArea?.name || country}. Please use manual entry or upload.`)
+          return
+        }
+        setGeojsonPreview(geojson)
+        // Compute population-weighted mean from features
+        const features = geojson.features || []
+        if (features.length > 0) {
+          const concentrations = features
+            .map((f) => f.properties?.mean_pm25 ?? f.properties?.mean ?? f.properties?.concentration)
+            .filter((v) => v != null)
+          if (concentrations.length > 0) {
+            const mean = concentrations.reduce((a, b) => a + b, 0) / concentrations.length
+            onDataLoaded(Math.round(mean * 100) / 100, geojson)
+          }
+        }
+      })
+      .catch((err) => {
+        setError(err.message)
+      })
+      .finally(() => setLoading(false))
+  }, [selectedDatasetId, pollutant, country, year]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const options = datasets ?? BUILTIN_DATASETS
+
+  return (
+    <div className="space-y-3">
+      <select
+        value={selectedDatasetId || ''}
+        onChange={(e) => onSelect(e.target.value)}
+        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
+                   focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+      >
+        <option value="">Select a dataset…</option>
+        {options.map((d) => (
+          <option key={d.id || `${d.pollutant}-${d.country}`} value={d.id || `${d.pollutant}-${d.country}`}>
+            {d.label || `${d.pollutant_label || d.pollutant} — ${d.country} (${d.years?.join(', ')})`}
+          </option>
+        ))}
+      </select>
+
+      {loading && (
+        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          Loading concentration data…
+        </div>
+      )}
+
+      {error && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+          {error}
+        </div>
+      )}
+
+      {geojsonPreview && !error && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+          <p className="font-medium">Data loaded successfully</p>
+          <p className="text-xs text-green-600 mt-1">
+            {geojsonPreview.features?.length || 0} admin units with concentration values
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main component ─────────────────────────────────────────────────
 
 export default function Step2AirQuality() {
@@ -232,11 +344,12 @@ export default function Step2AirQuality() {
 
   useEffect(() => {
     const hasBaseline =
-      (baseline.type === 'manual' && baseline.value != null && baseline.value !== '') ||
+      (baseline.type === 'manual' && baseline.value != null && baseline.value !== '' && baseline.value >= 0) ||
       (baseline.type === 'dataset' && baseline.datasetId != null) ||
       (baseline.type === 'file' && baseline.fileData?.name && !baseline.fileData?.error)
     setStepValidity(2, hasBaseline)
-  }, [baseline, setStepValidity])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseline])
 
   // ── Baseline handlers ──────────────────────────────────────────
 
@@ -255,15 +368,32 @@ export default function Step2AirQuality() {
     })
   }, [baseline, setStep2])
 
-  const handleBaselineFile = useCallback((fileData) => {
+  const handleBaselineFile = useCallback(async (fileData, rawFile) => {
     setStep2({
-      baseline: { ...baseline, fileData, type: 'file' },
+      baseline: { ...baseline, fileData, type: 'file', uploadId: null },
     })
+    if (rawFile && !fileData.error) {
+      try {
+        const result = await uploadFile(rawFile, 'concentration')
+        setStep2({
+          baseline: {
+            ...baseline,
+            fileData: { ...fileData, crs: result.crs, metadata: result.metadata_json },
+            type: 'file',
+            uploadId: result.id,
+          },
+        })
+      } catch (err) {
+        setStep2({
+          baseline: { ...baseline, fileData: { ...fileData, error: err.message }, type: 'file', uploadId: null },
+        })
+      }
+    }
   }, [baseline, setStep2])
 
   const handleClearBaselineFile = useCallback(() => {
     setStep2({
-      baseline: { ...baseline, fileData: null },
+      baseline: { ...baseline, fileData: null, uploadId: null },
     })
   }, [baseline, setStep2])
 
@@ -299,15 +429,32 @@ export default function Step2AirQuality() {
     })
   }, [control, setStep2])
 
-  const handleControlFile = useCallback((fileData) => {
+  const handleControlFile = useCallback(async (fileData, rawFile) => {
     setStep2({
-      control: { ...control, fileData, type: 'file' },
+      control: { ...control, fileData, type: 'file', uploadId: null },
     })
+    if (rawFile && !fileData.error) {
+      try {
+        const result = await uploadFile(rawFile, 'concentration')
+        setStep2({
+          control: {
+            ...control,
+            fileData: { ...fileData, crs: result.crs, metadata: result.metadata_json },
+            type: 'file',
+            uploadId: result.id,
+          },
+        })
+      } catch (err) {
+        setStep2({
+          control: { ...control, fileData: { ...fileData, error: err.message }, type: 'file', uploadId: null },
+        })
+      }
+    }
   }, [control, setStep2])
 
   const handleClearControlFile = useCallback(() => {
     setStep2({
-      control: { ...control, fileData: null },
+      control: { ...control, fileData: null, uploadId: null },
     })
   }, [control, setStep2])
 
@@ -415,11 +562,16 @@ export default function Step2AirQuality() {
                   value={baseline.value ?? ''}
                   onChange={(e) => handleBaselineValue(e.target.value)}
                   placeholder="e.g. 12.5"
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm
-                             focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm focus:ring-1
+                    ${baseline.value != null && baseline.value < 0
+                      ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
                 />
                 <span className="text-sm text-gray-500 whitespace-nowrap">{unit}</span>
               </div>
+              {baseline.value != null && baseline.value < 0 && (
+                <p className="mt-1 text-xs text-red-600">Concentration cannot be negative.</p>
+              )}
             </div>
           )}
 
@@ -434,24 +586,18 @@ export default function Step2AirQuality() {
 
           {/* Built-in Data */}
           {baselineTab === 'builtin' && (
-            <div>
-              <select
-                value={baseline.datasetId || ''}
-                onChange={(e) => handleBaselineDataset(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
-                           focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="">Select a dataset…</option>
-                {BUILTIN_DATASETS.map((d) => (
-                  <option key={d.id} value={d.id}>{d.label}</option>
-                ))}
-              </select>
-              {baseline.datasetId && (
-                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-                  Data loading not yet implemented. This dataset will be available in a future release.
-                </div>
-              )}
-            </div>
+            <BuiltinConcentrationLoader
+              pollutant={pollutant}
+              studyArea={step1.studyArea}
+              years={step1.years}
+              selectedDatasetId={baseline.datasetId}
+              onSelect={handleBaselineDataset}
+              onDataLoaded={(value, geojson) => {
+                setStep2({
+                  baseline: { ...baseline, value, datasetId: baseline.datasetId, type: 'dataset', builtinGeojson: geojson },
+                })
+              }}
+            />
           )}
         </fieldset>
 
@@ -493,11 +639,16 @@ export default function Step2AirQuality() {
                       value={control.value ?? ''}
                       onChange={(e) => handleControlValue(e.target.value)}
                       placeholder="e.g. 8.0"
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm
-                                 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className={`flex-1 rounded-lg border px-3 py-2 text-sm focus:ring-1
+                        ${control.value != null && control.value < 0
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
                     />
                     <span className="text-sm text-gray-500 whitespace-nowrap">{unit}</span>
                   </div>
+                  {control.value != null && control.value < 0 && (
+                    <p className="mt-1 text-xs text-red-600">Concentration cannot be negative.</p>
+                  )}
                 </div>
               )}
 
@@ -512,24 +663,18 @@ export default function Step2AirQuality() {
 
               {/* Built-in Data */}
               {controlTab === 'builtin' && (
-                <div>
-                  <select
-                    value={control.datasetId || ''}
-                    onChange={(e) => handleControlDataset(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
-                               focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="">Select a dataset…</option>
-                    {BUILTIN_DATASETS.map((d) => (
-                      <option key={d.id} value={d.id}>{d.label}</option>
-                    ))}
-                  </select>
-                  {control.datasetId && (
-                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-                      Data loading not yet implemented. This dataset will be available in a future release.
-                    </div>
-                  )}
-                </div>
+                <BuiltinConcentrationLoader
+                  pollutant={pollutant}
+                  studyArea={step1.studyArea}
+                  years={step1.years}
+                  selectedDatasetId={control.datasetId}
+                  onSelect={handleControlDataset}
+                  onDataLoaded={(value, geojson) => {
+                    setStep2({
+                      control: { ...control, value, datasetId: control.datasetId, type: 'dataset', builtinGeojson: geojson },
+                    })
+                  }}
+                />
               )}
 
               {/* Rollback */}

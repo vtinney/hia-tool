@@ -1,0 +1,37 @@
+{
+  "1": [
+    "What pollutant should I choose for my study?",
+    "How do I define my study area boundaries?",
+    "What time period is recommended for an HIA?"
+  ],
+  "2": [
+    "What's the difference between baseline and control scenarios?",
+    "Which WHO guideline level should I use as a benchmark?",
+    "How do I interpret the delta concentration?"
+  ],
+  "3": [
+    "Why does age distribution matter for the HIA?",
+    "Where can I find population data for my country?",
+    "Should I use census or modeled population estimates?"
+  ],
+  "4": [
+    "What are baseline incidence rates?",
+    "Can I use GBD incidence rates for my analysis?",
+    "How do I handle missing incidence data for an endpoint?"
+  ],
+  "5": [
+    "Which CRF should I use for PM2.5 mortality?",
+    "What's the difference between log-linear and GEMM?",
+    "How do I interpret the beta coefficient?"
+  ],
+  "6": [
+    "Should I use fixed or random effects pooling?",
+    "How many Monte Carlo iterations do I need?",
+    "What does the uncertainty interval mean?"
+  ],
+  "7": [
+    "What is the Value of a Statistical Life (VSL)?",
+    "How does OECD benefit transfer work?",
+    "Should I adjust for income elasticity?"
+  ]
+}

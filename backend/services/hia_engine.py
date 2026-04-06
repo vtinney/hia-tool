@@ -72,6 +72,28 @@ def _summarise(samples: np.ndarray) -> dict[str, float]:
     }
 
 
+def _summarise_spatial(samples: np.ndarray) -> list[dict[str, float]]:
+    """Summarise MC draws across zones.
+
+    Parameters
+    ----------
+    samples : np.ndarray
+        Shape ``(n_iter, n_zones)`` — Monte Carlo draws per zone.
+
+    Returns
+    -------
+    list of dict
+        One ``{mean, lower95, upper95}`` dict per zone.
+    """
+    means = np.mean(samples, axis=0)
+    lowers = np.percentile(samples, 2.5, axis=0)
+    uppers = np.percentile(samples, 97.5, axis=0)
+    return [
+        {"mean": float(m), "lower95": float(l), "upper95": float(u)}
+        for m, l, u in zip(means, lowers, uppers)
+    ]
+
+
 # ────────────────────────────────────────────────────────────────────
 #  1. LOG-LINEAR
 # ────────────────────────────────────────────────────────────────────

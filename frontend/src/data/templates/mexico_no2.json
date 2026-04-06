@@ -1,0 +1,37 @@
+{
+  "name": "Mexico NO₂ Analysis",
+  "description": "National NO₂ health impact assessment for Mexico using EPA NO₂ CRFs. Requires manual or uploaded concentration data.",
+  "step1": {
+    "studyArea": { "type": "country", "id": "mexico", "name": "Mexico" },
+    "pollutant": "no2",
+    "years": { "start": 2020, "end": 2020 },
+    "analysisName": "Mexico NO₂ Health Impact Assessment"
+  },
+  "step2": {
+    "baseline": { "type": "manual", "value": null },
+    "control": { "type": "manual", "value": null }
+  },
+  "step3": {
+    "populationType": "manual",
+    "totalPopulation": 128900000
+  },
+  "step4": {
+    "incidenceType": "manual"
+  },
+  "step5": {
+    "selectedCRFs": ["epa_no2_acm_adult", "epa_no2_resp_mort", "gbd_no2_asthma_child"]
+  },
+  "step6": {
+    "poolingMethod": "separate",
+    "monteCarloIterations": 1000
+  },
+  "step7": {
+    "runValuation": true,
+    "vsl": 11800000,
+    "currency": "USD",
+    "dollarYear": 2024,
+    "incomeElasticity": 1.0
+  },
+  "stepValidity": { "1": true, "2": false, "3": true, "4": false, "5": true, "6": true, "7": true },
+  "completedSteps": [1, 3, 5, 6, 7]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "U.S. National PM2.5 (NAAQS Comparison)",
+  "description": "National-level PM2.5 analysis comparing current U.S. levels to the NAAQS standard. Uses Krewski 2009 and Di 2017 CRFs.",
+  "step1": {
+    "studyArea": { "type": "country", "id": "united-states", "name": "United States" },
+    "pollutant": "pm25",
+    "years": { "start": 2020, "end": 2020 },
+    "analysisName": "U.S. National PM2.5 — NAAQS Comparison"
+  },
+  "step2": {
+    "baseline": { "type": "manual", "value": 10.5 },
+    "control": { "type": "benchmark", "value": 9, "benchmarkId": "us_naaqs" }
+  },
+  "step3": {
+    "populationType": "manual",
+    "totalPopulation": 331000000
+  },
+  "step4": {
+    "incidenceType": "manual"
+  },
+  "step5": {
+    "selectedCRFs": ["epa_pm25_acm_adult", "epa_pm25_ihd_adult", "epa_pm25_lc_adult"]
+  },
+  "step6": {
+    "poolingMethod": "separate",
+    "monteCarloIterations": 1000
+  },
+  "step7": {
+    "runValuation": false,
+    "vsl": 11800000,
+    "currency": "USD",
+    "dollarYear": 2024,
+    "incomeElasticity": 1.0
+  },
+  "stepValidity": { "1": true, "2": true, "3": true, "4": false, "5": true, "6": true, "7": true },
+  "completedSteps": [1, 2, 3, 5, 6, 7]
+}

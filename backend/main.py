@@ -7,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.models.database import create_tables
 from backend.models.analysis import Analysis  # noqa: F401 — register model
 from backend.models.template import Template  # noqa: F401 — register model
-from backend.routers import health, compute, templates
+from backend.models.file_upload import FileUpload  # noqa: F401 — register model
+from backend.routers import health, compute, data, templates, uploads, wizard
 
 load_dotenv()
 
@@ -25,7 +26,10 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(compute.router)
+app.include_router(data.router)
 app.include_router(templates.router)
+app.include_router(uploads.router)
+app.include_router(wizard.router)
 
 
 @app.on_event("startup")
@@ -35,4 +39,4 @@ async def startup():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.main:app", host="127.0.0.1", port=8765, reload=True)
+    uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True)
