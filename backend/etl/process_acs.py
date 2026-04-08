@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import logging
 
+import pandas as pd
+
 logger = logging.getLogger("process_acs")
 
 
@@ -89,3 +91,37 @@ STATE_FIPS: tuple[str, ...] = (
     "45", "46", "47", "48", "49", "50", "51", "53", "54", "55",
     "56", "72",
 )
+
+
+# ────────────────────────────────────────────────────────────────────
+#  Sentinel handling
+# ────────────────────────────────────────────────────────────────────
+
+
+def clean_sentinels(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    """Replace Census sentinel values with NaN in the given columns.
+
+    Census uses specific negative integers (e.g. -666666666) to indicate
+    "not available" or "not applicable". These must be converted to NaN
+    before any arithmetic, otherwise they corrupt sums and ratios.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input frame (not mutated).
+    columns : list[str]
+        Columns to scan. Columns not in *df* are silently skipped.
+
+    Returns
+    -------
+    pd.DataFrame
+        A new DataFrame with sentinels replaced by NaN in the target columns.
+    """
+    out = df.copy()
+    for col in columns:
+        if col not in out.columns:
+            continue
+        out[col] = out[col].where(~out[col].isin(CENSUS_SENTINELS), other=pd.NA)
+        # Cast to float so NaN can be represented (integer columns cannot hold NaN)
+        out[col] = pd.to_numeric(out[col], errors="coerce")
+    return out
