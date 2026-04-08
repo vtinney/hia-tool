@@ -105,3 +105,86 @@ def test_add_derived_columns_handles_zero_denominator():
     # Division by zero → NaN, not an exception
     assert math.isnan(result.loc[0, "pct_nh_white"])
     assert math.isnan(result.loc[0, "pct_below_100_pov"])
+
+
+# ────────────────────────────────────────────────────────────────────
+#  fetch_acs_tables
+# ────────────────────────────────────────────────────────────────────
+
+
+def test_fetch_acs_tables_calls_fetcher_per_state_and_concatenates():
+    """The fetcher is called once per state; results are concatenated."""
+    calls: list[tuple[int, str]] = []
+
+    def fake_fetch(vintage: int, state_fips: str) -> pd.DataFrame:
+        calls.append((vintage, state_fips))
+        return pd.DataFrame({
+            "state": [state_fips],
+            "county": ["001"],
+            "tract": ["000100"],
+            "B03002_001E": [1000],
+            "B03002_003E": [500],
+            "B03002_004E": [200],
+            "B03002_005E": [0],
+            "B03002_006E": [50],
+            "B03002_007E": [0],
+            "B03002_008E": [0],
+            "B03002_009E": [0],
+            "B03002_012E": [250],
+            "B19013_001E": [55000],
+            "C17002_001E": [950],
+            "C17002_002E": [50],
+            "C17002_003E": [50],
+            "C17002_004E": [50],
+            "C17002_005E": [0],
+            "C17002_006E": [0],
+            "C17002_007E": [0],
+        })
+
+    result = process_acs.fetch_acs_tables(
+        vintage=2022,
+        state_fips_list=("06", "36"),  # California, New York
+        fetch_fn=fake_fetch,
+    )
+
+    assert len(calls) == 2
+    assert calls[0] == (2022, "06")
+    assert calls[1] == (2022, "36")
+    assert len(result) == 2
+    assert set(result["state"]) == {"06", "36"}
+
+
+def test_fetch_acs_tables_retries_on_transient_failure():
+    """Transient failures should be retried up to 3 times."""
+    attempts = {"count": 0}
+
+    def flaky_fetch(vintage: int, state_fips: str) -> pd.DataFrame:
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            raise ConnectionError("transient network error")
+        return pd.DataFrame({
+            "state": [state_fips], "county": ["001"], "tract": ["000100"],
+            "B03002_001E": [100], "B03002_003E": [50], "B03002_004E": [20],
+            "B03002_005E": [0], "B03002_006E": [5], "B03002_007E": [0],
+            "B03002_008E": [0], "B03002_009E": [0], "B03002_012E": [25],
+            "B19013_001E": [50000], "C17002_001E": [95],
+            "C17002_002E": [5], "C17002_003E": [5], "C17002_004E": [5],
+            "C17002_005E": [0], "C17002_006E": [0], "C17002_007E": [0],
+        })
+
+    result = process_acs.fetch_acs_tables(
+        vintage=2022, state_fips_list=("06",), fetch_fn=flaky_fetch, retry_sleep=0,
+    )
+    assert attempts["count"] == 3
+    assert len(result) == 1
+
+
+def test_fetch_acs_tables_aborts_after_exhausting_retries():
+    """After 3 failed attempts for one state, the whole call should raise."""
+    def always_fail(vintage: int, state_fips: str) -> pd.DataFrame:
+        raise ConnectionError("permanent failure")
+
+    with pytest.raises(ConnectionError):
+        process_acs.fetch_acs_tables(
+            vintage=2022, state_fips_list=("06",), fetch_fn=always_fail, retry_sleep=0,
+        )

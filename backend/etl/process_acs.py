@@ -21,6 +21,8 @@ Requires CENSUS_API_KEY in the environment (or .env file).
 from __future__ import annotations
 
 import logging
+import time
+from typing import Callable
 
 import pandas as pd
 
@@ -173,3 +175,70 @@ def add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
     out["pct_below_200_pov"] = out["pop_below_200_pov"] / pov_universe
 
     return out
+
+
+# ────────────────────────────────────────────────────────────────────
+#  ACS table fetching
+# ────────────────────────────────────────────────────────────────────
+
+
+def fetch_acs_tables(
+    vintage: int,
+    state_fips_list: tuple[str, ...],
+    fetch_fn: Callable[[int, str], pd.DataFrame],
+    max_retries: int = 3,
+    retry_sleep: float = 2.0,
+) -> pd.DataFrame:
+    """Fetch ACS variables for all tracts in every state, concatenate into one frame.
+
+    Parameters
+    ----------
+    vintage : int
+        ACS 5-year end year (e.g., 2022).
+    state_fips_list : tuple[str, ...]
+        Two-character state FIPS codes to query.
+    fetch_fn : Callable[[int, str], pd.DataFrame]
+        Function that fetches one state's worth of data. Production code
+        passes a cenpy-backed wrapper; tests pass a fake.
+    max_retries : int
+        Number of attempts per state before giving up (default 3).
+    retry_sleep : float
+        Base sleep seconds between retries; doubled each attempt.
+
+    Returns
+    -------
+    pd.DataFrame
+        Concatenated results across all states.
+
+    Raises
+    ------
+    ConnectionError
+        If any state fails all retry attempts. The whole call fails so the
+        script never writes a partial file.
+    """
+    frames: list[pd.DataFrame] = []
+    for state in state_fips_list:
+        logger.info("Fetching ACS %d tables for state %s...", vintage, state)
+        last_err: Exception | None = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                df = fetch_fn(vintage, state)
+                frames.append(df)
+                break
+            except Exception as err:  # noqa: BLE001 — we rethrow if attempts exhausted
+                last_err = err
+                if attempt < max_retries:
+                    sleep_s = retry_sleep * (2 ** (attempt - 1))
+                    logger.warning(
+                        "State %s attempt %d failed: %s — retrying in %.1fs",
+                        state, attempt, err, sleep_s,
+                    )
+                    time.sleep(sleep_s)
+        else:
+            # Loop completed without break → all retries exhausted
+            raise ConnectionError(
+                f"Failed to fetch ACS {vintage} for state {state} after "
+                f"{max_retries} attempts: {last_err}"
+            ) from last_err
+
+    return pd.concat(frames, ignore_index=True)
