@@ -16,4 +16,7 @@ shapely>=2.0.4
 pyproj>=3.6.1
 python-multipart>=0.0.9
 pyarrow>=15.0.0
+# ACS demographics ETL
+cenpy>=1.0.1
+pygris>=0.1.6
 anthropic>=0.39.0

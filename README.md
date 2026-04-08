@@ -91,6 +91,7 @@ Create a `.env` file in the project root. All variables are optional except wher
 | `DATA_ROOT` | `./data/processed` | Root for built-in processed datasets (ETL output). |
 | `ANTHROPIC_API_KEY` | *(none)* | Anthropic API key for the HIA Wizard chat assistant. Optional — the wizard shows a setup message if missing. Get one at https://console.anthropic.com/settings/keys |
 | `MAPBOX_TOKEN` | *(none)* | Mapbox GL JS access token for map rendering. Optional — maps show a placeholder without it. |
+| `CENSUS_API_KEY` | *(none)* | Census Bureau API key. Required when running `backend/etl/process_acs.py`. Not read by the backend at runtime. Free at https://api.census.gov/data/key_signup.html |
 | `BASE_URL` | `http://localhost:3000` | Frontend origin for CORS configuration. |
 
 ---
