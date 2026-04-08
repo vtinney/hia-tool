@@ -330,3 +330,79 @@ def fetch_tract_geometry(
     gdf["geoid"] = gdf["state_fips"] + gdf["county_fips"] + gdf["tract_code"]
 
     return gdf[["geoid", "state_fips", "county_fips", "tract_code", "geometry"]]
+
+
+# ────────────────────────────────────────────────────────────────────
+#  Schema assembly
+# ────────────────────────────────────────────────────────────────────
+
+
+def build_demographics_frame(
+    acs_raw: pd.DataFrame,
+    geometry: gpd.GeoDataFrame,
+    vintage: int,
+) -> gpd.GeoDataFrame:
+    """Join ACS raw counts to tract geometry, rename, clean, and derive columns.
+
+    Parameters
+    ----------
+    acs_raw : pd.DataFrame
+        Output of ``fetch_acs_tables``. Must contain ``state``, ``county``,
+        ``tract`` and all keys in ``ACS_VARIABLES``.
+    geometry : gpd.GeoDataFrame
+        Output of ``fetch_tract_geometry``. Must contain ``geoid`` and
+        ``geometry`` (EPSG:4326).
+    vintage : int
+        ACS 5-year end year; used to tag rows and pick the boundary era.
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+        Tract-level frame with all columns defined in the spec.
+    """
+    # Build GEOID on the ACS frame
+    df = acs_raw.copy()
+    df["geoid"] = (
+        df["state"].astype(str).str.zfill(2)
+        + df["county"].astype(str).str.zfill(3)
+        + df["tract"].astype(str).str.zfill(6)
+    )
+
+    # Rename Census variable codes to friendly names
+    df = df.rename(columns=ACS_VARIABLES)
+
+    # Clean sentinels on all numeric variables
+    numeric_cols = list(ACS_VARIABLES.values())
+    df = clean_sentinels(df, numeric_cols)
+
+    # Add derived columns
+    df = add_derived_columns(df)
+
+    # Tag vintage + boundary era
+    df["vintage"] = vintage
+    df["boundary_year"] = boundary_year_for_vintage(vintage)
+
+    # Join to geometry (inner join on GEOID — drops ACS rows without geometry
+    # and vice versa, which should not happen in practice)
+    merged = geometry.merge(
+        df.drop(columns=["state", "county", "tract"]),
+        on="geoid",
+        how="inner",
+    )
+
+    # Reorder columns to match spec
+    column_order = [
+        "geoid", "state_fips", "county_fips", "tract_code",
+        "vintage", "boundary_year",
+        "total_pop",
+        "nh_white", "nh_black", "nh_aian", "nh_asian", "nh_nhpi", "nh_other", "hispanic",
+        "pct_nh_white", "pct_nh_black", "pct_hispanic", "pct_minority",
+        "median_hh_income",
+        "pop_poverty_universe", "pop_below_100_pov", "pop_below_200_pov",
+        "pct_below_100_pov", "pct_below_200_pov",
+        "geometry",
+    ]
+    column_order = [c for c in column_order if c in merged.columns]
+    merged = merged[column_order]
+
+    return merged

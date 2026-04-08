@@ -229,3 +229,95 @@ def test_fetch_tract_geometry_reprojects_to_4326_and_builds_geoid():
     assert result["state_fips"].tolist() == ["06", "06"]
     assert result["county_fips"].tolist() == ["001", "075"]
     assert result["tract_code"].tolist() == ["400100", "020100"]
+
+
+# ────────────────────────────────────────────────────────────────────
+#  build_demographics_frame
+# ────────────────────────────────────────────────────────────────────
+
+
+def test_build_demographics_frame_joins_renames_and_tags_vintage():
+    import geopandas as gpd
+    from shapely.geometry import Polygon
+
+    acs_raw = pd.DataFrame({
+        "state": ["06", "06"],
+        "county": ["001", "075"],
+        "tract": ["400100", "020100"],
+        "B03002_001E": [1000, 2000],
+        "B03002_003E": [600, 1000],
+        "B03002_004E": [200, 500],
+        "B03002_005E": [0, 0],
+        "B03002_006E": [50, 200],
+        "B03002_007E": [0, 0],
+        "B03002_008E": [0, 0],
+        "B03002_009E": [0, 0],
+        "B03002_012E": [150, 300],
+        "B19013_001E": [55000, -666666666],  # second tract has sentinel
+        "C17002_001E": [950, 1900],
+        "C17002_002E": [50, 100],
+        "C17002_003E": [50, 100],
+        "C17002_004E": [50, 100],
+        "C17002_005E": [0, 0],
+        "C17002_006E": [0, 0],
+        "C17002_007E": [0, 0],
+    })
+
+    geom = gpd.GeoDataFrame(
+        {
+            "geoid": ["06001400100", "06075020100"],
+            "state_fips": ["06", "06"],
+            "county_fips": ["001", "075"],
+            "tract_code": ["400100", "020100"],
+            "geometry": [
+                Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
+                Polygon([(2, 2), (3, 2), (3, 3), (2, 3)]),
+            ],
+        },
+        crs="EPSG:4326",
+    )
+
+    result = process_acs.build_demographics_frame(
+        acs_raw=acs_raw, geometry=geom, vintage=2022,
+    )
+
+    # 2 rows, joined successfully
+    assert len(result) == 2
+    # Friendly column names
+    assert "total_pop" in result.columns
+    assert "median_hh_income" in result.columns
+    # Vintage + boundary tagging
+    assert (result["vintage"] == 2022).all()
+    assert (result["boundary_year"] == 2020).all()
+    # Sentinel became NaN
+    assert result.loc[result["geoid"] == "06075020100", "median_hh_income"].isna().iloc[0]
+    # Derived columns exist
+    assert "pct_nh_white" in result.columns
+    assert result.loc[result["geoid"] == "06001400100", "pct_nh_white"].iloc[0] == pytest.approx(0.6)
+    # Geometry preserved
+    assert "geometry" in result.columns
+    # GEOID parts
+    assert result["geoid"].tolist() == ["06001400100", "06075020100"]
+
+
+def test_build_demographics_frame_uses_2010_boundary_year_for_2019_vintage():
+    import geopandas as gpd
+    from shapely.geometry import Polygon
+
+    acs_raw = pd.DataFrame({
+        "state": ["06"], "county": ["001"], "tract": ["400100"],
+        "B03002_001E": [100], "B03002_003E": [50], "B03002_004E": [20],
+        "B03002_005E": [0], "B03002_006E": [5], "B03002_007E": [0],
+        "B03002_008E": [0], "B03002_009E": [0], "B03002_012E": [25],
+        "B19013_001E": [50000], "C17002_001E": [95],
+        "C17002_002E": [5], "C17002_003E": [5], "C17002_004E": [5],
+        "C17002_005E": [0], "C17002_006E": [0], "C17002_007E": [0],
+    })
+    geom = gpd.GeoDataFrame(
+        {"geoid": ["06001400100"], "state_fips": ["06"], "county_fips": ["001"],
+         "tract_code": ["400100"],
+         "geometry": [Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])]},
+        crs="EPSG:4326",
+    )
+    result = process_acs.build_demographics_frame(acs_raw=acs_raw, geometry=geom, vintage=2019)
+    assert result["boundary_year"].iloc[0] == 2010
