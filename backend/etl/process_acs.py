@@ -125,3 +125,51 @@ def clean_sentinels(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
         # Cast to float so NaN can be represented (integer columns cannot hold NaN)
         out[col] = pd.to_numeric(out[col], errors="coerce")
     return out
+
+
+# ────────────────────────────────────────────────────────────────────
+#  Derived columns
+# ────────────────────────────────────────────────────────────────────
+
+
+def add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Add percentage and aggregate columns used by the HIA tool.
+
+    Expects the raw count columns from B03002 and C17002. Adds:
+      - nh_other (nh_other_alone + nh_two_or_more)
+      - pct_nh_white, pct_nh_black, pct_hispanic, pct_minority
+      - pop_below_100_pov, pop_below_200_pov
+      - pct_below_100_pov, pct_below_200_pov
+
+    Division by zero yields NaN, not an exception.
+    """
+    out = df.copy()
+
+    # Aggregate "other" race
+    out["nh_other"] = out["nh_other_alone"].fillna(0) + out["nh_two_or_more"].fillna(0)
+
+    total = out["total_pop"].astype("float64").replace(0, float("nan"))
+    out["pct_nh_white"] = out["nh_white"] / total
+    out["pct_nh_black"] = out["nh_black"] / total
+    out["pct_hispanic"] = out["hispanic"] / total
+    out["pct_minority"] = 1.0 - out["pct_nh_white"]
+
+    # Poverty aggregates (C17002 ratios:
+    #  _002 = <0.50, _003 = 0.50-0.99, _004 = 1.00-1.24, _005 = 1.25-1.49,
+    #  _006 = 1.50-1.84, _007 = 1.85-1.99)
+    out["pop_below_100_pov"] = (
+        out["pop_under_050_pov"].fillna(0) + out["pop_050_099_pov"].fillna(0)
+    )
+    out["pop_below_200_pov"] = (
+        out["pop_below_100_pov"]
+        + out["pop_100_124_pov"].fillna(0)
+        + out["pop_125_149_pov"].fillna(0)
+        + out["pop_150_184_pov"].fillna(0)
+        + out["pop_185_199_pov"].fillna(0)
+    )
+
+    pov_universe = out["pop_poverty_universe"].astype("float64").replace(0, float("nan"))
+    out["pct_below_100_pov"] = out["pop_below_100_pov"] / pov_universe
+    out["pct_below_200_pov"] = out["pop_below_200_pov"] / pov_universe
+
+    return out
