@@ -242,3 +242,38 @@ def fetch_acs_tables(
             ) from last_err
 
     return pd.concat(frames, ignore_index=True)
+
+
+def cenpy_fetch(vintage: int, state_fips: str) -> pd.DataFrame:
+    """Fetch ACS 5-year tables B03002, B19013, C17002 for all tracts in one state.
+
+    Uses cenpy's ACSDetail API. Requires ``CENSUS_API_KEY`` in the environment;
+    cenpy reads it automatically if set.
+
+    Returns a DataFrame with columns: state, county, tract, and one column per
+    variable in ``ACS_VARIABLES`` (using the Census codes, e.g. "B03002_001E").
+    """
+    import cenpy  # imported lazily so tests can run without the dep installed
+
+    dataset_name = f"ACSDT5Y{vintage}"
+    conn = cenpy.remote.APIConnection(dataset_name)
+
+    variables = list(ACS_VARIABLES.keys())
+
+    df = conn.query(
+        cols=variables,
+        geo_unit="tract:*",
+        geo_filter={"state": state_fips},
+    )
+
+    # cenpy returns object-dtype columns — coerce numeric ones
+    for var in variables:
+        if var in df.columns:
+            df[var] = pd.to_numeric(df[var], errors="coerce")
+
+    # Normalize key columns to strings with zero-padding
+    df["state"] = df["state"].astype(str).str.zfill(2)
+    df["county"] = df["county"].astype(str).str.zfill(3)
+    df["tract"] = df["tract"].astype(str).str.zfill(6)
+
+    return df[["state", "county", "tract"] + variables]
