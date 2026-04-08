@@ -220,7 +220,32 @@ async def get_incidence(country: str, cause: str, year: int):
 
 
 # ────────────────────────────────────────────────────────────────────
-#  4. Dataset listing
+#  4. Demographics (ACS)
+# ────────────────────────────────────────────────────────────────────
+
+
+@router.get("/demographics/{country}/{year}")
+async def get_demographics(country: str, year: int):
+    """Return GeoJSON with ACS 5-year demographics by census tract.
+
+    Reads from ``data/processed/demographics/{country}/{year}.parquet``
+    (output of ``backend/etl/process_acs.py``).
+    """
+    try:
+        directory = _resolve_path("demographics", country)
+        file_path = _find_file(directory, str(year))
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No demographics data for {country}/{year}",
+        )
+
+    df = _read_table(file_path)
+    return _df_to_geojson(df)
+
+
+# ────────────────────────────────────────────────────────────────────
+#  5. Dataset listing
 # ────────────────────────────────────────────────────────────────────
 
 
@@ -242,7 +267,7 @@ def _scan_datasets() -> list[dict[str, Any]]:
         if not pollutant_dir.is_dir():
             continue
         key = pollutant_dir.name
-        if key in ("population", "incidence"):
+        if key in ("population", "incidence", "demographics"):
             continue
 
         for country_dir in sorted(pollutant_dir.iterdir()):
@@ -301,6 +326,24 @@ def _scan_datasets() -> list[dict[str, Any]]:
                         "years": years,
                         "source": "Processed incidence data",
                     })
+
+    # Demographics datasets: demographics/{country}/{year}.parquet
+    demo_dir = DATA_ROOT / "demographics"
+    if demo_dir.exists():
+        for country_dir in sorted(demo_dir.iterdir()):
+            if not country_dir.is_dir():
+                continue
+            years = sorted(
+                int(f.stem) for f in country_dir.iterdir()
+                if f.suffix in (".parquet", ".csv") and f.stem.isdigit()
+            )
+            if years:
+                datasets.append({
+                    "type": "demographics",
+                    "country": country_dir.name,
+                    "years": years,
+                    "source": "ACS 5-year estimates (B03002, B19013, C17002)",
+                })
 
     return datasets
 
