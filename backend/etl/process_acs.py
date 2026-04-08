@@ -20,7 +20,9 @@ Requires CENSUS_API_KEY in the environment (or .env file).
 
 from __future__ import annotations
 
+import argparse
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Callable
@@ -443,3 +445,110 @@ def write_parquet_atomic(gdf: gpd.GeoDataFrame, output_path: Path) -> None:
         output_path,
         output_path.stat().st_size / (1024 * 1024),
     )
+
+
+# ────────────────────────────────────────────────────────────────────
+#  Orchestrator
+# ────────────────────────────────────────────────────────────────────
+
+
+def process_vintage(
+    vintage: int,
+    output_path: Path,
+    state_fips_list: tuple[str, ...] = STATE_FIPS,
+    acs_fetch_fn: Callable[[int, str], pd.DataFrame] = cenpy_fetch,
+    geom_fetch_fn: Callable[[int, bool], gpd.GeoDataFrame] = _pygris_fetch,
+) -> None:
+    """Run the full ETL for one ACS vintage and write the Parquet file."""
+    t0 = time.perf_counter()
+    logger.info("=== Processing ACS %d 5-year ===", vintage)
+
+    acs_raw = fetch_acs_tables(
+        vintage=vintage, state_fips_list=state_fips_list, fetch_fn=acs_fetch_fn,
+    )
+    logger.info("Fetched %d raw ACS rows", len(acs_raw))
+
+    geometry = fetch_tract_geometry(vintage=vintage, fetch_fn=geom_fetch_fn)
+    logger.info("Fetched %d tract geometries", len(geometry))
+
+    merged = build_demographics_frame(acs_raw=acs_raw, geometry=geometry, vintage=vintage)
+    logger.info("Joined frame: %d rows", len(merged))
+
+    write_parquet_atomic(merged, output_path)
+    logger.info("Vintage %d complete in %.1f s", vintage, time.perf_counter() - t0)
+
+
+# ────────────────────────────────────────────────────────────────────
+#  CLI
+# ────────────────────────────────────────────────────────────────────
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Download and process ACS 5-year demographics by census tract.",
+    )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "--vintage", type=int, choices=SUPPORTED_VINTAGES,
+        help="Process a single ACS 5-year vintage (end year).",
+    )
+    group.add_argument(
+        "--all", action="store_true",
+        help=f"Process all supported vintages: {SUPPORTED_VINTAGES}.",
+    )
+    parser.add_argument(
+        "--output", type=Path, default=None,
+        help="Output Parquet file path (required with --vintage, ignored with --all).",
+    )
+    parser.add_argument(
+        "--output-dir", type=Path, default=Path("data/processed/demographics/us"),
+        help="Output directory for --all mode (default: data/processed/demographics/us).",
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable debug logging.",
+    )
+    args = parser.parse_args(argv)
+
+    if args.vintage and args.output is None:
+        parser.error("--output is required when --vintage is specified")
+
+    return args
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    # Load .env so CENSUS_API_KEY is picked up
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+
+    if not os.getenv("CENSUS_API_KEY"):
+        logger.warning(
+            "CENSUS_API_KEY is not set. cenpy may fail or throttle heavily. "
+            "Get a free key at https://api.census.gov/data/key_signup.html"
+        )
+
+    t_start = time.perf_counter()
+
+    if args.all:
+        args.output_dir.mkdir(parents=True, exist_ok=True)
+        for vintage in SUPPORTED_VINTAGES:
+            out = args.output_dir / f"{vintage}.parquet"
+            process_vintage(vintage=vintage, output_path=out)
+    else:
+        process_vintage(vintage=args.vintage, output_path=args.output)
+
+    logger.info("All done in %.1f s", time.perf_counter() - t_start)
+
+
+if __name__ == "__main__":
+    main()
