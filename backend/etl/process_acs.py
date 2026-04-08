@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 from typing import Callable
 
 import geopandas as gpd
@@ -406,3 +407,39 @@ def build_demographics_frame(
     merged = merged[column_order]
 
     return merged
+
+
+# ────────────────────────────────────────────────────────────────────
+#  Parquet writer
+# ────────────────────────────────────────────────────────────────────
+
+
+def write_parquet_atomic(gdf: gpd.GeoDataFrame, output_path: Path) -> None:
+    """Write a GeoDataFrame to Parquet atomically, with WKT geometry.
+
+    Writes to ``<output_path>.tmp`` first, then renames into place so a
+    reader never sees a half-written file.
+
+    Parameters
+    ----------
+    gdf : gpd.GeoDataFrame
+        Data to write. Its geometry column is serialized as WKT strings.
+    output_path : Path
+        Destination. Parent directories are created if they do not exist.
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Serialize geometry to WKT (matches process_pm25.py convention)
+    out = pd.DataFrame(gdf.drop(columns=["geometry"]))
+    out["geometry"] = gdf.geometry.apply(lambda g: g.wkt if g is not None else None)
+
+    tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+    out.to_parquet(tmp_path, index=False, engine="pyarrow")
+    tmp_path.replace(output_path)
+
+    logger.info(
+        "Wrote %d rows to %s (%.1f MB)",
+        len(out),
+        output_path,
+        output_path.stat().st_size / (1024 * 1024),
+    )

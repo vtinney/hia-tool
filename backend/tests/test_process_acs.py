@@ -321,3 +321,47 @@ def test_build_demographics_frame_uses_2010_boundary_year_for_2019_vintage():
     )
     result = process_acs.build_demographics_frame(acs_raw=acs_raw, geometry=geom, vintage=2019)
     assert result["boundary_year"].iloc[0] == 2010
+
+
+# ────────────────────────────────────────────────────────────────────
+#  write_parquet_atomic
+# ────────────────────────────────────────────────────────────────────
+
+
+def test_write_parquet_atomic_writes_wkt_geometry(tmp_path):
+    import geopandas as gpd
+    from shapely.geometry import Polygon
+
+    gdf = gpd.GeoDataFrame(
+        {
+            "geoid": ["06001400100"],
+            "vintage": [2022],
+            "total_pop": [1000],
+            "geometry": [Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])],
+        },
+        crs="EPSG:4326",
+    )
+
+    out_path = tmp_path / "sub" / "dir" / "2022.parquet"
+    process_acs.write_parquet_atomic(gdf, out_path)
+
+    assert out_path.exists()
+    roundtrip = pd.read_parquet(out_path)
+    assert roundtrip["geometry"].iloc[0].startswith("POLYGON")
+    assert roundtrip["geoid"].iloc[0] == "06001400100"
+    assert roundtrip["total_pop"].iloc[0] == 1000
+
+
+def test_write_parquet_atomic_does_not_leave_tmp_file_on_success(tmp_path):
+    import geopandas as gpd
+    from shapely.geometry import Polygon
+
+    gdf = gpd.GeoDataFrame(
+        {"geoid": ["1"], "geometry": [Polygon([(0, 0), (1, 0), (1, 1)])]},
+        crs="EPSG:4326",
+    )
+    out_path = tmp_path / "out.parquet"
+    process_acs.write_parquet_atomic(gdf, out_path)
+
+    tmp_files = list(tmp_path.glob("*.tmp"))
+    assert tmp_files == []
