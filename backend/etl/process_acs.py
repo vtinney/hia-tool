@@ -24,6 +24,7 @@ import logging
 import time
 from typing import Callable
 
+import geopandas as gpd
 import pandas as pd
 
 logger = logging.getLogger("process_acs")
@@ -277,3 +278,55 @@ def cenpy_fetch(vintage: int, state_fips: str) -> pd.DataFrame:
     df["tract"] = df["tract"].astype(str).str.zfill(6)
 
     return df[["state", "county", "tract"] + variables]
+
+
+# ────────────────────────────────────────────────────────────────────
+#  TIGER geometry fetching
+# ────────────────────────────────────────────────────────────────────
+
+
+def _pygris_fetch(year: int, cb: bool) -> gpd.GeoDataFrame:
+    """Production fetcher — calls pygris.tracts for all US tracts."""
+    import pygris  # lazy import
+    return pygris.tracts(year=year, cb=cb, cache=True)
+
+
+def fetch_tract_geometry(
+    vintage: int,
+    fetch_fn: Callable[[int, bool], gpd.GeoDataFrame] = _pygris_fetch,
+) -> gpd.GeoDataFrame:
+    """Download all US tract cartographic-boundary shapefiles for a vintage.
+
+    Returns a GeoDataFrame in EPSG:4326 with these normalized columns:
+      - ``geoid`` (11-char tract GEOID)
+      - ``state_fips`` (2 chars)
+      - ``county_fips`` (3 chars)
+      - ``tract_code`` (6 chars)
+      - ``geometry`` (shapely polygon in EPSG:4326)
+
+    Any other columns from the raw TIGER file are dropped.
+    """
+    logger.info("Fetching TIGER cb tract geometry for vintage %d...", vintage)
+    gdf = fetch_fn(vintage, True)
+
+    if gdf.crs is None:
+        raise ValueError(
+            f"TIGER tract shapefile for {vintage} has no CRS — cannot reproject"
+        )
+    if not gdf.crs.equals("EPSG:4326"):
+        logger.info("Reprojecting tract geometry from %s to EPSG:4326", gdf.crs)
+        gdf = gdf.to_crs("EPSG:4326")
+
+    # Normalize column names — TIGER uses STATEFP, COUNTYFP, TRACTCE
+    gdf = gdf.rename(
+        columns={"STATEFP": "state_fips", "COUNTYFP": "county_fips", "TRACTCE": "tract_code"}
+    )
+
+    # Ensure zero-padded strings
+    gdf["state_fips"] = gdf["state_fips"].astype(str).str.zfill(2)
+    gdf["county_fips"] = gdf["county_fips"].astype(str).str.zfill(3)
+    gdf["tract_code"] = gdf["tract_code"].astype(str).str.zfill(6)
+
+    gdf["geoid"] = gdf["state_fips"] + gdf["county_fips"] + gdf["tract_code"]
+
+    return gdf[["geoid", "state_fips", "county_fips", "tract_code", "geometry"]]

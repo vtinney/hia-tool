@@ -188,3 +188,44 @@ def test_fetch_acs_tables_aborts_after_exhausting_retries():
         process_acs.fetch_acs_tables(
             vintage=2022, state_fips_list=("06",), fetch_fn=always_fail, retry_sleep=0,
         )
+
+
+# ────────────────────────────────────────────────────────────────────
+#  fetch_tract_geometry
+# ────────────────────────────────────────────────────────────────────
+
+
+def test_fetch_tract_geometry_reprojects_to_4326_and_builds_geoid():
+    """The fetcher must return EPSG:4326 geometries with an 11-char GEOID column."""
+    import geopandas as gpd
+    from shapely.geometry import Polygon
+
+    # Build a fake TIGER response in a non-4326 CRS
+    fake_gdf = gpd.GeoDataFrame(
+        {
+            "STATEFP": ["06", "06"],
+            "COUNTYFP": ["001", "075"],
+            "TRACTCE": ["400100", "020100"],
+            "geometry": [
+                Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
+                Polygon([(2, 2), (3, 2), (3, 3), (2, 3)]),
+            ],
+        },
+        crs="EPSG:4269",  # NAD83 — TIGER default
+    )
+
+    def fake_pygris_fetch(year: int, cb: bool):
+        assert cb is True
+        return fake_gdf
+
+    result = process_acs.fetch_tract_geometry(
+        vintage=2022, fetch_fn=fake_pygris_fetch,
+    )
+
+    assert result.crs == "EPSG:4326"
+    assert "geoid" in result.columns
+    # 11-char GEOID = state (2) + county (3) + tract (6)
+    assert result["geoid"].tolist() == ["06001400100", "06075020100"]
+    assert result["state_fips"].tolist() == ["06", "06"]
+    assert result["county_fips"].tolist() == ["001", "075"]
+    assert result["tract_code"].tolist() == ["400100", "020100"]
