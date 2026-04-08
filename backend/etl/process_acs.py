@@ -20,16 +20,7 @@ Requires CENSUS_API_KEY in the environment (or .env file).
 
 from __future__ import annotations
 
-import argparse
 import logging
-import os
-import sys
-import time
-from pathlib import Path
-from typing import Callable
-
-import geopandas as gpd
-import pandas as pd
 
 logger = logging.getLogger("process_acs")
 
