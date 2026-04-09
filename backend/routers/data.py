@@ -249,12 +249,13 @@ async def get_demographics(country: str, year: int):
 # ────────────────────────────────────────────────────────────────────
 
 
-@lru_cache(maxsize=1)
 def _scan_datasets() -> list[dict[str, Any]]:
     """Walk DATA_ROOT to discover available datasets and their metadata.
 
     Returns a list of dataset descriptors with pollutant, source, years,
-    and countries.
+    and countries. Intentionally NOT cached so newly-built parquet files
+    (e.g. from running an ETL script against a live backend) are picked
+    up on the next request without a server restart.
     """
     datasets: list[dict[str, Any]] = []
 
