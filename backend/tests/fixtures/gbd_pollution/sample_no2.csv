@@ -1,0 +1,5 @@
+"","location_id","measure_id","measure_name","location_name.x","rei_id","rei_name","unit","year_id","mean","lower","upper","location_name.y","ihme_loc_id"
+"1",1,19,"Continuous","Global",404,"Nitrogen dioxide pollution","ppb",2014,9.5,4.0,15.0,"Global","G"
+"2",1,19,"Continuous","Global",404,"Nitrogen dioxide pollution","ppb",2019,8.1,3.0,14.5,"Global","G"
+"3",6,19,"Continuous","China",404,"Nitrogen dioxide pollution","ppb",2019,16.2,7.4,28.1,"China","CHN"
+"4",11,19,"Continuous","Indonesia",404,"Nitrogen dioxide pollution","ppb",2023,10.5,4.1,18.0,"Indonesia","IDN"

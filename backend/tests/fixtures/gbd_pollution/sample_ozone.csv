@@ -1,0 +1,5 @@
+"measure_id","measure_name","location_id","location_name","rei_id","rei_name","year_id","mean","median","lower","upper","unit"
+19,"Continuous",1,"Global",88,"Ambient ozone pollution",2014,44.1,44.0,43.9,44.3,"ppb"
+19,"Continuous",1,"Global",88,"Ambient ozone pollution",2019,46.0,45.9,45.8,46.2,"ppb"
+19,"Continuous",6,"China",88,"Ambient ozone pollution",2019,52.5,52.4,52.2,52.8,"ppb"
+19,"Continuous",6,"China",88,"Ambient ozone pollution",2021,53.0,52.9,52.6,53.3,"ppb"
