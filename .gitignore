@@ -8,3 +8,4 @@ data/hia.db
 data/uploads/
 .venv/
 dist/
+data/processed/pollution/pm25_gbd2023/*.tif

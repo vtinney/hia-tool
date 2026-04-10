@@ -1,0 +1,1109 @@
+gbd_location_id,gbd_name,ihme_loc_id,location_level,ne_country_iso3,ne_country_uid,ne_state_uid,match_method,confidence,notes
+1,Global,G,0,,,,manual,100,aggregate level - intentionally unmappable
+4,"Southeast Asia, East Asia, and Oceania",S6,0,,,,manual,100,aggregate level - intentionally unmappable
+5,East Asia,R3,0,,,,manual,100,aggregate level - intentionally unmappable
+6,China,CHN,3,CHN,CHN,,iso3,100,
+7,Democratic People's Republic of Korea,PRK,3,PRK,PRK,,iso3,100,
+8,Taiwan,TWN,3,TWN,TWN,,iso3,100,
+9,Southeast Asia,R5,0,,,,manual,100,aggregate level - intentionally unmappable
+10,Cambodia,KHM,3,KHM,KHM,,iso3,100,
+11,Indonesia,IDN,3,IDN,IDN,,iso3,100,
+12,Lao People's Democratic Republic,LAO,3,LAO,LAO,,iso3,100,
+13,Malaysia,MYS,3,MYS,MYS,,iso3,100,
+14,Maldives,MDV,3,,,,manual,100,not in Natural Earth shapefile
+15,Myanmar,MMR,3,MMR,MMR,,iso3,100,
+16,Philippines,PHL,3,PHL,PHL,,iso3,100,
+17,Sri Lanka,LKA,3,LKA,LKA,,iso3,100,
+18,Thailand,THA,3,THA,THA,,iso3,100,
+19,Timor-Leste,TLS,3,TLS,TLS,,iso3,100,
+20,Viet Nam,VNM,3,VNM,VNM,,iso3,100,
+21,Oceania,R17,0,,,,manual,100,GBD region miscoded as level 3
+22,Fiji,FJI,3,FJI,FJI,,iso3,100,
+23,Kiribati,KIR,3,,,,manual,100,not in Natural Earth shapefile
+24,Marshall Islands,MHL,3,,,,manual,100,not in Natural Earth shapefile
+25,Micronesia (Federated States of),FSM,3,,,,manual,100,not in Natural Earth shapefile
+26,Papua New Guinea,PNG,3,PNG,PNG,,iso3,100,
+27,Samoa,WSM,3,,,,manual,100,not in Natural Earth shapefile
+28,Solomon Islands,SLB,3,SLB,SLB,,iso3,100,
+29,Tonga,TON,3,,,,manual,100,not in Natural Earth shapefile
+30,Vanuatu,VUT,3,VUT,VUT,,iso3,100,
+31,"Central Europe, Eastern Europe, and Central Asia",S2,0,,,,manual,100,aggregate level - intentionally unmappable
+32,Central Asia,R2,0,,,,manual,100,aggregate level - intentionally unmappable
+33,Armenia,ARM,3,ARM,ARM,,iso3,100,
+34,Azerbaijan,AZE,3,AZE,AZE,,iso3,100,
+35,Georgia,GEO,3,GEO,GEO,,iso3,100,
+36,Kazakhstan,KAZ,3,KAZ,KAZ,,iso3,100,
+37,Kyrgyzstan,KGZ,3,KGZ,KGZ,,iso3,100,
+38,Mongolia,MNG,3,MNG,MNG,,iso3,100,
+39,Tajikistan,TJK,3,TJK,TJK,,iso3,100,
+40,Turkmenistan,TKM,3,TKM,TKM,,iso3,100,
+41,Uzbekistan,UZB,3,UZB,UZB,,iso3,100,
+42,Central Europe,R8,0,,,,manual,100,aggregate level - intentionally unmappable
+43,Albania,ALB,3,ALB,ALB,,iso3,100,
+44,Bosnia and Herzegovina,BIH,3,BIH,BIH,,iso3,100,
+45,Bulgaria,BGR,3,BGR,BGR,,iso3,100,
+46,Croatia,HRV,3,HRV,HRV,,iso3,100,
+47,Czechia,CZE,3,CZE,CZE,,iso3,100,
+48,Hungary,HUN,3,HUN,HUN,,iso3,100,
+49,North Macedonia,MKD,3,MKD,MKD,,iso3,100,
+50,Montenegro,MNE,3,MNE,MNE,,iso3,100,
+51,Poland,POL,3,POL,POL,,iso3,100,
+52,Romania,ROU,3,ROU,ROU,,iso3,100,
+53,Serbia,SRB,3,SRB,SRB,,iso3,100,
+54,Slovakia,SVK,3,SVK,SVK,,iso3,100,
+55,Slovenia,SVN,3,SVN,SVN,,iso3,100,
+56,Eastern Europe,R9,0,,,,manual,100,aggregate level - intentionally unmappable
+57,Belarus,BLR,3,BLR,BLR,,iso3,100,
+58,Estonia,EST,3,EST,EST,,iso3,100,
+59,Latvia,LVA,3,LVA,LVA,,iso3,100,
+60,Lithuania,LTU,3,LTU,LTU,,iso3,100,
+61,Republic of Moldova,MDA,3,MDA,MDA,,iso3,100,
+62,Russian Federation,RUS,3,RUS,RUS,,iso3,100,
+63,Ukraine,UKR,3,UKR,UKR,,iso3,100,
+64,High-income,S1,0,,,,manual,100,aggregate level - intentionally unmappable
+65,High-income Asia Pacific,R1,0,,,,manual,100,aggregate level - intentionally unmappable
+66,Brunei Darussalam,BRN,3,BRN,BRN,,iso3,100,
+67,Japan,JPN,3,JPN,JPN,,iso3,100,
+68,Republic of Korea,KOR,3,KOR,KOR,,iso3,100,
+69,Singapore,SGP,3,,,,manual,100,not in Natural Earth shapefile
+70,Australasia,R6,0,,,,manual,100,aggregate level - intentionally unmappable
+71,Australia,AUS,3,AUS,AUS,,iso3,100,
+72,New Zealand,NZL,3,NZL,NZL,,iso3,100,
+73,Western Europe,R10,0,,,,manual,100,GBD region miscoded as level 3
+74,Andorra,AND,3,,,,manual,100,not in Natural Earth shapefile
+75,Austria,AUT,3,AUT,AUT,,iso3,100,
+76,Belgium,BEL,3,BEL,BEL,,iso3,100,
+77,Cyprus,CYP,3,CYP,CYP,,iso3,100,
+78,Denmark,DNK,3,DNK,DNK,,iso3,100,
+79,Finland,FIN,3,FIN,FIN,,iso3,100,
+80,France,FRA,3,FRA,FRA,,iso3,100,
+81,Germany,DEU,3,DEU,DEU,,iso3,100,
+82,Greece,GRC,3,GRC,GRC,,iso3,100,
+83,Iceland,ISL,3,ISL,ISL,,iso3,100,
+84,Ireland,IRL,3,IRL,IRL,,iso3,100,
+85,Israel,ISR,3,ISR,ISR,,iso3,100,
+86,Italy,ITA,3,ITA,ITA,,iso3,100,
+87,Luxembourg,LUX,3,LUX,LUX,,iso3,100,
+88,Malta,MLT,3,,,,manual,100,not in Natural Earth shapefile
+89,Netherlands,NLD,3,NLD,NLD,,iso3,100,
+90,Norway,NOR,3,NOR,NOR,,iso3,100,
+91,Portugal,PRT,3,PRT,PRT,,iso3,100,
+92,Spain,ESP,3,ESP,ESP,,iso3,100,
+93,Sweden,SWE,3,SWE,SWE,,iso3,100,
+94,Switzerland,CHE,3,CHE,CHE,,iso3,100,
+95,United Kingdom,GBR,3,GBR,GBR,,iso3,100,
+96,Southern Latin America,R13,0,,,,manual,100,GBD region miscoded as level 3
+97,Argentina,ARG,3,ARG,ARG,,iso3,100,
+98,Chile,CHL,3,CHL,CHL,,iso3,100,
+99,Uruguay,URY,3,URY,URY,,iso3,100,
+100,High-income North America,R16,0,,,,manual,100,GBD region miscoded as level 3
+101,Canada,CAN,3,CAN,CAN,,iso3,100,
+102,United States of America,USA,3,USA,USA,,iso3,100,
+103,Latin America and Caribbean,S7,0,,,,manual,100,aggregate level - intentionally unmappable
+104,Caribbean,R7,0,,,,manual,100,aggregate level - intentionally unmappable
+105,Antigua and Barbuda,ATG,3,,,,manual,100,not in Natural Earth shapefile
+106,Bahamas,BHS,3,BHS,BHS,,iso3,100,
+107,Barbados,BRB,3,,,,manual,100,not in Natural Earth shapefile
+108,Belize,BLZ,3,BLZ,BLZ,,iso3,100,
+109,Cuba,CUB,3,CUB,CUB,,iso3,100,
+110,Dominica,DMA,3,,,,manual,100,not in Natural Earth shapefile
+111,Dominican Republic,DOM,3,DOM,DOM,,iso3,100,
+112,Grenada,GRD,3,,,,manual,100,not in Natural Earth shapefile
+113,Guyana,GUY,3,GUY,GUY,,iso3,100,
+114,Haiti,HTI,3,HTI,HTI,,iso3,100,
+115,Jamaica,JAM,3,JAM,JAM,,iso3,100,
+116,Saint Lucia,LCA,3,,,,manual,100,not in Natural Earth shapefile
+117,Saint Vincent and the Grenadines,VCT,3,,,,manual,100,not in Natural Earth shapefile
+118,Suriname,SUR,3,SUR,SUR,,iso3,100,
+119,Trinidad and Tobago,TTO,3,TTO,TTO,,iso3,100,
+120,Andean Latin America,R11,0,,,,manual,100,GBD region miscoded as level 3
+121,Bolivia (Plurinational State of),BOL,3,BOL,BOL,,iso3,100,
+122,Ecuador,ECU,3,ECU,ECU,,iso3,100,
+123,Peru,PER,3,PER,PER,,iso3,100,
+124,Central Latin America,R12,0,,,,manual,100,GBD region miscoded as level 3
+125,Colombia,COL,3,COL,COL,,iso3,100,
+126,Costa Rica,CRI,3,CRI,CRI,,iso3,100,
+127,El Salvador,SLV,3,SLV,SLV,,iso3,100,
+128,Guatemala,GTM,3,GTM,GTM,,iso3,100,
+129,Honduras,HND,3,HND,HND,,iso3,100,
+130,Mexico,MEX,3,MEX,MEX,,iso3,100,
+131,Nicaragua,NIC,3,NIC,NIC,,iso3,100,
+132,Panama,PAN,3,PAN,PAN,,iso3,100,
+133,Venezuela (Bolivarian Republic of),VEN,3,VEN,VEN,,iso3,100,
+134,Tropical Latin America,R14,0,,,,manual,100,GBD region miscoded as level 3
+135,Brazil,BRA,3,BRA,BRA,,iso3,100,
+136,Paraguay,PRY,3,PRY,PRY,,iso3,100,
+137,North Africa and Middle East,S4,0,,,,manual,100,aggregate level - intentionally unmappable
+138,North Africa and Middle East,R15,0,,,,manual,100,GBD region miscoded as level 3
+139,Algeria,DZA,3,DZA,DZA,,iso3,100,
+140,Bahrain,BHR,3,,,,manual,100,not in Natural Earth shapefile
+141,Egypt,EGY,3,EGY,EGY,,iso3,100,
+142,Iran (Islamic Republic of),IRN,3,IRN,IRN,,iso3,100,
+143,Iraq,IRQ,3,IRQ,IRQ,,iso3,100,
+144,Jordan,JOR,3,JOR,JOR,,iso3,100,
+145,Kuwait,KWT,3,KWT,KWT,,iso3,100,
+146,Lebanon,LBN,3,LBN,LBN,,iso3,100,
+147,Libya,LBY,3,LBY,LBY,,iso3,100,
+148,Morocco,MAR,3,MAR,MAR,,iso3,100,
+149,Palestine,PSE,3,PSE,PSX,,manual,100,manual fix: PSE -> ADM0_A3=PSX
+150,Oman,OMN,3,OMN,OMN,,iso3,100,
+151,Qatar,QAT,3,QAT,QAT,,iso3,100,
+152,Saudi Arabia,SAU,3,SAU,SAU,,iso3,100,
+153,Syrian Arab Republic,SYR,3,SYR,SYR,,iso3,100,
+154,Tunisia,TUN,3,TUN,TUN,,iso3,100,
+155,Türkiye,TUR,3,TUR,TUR,,iso3,100,
+156,United Arab Emirates,ARE,3,ARE,ARE,,iso3,100,
+157,Yemen,YEM,3,YEM,YEM,,iso3,100,
+158,South Asia,S5,0,,,,manual,100,aggregate level - intentionally unmappable
+159,South Asia,R4,0,,,,manual,100,aggregate level - intentionally unmappable
+160,Afghanistan,AFG,3,AFG,AFG,,iso3,100,
+161,Bangladesh,BGD,3,BGD,BGD,,iso3,100,
+162,Bhutan,BTN,3,BTN,BTN,,iso3,100,
+163,India,IND,3,IND,IND,,iso3,100,
+164,Nepal,NPL,3,NPL,NPL,,iso3,100,
+165,Pakistan,PAK,3,PAK,PAK,,iso3,100,
+166,Sub-Saharan Africa,S3,0,,,,manual,100,aggregate level - intentionally unmappable
+167,Central Sub-Saharan Africa,R18,0,,,,manual,100,GBD region miscoded as level 3
+168,Angola,AGO,3,AGO,AGO,,iso3,100,
+169,Central African Republic,CAF,3,CAF,CAF,,iso3,100,
+170,Congo,COG,3,COG,COG,,iso3,100,
+171,Democratic Republic of the Congo,COD,3,COD,COD,,iso3,100,
+172,Equatorial Guinea,GNQ,3,GNQ,GNQ,,iso3,100,
+173,Gabon,GAB,3,GAB,GAB,,iso3,100,
+174,Eastern Sub-Saharan Africa,R19,0,,,,manual,100,GBD region miscoded as level 3
+175,Burundi,BDI,3,BDI,BDI,,iso3,100,
+176,Comoros,COM,3,,,,manual,100,not in Natural Earth shapefile
+177,Djibouti,DJI,3,DJI,DJI,,iso3,100,
+178,Eritrea,ERI,3,ERI,ERI,,iso3,100,
+179,Ethiopia,ETH,3,ETH,ETH,,iso3,100,
+180,Kenya,KEN,3,KEN,KEN,,iso3,100,
+181,Madagascar,MDG,3,MDG,MDG,,iso3,100,
+182,Malawi,MWI,3,MWI,MWI,,iso3,100,
+183,Mauritius,MUS,3,,,,manual,100,not in Natural Earth shapefile
+184,Mozambique,MOZ,3,MOZ,MOZ,,iso3,100,
+185,Rwanda,RWA,3,RWA,RWA,,iso3,100,
+186,Seychelles,SYC,3,,,,manual,100,not in Natural Earth shapefile
+187,Somalia,SOM,3,SOM,SOM,,iso3,100,
+189,United Republic of Tanzania,TZA,3,TZA,TZA,,iso3,100,
+190,Uganda,UGA,3,UGA,UGA,,iso3,100,
+191,Zambia,ZMB,3,ZMB,ZMB,,iso3,100,
+192,Southern Sub-Saharan Africa,R20,0,,,,manual,100,GBD region miscoded as level 3
+193,Botswana,BWA,3,BWA,BWA,,iso3,100,
+194,Lesotho,LSO,3,LSO,LSO,,iso3,100,
+195,Namibia,NAM,3,NAM,NAM,,iso3,100,
+196,South Africa,ZAF,3,ZAF,ZAF,,iso3,100,
+197,Eswatini,SWZ,3,SWZ,SWZ,,iso3,100,
+198,Zimbabwe,ZWE,3,ZWE,ZWE,,iso3,100,
+199,Western Sub-Saharan Africa,R21,0,,,,manual,100,GBD region miscoded as level 3
+200,Benin,BEN,3,BEN,BEN,,iso3,100,
+201,Burkina Faso,BFA,3,BFA,BFA,,iso3,100,
+202,Cameroon,CMR,3,CMR,CMR,,iso3,100,
+203,Cabo Verde,CPV,3,,,,manual,100,not in Natural Earth shapefile
+204,Chad,TCD,3,TCD,TCD,,iso3,100,
+205,Côte d'Ivoire,CIV,3,CIV,CIV,,iso3,100,
+206,Gambia,GMB,3,GMB,GMB,,iso3,100,
+207,Ghana,GHA,3,GHA,GHA,,iso3,100,
+208,Guinea,GIN,3,GIN,GIN,,iso3,100,
+209,Guinea-Bissau,GNB,3,GNB,GNB,,iso3,100,
+210,Liberia,LBR,3,LBR,LBR,,iso3,100,
+211,Mali,MLI,3,MLI,MLI,,iso3,100,
+212,Mauritania,MRT,3,MRT,MRT,,iso3,100,
+213,Niger,NER,3,NER,NER,,iso3,100,
+214,Nigeria,NGA,3,NGA,NGA,,iso3,100,
+215,Sao Tome and Principe,STP,3,,,,manual,100,not in Natural Earth shapefile
+216,Senegal,SEN,3,SEN,SEN,,iso3,100,
+217,Sierra Leone,SLE,3,SLE,SLE,,iso3,100,
+218,Togo,TGO,3,TGO,TGO,,iso3,100,
+239,East Asia & Pacific - WB,,0,,,,manual,100,aggregate level - intentionally unmappable
+240,Europe & Central Asia - WB,,0,,,,manual,100,aggregate level - intentionally unmappable
+241,Latin America & Caribbean - WB,,0,,,,manual,100,aggregate level - intentionally unmappable
+242,Sub-Saharan Africa - WB,,0,,,,manual,100,aggregate level - intentionally unmappable
+243,Middle East & North Africa - WB,,0,,,,manual,100,aggregate level - intentionally unmappable
+244,South Asia - WB,,0,,,,manual,100,aggregate level - intentionally unmappable
+298,American Samoa,ASM,3,,,,manual,100,not in Natural Earth shapefile
+305,Bermuda,BMU,3,,,,manual,100,not in Natural Earth shapefile
+320,Cook Islands,COK,3,,,,manual,100,not in Natural Earth shapefile
+349,Greenland,GRL,3,GRL,GRL,,iso3,100,
+351,Guam,GUM,3,,,,manual,100,not in Natural Earth shapefile
+354,,,0,,,,manual,100,aggregate level - intentionally unmappable
+361,,,0,,,,manual,100,aggregate level - intentionally unmappable
+367,Monaco,MCO,3,,,,manual,100,not in Natural Earth shapefile
+369,Nauru,NRU,3,,,,manual,100,not in Natural Earth shapefile
+374,Niue,NIU,3,,,,manual,100,not in Natural Earth shapefile
+376,Northern Mariana Islands,MNP,3,,,,manual,100,not in Natural Earth shapefile
+380,Palau,PLW,3,,,,manual,100,not in Natural Earth shapefile
+385,Puerto Rico,PRI,3,PRI,PRI,,iso3,100,
+393,Saint Kitts and Nevis,KNA,3,,,,manual,100,not in Natural Earth shapefile
+396,San Marino,SMR,3,,,,manual,100,not in Natural Earth shapefile
+413,Tokelau,TKL,3,,,,manual,100,not in Natural Earth shapefile
+416,Tuvalu,TUV,3,,,,manual,100,not in Natural Earth shapefile
+422,United States Virgin Islands,VIR,3,,,,manual,100,not in Natural Earth shapefile
+433,Northern Ireland,GBR_433,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+434,Scotland,GBR_434,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+435,South Sudan,SSD,3,SSD,SDS,,manual,100,manual fix: SSD -> ADM0_A3=SDS
+482,Eastern Cape,ZAF_482,4,ZAF,ZAF,,manual,100,NE states shapefile is US-only - subnational deferred
+483,Free State,ZAF_483,4,ZAF,ZAF,,manual,100,NE states shapefile is US-only - subnational deferred
+484,Gauteng,ZAF_484,4,ZAF,ZAF,,manual,100,NE states shapefile is US-only - subnational deferred
+485,KwaZulu-Natal,ZAF_485,4,ZAF,ZAF,,manual,100,NE states shapefile is US-only - subnational deferred
+486,Limpopo,ZAF_486,4,ZAF,ZAF,,manual,100,NE states shapefile is US-only - subnational deferred
+487,Mpumalanga,ZAF_487,4,ZAF,ZAF,,manual,100,NE states shapefile is US-only - subnational deferred
+488,North-West,ZAF_488,4,ZAF,ZAF,,manual,100,NE states shapefile is US-only - subnational deferred
+489,Northern Cape,ZAF_489,4,ZAF,ZAF,,manual,100,NE states shapefile is US-only - subnational deferred
+490,Western Cape,ZAF_490,4,ZAF,ZAF,,manual,100,NE states shapefile is US-only - subnational deferred
+491,,,0,,,,manual,100,aggregate level - intentionally unmappable
+492,,,0,,,,manual,100,aggregate level - intentionally unmappable
+493,,,0,,,,manual,100,aggregate level - intentionally unmappable
+494,,,0,,,,manual,100,aggregate level - intentionally unmappable
+495,,,0,,,,manual,100,aggregate level - intentionally unmappable
+496,,,0,,,,manual,100,aggregate level - intentionally unmappable
+497,,,0,,,,manual,100,aggregate level - intentionally unmappable
+498,,,0,,,,manual,100,aggregate level - intentionally unmappable
+499,,,0,,,,manual,100,aggregate level - intentionally unmappable
+500,,,0,,,,manual,100,aggregate level - intentionally unmappable
+501,,,0,,,,manual,100,aggregate level - intentionally unmappable
+502,,,0,,,,manual,100,aggregate level - intentionally unmappable
+503,,,0,,,,manual,100,aggregate level - intentionally unmappable
+504,,,0,,,,manual,100,aggregate level - intentionally unmappable
+505,,,0,,,,manual,100,aggregate level - intentionally unmappable
+506,,,0,,,,manual,100,aggregate level - intentionally unmappable
+507,,,0,,,,manual,100,aggregate level - intentionally unmappable
+508,,,0,,,,manual,100,aggregate level - intentionally unmappable
+509,,,0,,,,manual,100,aggregate level - intentionally unmappable
+510,,,0,,,,manual,100,aggregate level - intentionally unmappable
+511,,,0,,,,manual,100,aggregate level - intentionally unmappable
+512,,,0,,,,manual,100,aggregate level - intentionally unmappable
+513,,,0,,,,manual,100,aggregate level - intentionally unmappable
+514,,,0,,,,manual,100,aggregate level - intentionally unmappable
+515,,,0,,,,manual,100,aggregate level - intentionally unmappable
+516,,,0,,,,manual,100,aggregate level - intentionally unmappable
+517,,,0,,,,manual,100,aggregate level - intentionally unmappable
+518,,,0,,,,manual,100,aggregate level - intentionally unmappable
+519,,,0,,,,manual,100,aggregate level - intentionally unmappable
+520,,,0,,,,manual,100,aggregate level - intentionally unmappable
+521,,,0,,,,manual,100,aggregate level - intentionally unmappable
+522,Sudan,SDN,3,SDN,SDN,,iso3,100,
+523,Alabama,USA_523,4,USA,USA,USA-3541,exact_name,100,
+524,Alaska,USA_524,4,USA,USA,USA-3563,exact_name,100,
+525,Arizona,USA_525,4,USA,USA,USA-3520,exact_name,100,
+526,Arkansas,USA_526,4,USA,USA,USA-3528,exact_name,100,
+527,California,USA_527,4,USA,USA,USA-3521,exact_name,100,
+528,Colorado,USA_528,4,USA,USA,USA-3522,exact_name,100,
+529,Connecticut,USA_529,4,USA,USA,USA-3537,exact_name,100,
+530,Delaware,USA_530,4,USA,USA,USA-3555,exact_name,100,
+531,District of Columbia,USA_531,4,USA,USA,USA-3556,exact_name,100,
+532,Florida,USA_532,4,USA,USA,USA-3542,exact_name,100,
+533,Georgia,USA_533,4,USA,USA,USA-3543,exact_name,100,
+534,Hawaii,USA_534,4,USA,USA,USA-3517,exact_name,100,
+535,Idaho,USA_535,4,USA,USA,USA-3518,exact_name,100,
+536,Illinois,USA_536,4,USA,USA,USA-3546,exact_name,100,
+537,Indiana,USA_537,4,USA,USA,USA-3547,exact_name,100,
+538,Iowa,USA_538,4,USA,USA,USA-3529,exact_name,100,
+539,Kansas,USA_539,4,USA,USA,USA-3530,exact_name,100,
+540,Kentucky,USA_540,4,USA,USA,USA-3548,exact_name,100,
+541,Louisiana,USA_541,4,USA,USA,USA-3535,exact_name,100,
+542,Maine,USA_542,4,USA,USA,USA-3561,exact_name,100,
+543,Maryland,USA_543,4,USA,USA,USA-3557,exact_name,100,
+544,Massachusetts,USA_544,4,USA,USA,USA-3513,exact_name,100,
+545,Michigan,USA_545,4,USA,USA,USA-3562,exact_name,100,
+546,Minnesota,USA_546,4,USA,USA,USA-3514,exact_name,100,
+547,Mississippi,USA_547,4,USA,USA,USA-3544,exact_name,100,
+548,Missouri,USA_548,4,USA,USA,USA-3531,exact_name,100,
+549,Montana,USA_549,4,USA,USA,USA-3515,exact_name,100,
+550,Nebraska,USA_550,4,USA,USA,USA-3532,exact_name,100,
+551,Nevada,USA_551,4,USA,USA,USA-3523,exact_name,100,
+552,New Hampshire,USA_552,4,USA,USA,USA-3538,exact_name,100,
+553,New Jersey,USA_553,4,USA,USA,USA-3558,exact_name,100,
+554,New Mexico,USA_554,4,USA,USA,USA-3524,exact_name,100,
+555,New York,USA_555,4,USA,USA,USA-3559,exact_name,100,
+556,North Carolina,USA_556,4,USA,USA,USA-3549,exact_name,100,
+557,North Dakota,USA_557,4,USA,USA,USA-3516,exact_name,100,
+558,Ohio,USA_558,4,USA,USA,USA-3550,exact_name,100,
+559,Oklahoma,USA_559,4,USA,USA,USA-3533,exact_name,100,
+560,Oregon,USA_560,4,USA,USA,USA-3525,exact_name,100,
+561,Pennsylvania,USA_561,4,USA,USA,USA-3560,exact_name,100,
+562,Rhode Island,USA_562,4,USA,USA,USA-3539,exact_name,100,
+563,South Carolina,USA_563,4,USA,USA,USA-3545,exact_name,100,
+564,South Dakota,USA_564,4,USA,USA,USA-3534,exact_name,100,
+565,Tennessee,USA_565,4,USA,USA,USA-3551,exact_name,100,
+566,Texas,USA_566,4,USA,USA,USA-3536,exact_name,100,
+567,Utah,USA_567,4,USA,USA,USA-3526,exact_name,100,
+568,Vermont,USA_568,4,USA,USA,USA-3540,exact_name,100,
+569,Virginia,USA_569,4,USA,USA,USA-3552,exact_name,100,
+570,Washington,USA_570,4,USA,USA,USA-3519,exact_name,100,
+571,West Virginia,USA_571,4,USA,USA,USA-3554,exact_name,100,
+572,Wisconsin,USA_572,4,USA,USA,USA-3553,exact_name,100,
+573,Wyoming,USA_573,4,USA,USA,USA-3527,exact_name,100,
+4618,North East England,GBR_4618,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+4619,North West England,GBR_4619,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+4620,Yorkshire and the Humber,GBR_4620,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+4621,East Midlands,GBR_4621,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+4622,West Midlands,GBR_4622,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+4623,East of England,GBR_4623,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+4624,Greater London,GBR_4624,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+4625,South East England,GBR_4625,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+4626,South West England,GBR_4626,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+4636,Wales,GBR_4636,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+4643,Aguascalientes,MEX_4643,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4644,Baja California,MEX_4644,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4645,Baja California Sur,MEX_4645,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4646,Campeche,MEX_4646,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4647,Coahuila,MEX_4647,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4648,Colima,MEX_4648,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4649,Chiapas,MEX_4649,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4650,Chihuahua,MEX_4650,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4651,Mexico City,MEX_4651,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4652,Durango,MEX_4652,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4653,Guanajuato,MEX_4653,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4654,Guerrero,MEX_4654,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4655,Hidalgo,MEX_4655,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4656,Jalisco,MEX_4656,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4657,México,MEX_4657,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4658,Michoacán de Ocampo,MEX_4658,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4659,Morelos,MEX_4659,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4660,Nayarit,MEX_4660,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4661,Nuevo León,MEX_4661,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4662,Oaxaca,MEX_4662,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4663,Puebla,MEX_4663,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4664,Querétaro,MEX_4664,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4665,Quintana Roo,MEX_4665,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4666,San Luis Potosí,MEX_4666,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4667,Sinaloa,MEX_4667,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4668,Sonora,MEX_4668,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4669,Tabasco,MEX_4669,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4670,Tamaulipas,MEX_4670,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4671,Tlaxcala,MEX_4671,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4672,Veracruz de Ignacio de la Llave,MEX_4672,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4673,Yucatán,MEX_4673,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4674,Zacatecas,MEX_4674,4,MEX,MEX,,manual,100,NE states shapefile is US-only - subnational deferred
+4709,Aceh,IDN_4709,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4710,North Sumatra,IDN_4710,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4711,West Sumatra,IDN_4711,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4712,Riau,IDN_4712,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4713,Jambi,IDN_4713,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4714,South Sumatra,IDN_4714,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4715,Bengkulu,IDN_4715,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4716,Lampung,IDN_4716,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4717,Bangka-Belitung Islands,IDN_4717,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4718,Riau Islands,IDN_4718,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4719,North Kalimantan,IDN_4719,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4720,Jakarta,IDN_4720,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4721,West Java,IDN_4721,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4722,Central Java,IDN_4722,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4723,Yogyakarta,IDN_4723,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4724,East Java,IDN_4724,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4725,Banten,IDN_4725,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4726,Bali,IDN_4726,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4727,West Nusa Tenggara,IDN_4727,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4728,East Nusa Tenggara,IDN_4728,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4729,West Kalimantan,IDN_4729,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4730,Central Kalimantan,IDN_4730,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4731,South Kalimantan,IDN_4731,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4732,East Kalimantan,IDN_4732,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4733,North Sulawesi,IDN_4733,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4734,Central Sulawesi,IDN_4734,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4735,South Sulawesi,IDN_4735,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4736,Southeast Sulawesi,IDN_4736,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4737,Gorontalo,IDN_4737,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4738,West Sulawesi,IDN_4738,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4739,Maluku,IDN_4739,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4740,North Maluku,IDN_4740,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4741,West Papua,IDN_4741,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4742,Papua,IDN_4742,4,IDN,IDN,,manual,100,NE states shapefile is US-only - subnational deferred
+4743,European Union,,0,,,,manual,100,aggregate level - intentionally unmappable
+4749,England,GBR_4749,4,GBR,GBR,,manual,100,NE states shapefile is US-only - subnational deferred
+4750,Acre,BRA_4750,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4751,Alagoas,BRA_4751,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4752,Amazonas,BRA_4752,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4753,Amapá,BRA_4753,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4754,Bahia,BRA_4754,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4755,Ceará,BRA_4755,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4756,Distrito Federal,BRA_4756,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4757,Espírito Santo,BRA_4757,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4758,Goiás,BRA_4758,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4759,Maranhão,BRA_4759,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4760,Minas Gerais,BRA_4760,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4761,Mato Grosso do Sul,BRA_4761,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4762,Mato Grosso,BRA_4762,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4763,Pará,BRA_4763,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4764,Paraíba,BRA_4764,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4765,Paraná,BRA_4765,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4766,Pernambuco,BRA_4766,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4767,Piaui,BRA_4767,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4768,Rio de Janeiro,BRA_4768,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4769,Rio Grande do Norte,BRA_4769,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4770,Rondônia,BRA_4770,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4771,Roraima,BRA_4771,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4772,Rio Grande do Sul,BRA_4772,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4773,Santa Catarina,BRA_4773,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4774,Sergipe,BRA_4774,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4775,São Paulo,BRA_4775,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4776,Tocantins,BRA_4776,4,BRA,BRA,,manual,100,NE states shapefile is US-only - subnational deferred
+4841,Andhra Pradesh,IND_4841,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4842,Arunachal Pradesh,IND_4842,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4843,Assam,IND_4843,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4844,Bihar,IND_4844,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4846,Chhattisgarh,IND_4846,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4849,Delhi,IND_4849,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4850,Goa,IND_4850,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4851,Gujarat,IND_4851,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4852,Haryana,IND_4852,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4853,Himachal Pradesh,IND_4853,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4854,Jammu & Kashmir and Ladakh,IND_4854,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4855,Jharkhand,IND_4855,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4856,Karnataka,IND_4856,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4857,Kerala,IND_4857,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4859,Madhya Pradesh,IND_4859,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4860,Maharashtra,IND_4860,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4861,Manipur,IND_4861,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4862,Meghalaya,IND_4862,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4863,Mizoram,IND_4863,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4864,Nagaland,IND_4864,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4865,Odisha,IND_4865,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4867,Punjab,IND_4867,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4868,Rajasthan,IND_4868,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4869,Sikkim,IND_4869,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4870,Tamil Nadu,IND_4870,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4871,Telangana,IND_4871,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4872,Tripura,IND_4872,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4873,Uttar Pradesh,IND_4873,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4874,Uttarakhand,IND_4874,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4875,West Bengal,IND_4875,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+4910,Oslo,NOR_4910,4,NOR,NOR,,manual,100,NE states shapefile is US-only - subnational deferred
+4920,Rogaland,NOR_4920,4,NOR,NOR,,manual,100,NE states shapefile is US-only - subnational deferred
+4923,Møre og Romsdal,NOR_4923,4,NOR,NOR,,manual,100,NE states shapefile is US-only - subnational deferred
+4926,Nordland,NOR_4926,4,NOR,NOR,,manual,100,NE states shapefile is US-only - subnational deferred
+4940,Sweden except Stockholm,,0,,,,manual,100,aggregate level - intentionally unmappable
+4944,Stockholm,,0,,,,manual,100,aggregate level - intentionally unmappable
+25318,Abia,NGA_25318,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25319,Adamawa,NGA_25319,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25320,Akwa Ibom,NGA_25320,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25321,Anambra,NGA_25321,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25322,Bauchi,NGA_25322,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25323,Bayelsa,NGA_25323,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25324,Benue,NGA_25324,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25325,Borno,NGA_25325,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25326,Cross River,NGA_25326,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25327,Delta,NGA_25327,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25328,Ebonyi,NGA_25328,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25329,Edo,NGA_25329,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25330,Ekiti,NGA_25330,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25331,Enugu,NGA_25331,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25332,FCT (Abuja),NGA_25332,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25333,Gombe,NGA_25333,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25334,Imo,NGA_25334,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25335,Jigawa,NGA_25335,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25336,Kaduna,NGA_25336,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25337,Kano,NGA_25337,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25338,Katsina,NGA_25338,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25339,Kebbi,NGA_25339,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25340,Kogi,NGA_25340,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25341,Kwara,NGA_25341,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25342,Lagos,NGA_25342,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25343,Nasarawa,NGA_25343,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25344,Niger,NGA_25344,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25345,Ogun,NGA_25345,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25346,Ondo,NGA_25346,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25347,Osun,NGA_25347,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25348,Oyo,NGA_25348,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25349,Plateau,NGA_25349,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25350,Rivers,NGA_25350,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25351,Sokoto,NGA_25351,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25352,Taraba,NGA_25352,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25353,Yobe,NGA_25353,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+25354,Zamfara,NGA_25354,4,NGA,NGA,,manual,100,NE states shapefile is US-only - subnational deferred
+35424,Hokkaidō,JPN_35424,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35425,Aomori,JPN_35425,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35426,Iwate,JPN_35426,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35427,Miyagi,JPN_35427,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35428,Akita,JPN_35428,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35429,Yamagata,JPN_35429,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35430,Fukushima,JPN_35430,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35431,Ibaraki,JPN_35431,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35432,Tochigi,JPN_35432,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35433,Gunma,JPN_35433,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35434,Saitama,JPN_35434,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35435,Chiba,JPN_35435,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35436,Tōkyō,JPN_35436,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35437,Kanagawa,JPN_35437,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35438,Niigata,JPN_35438,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35439,Toyama,JPN_35439,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35440,Ishikawa,JPN_35440,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35441,Fukui,JPN_35441,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35442,Yamanashi,JPN_35442,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35443,Nagano,JPN_35443,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35444,Gifu,JPN_35444,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35445,Shizuoka,JPN_35445,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35446,Aichi,JPN_35446,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35447,Mie,JPN_35447,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35448,Shiga,JPN_35448,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35449,Kyōto,JPN_35449,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35450,Ōsaka,JPN_35450,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35451,Hyōgo,JPN_35451,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35452,Nara,JPN_35452,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35453,Wakayama,JPN_35453,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35454,Tottori,JPN_35454,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35455,Shimane,JPN_35455,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35456,Okayama,JPN_35456,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35457,Hiroshima,JPN_35457,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35458,Yamaguchi,JPN_35458,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35459,Tokushima,JPN_35459,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35460,Kagawa,JPN_35460,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35461,Ehime,JPN_35461,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35462,Kōchi,JPN_35462,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35463,Fukuoka,JPN_35463,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35464,Saga,JPN_35464,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35465,Nagasaki,JPN_35465,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35466,Kumamoto,JPN_35466,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35467,Ōita,JPN_35467,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35468,Miyazaki,JPN_35468,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35469,Kagoshima,JPN_35469,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35470,Okinawa,JPN_35470,4,JPN,JPN,,manual,100,NE states shapefile is US-only - subnational deferred
+35494,Piemonte,ITA_35494,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35495,Valle d'Aosta,ITA_35495,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35496,Liguria,ITA_35496,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35497,Lombardia,ITA_35497,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35498,Provincia autonoma di Bolzano,ITA_35498,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35499,Provincia autonoma di Trento,ITA_35499,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35500,Veneto,ITA_35500,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35501,Friuli-Venezia Giulia,ITA_35501,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35502,Emilia-Romagna,ITA_35502,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35503,Toscana,ITA_35503,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35504,Umbria,ITA_35504,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35505,Marche,ITA_35505,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35506,Lazio,ITA_35506,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35507,Abruzzo,ITA_35507,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35508,Molise,ITA_35508,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35509,Campania,ITA_35509,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35510,Puglia,ITA_35510,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35511,Basilicata,ITA_35511,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35512,Calabria,ITA_35512,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35513,Sicilia,ITA_35513,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35514,Sardegna,ITA_35514,4,ITA,ITA,,manual,100,NE states shapefile is US-only - subnational deferred
+35617,Baringo,KEN_35617,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35618,Bomet,KEN_35618,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35619,Bungoma,KEN_35619,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35620,Busia,KEN_35620,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35621,Elgeyo-Marakwet,KEN_35621,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35622,Embu,KEN_35622,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35623,Garissa,KEN_35623,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35624,Homa Bay,KEN_35624,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35625,Isiolo,KEN_35625,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35626,Kajiado,KEN_35626,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35627,Kakamega,KEN_35627,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35628,Kericho,KEN_35628,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35629,Kiambu,KEN_35629,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35630,Kilifi,KEN_35630,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35631,Kirinyaga,KEN_35631,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35632,Kisii,KEN_35632,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35633,Kisumu,KEN_35633,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35634,Kitui,KEN_35634,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35635,Kwale,KEN_35635,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35636,Laikipia,KEN_35636,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35637,Lamu,KEN_35637,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35638,Machakos,KEN_35638,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35639,Makueni,KEN_35639,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35640,Mandera,KEN_35640,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35641,Marsabit,KEN_35641,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35642,Meru,KEN_35642,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35643,Migori,KEN_35643,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35644,Mombasa,KEN_35644,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35645,Murang'a,KEN_35645,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35646,Nairobi,KEN_35646,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35647,Nakuru,KEN_35647,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35648,Nandi,KEN_35648,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35649,Narok,KEN_35649,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35650,Nyamira,KEN_35650,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35651,Nyandarua,KEN_35651,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35652,Nyeri,KEN_35652,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35653,Samburu,KEN_35653,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35654,Siaya,KEN_35654,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35655,Taita Taveta,KEN_35655,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35656,Tana River,KEN_35656,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35657,Tharaka Nithi,KEN_35657,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35658,Trans Nzoia,KEN_35658,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35659,Turkana,KEN_35659,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35660,Uasin Gishu,KEN_35660,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35661,Vihiga,KEN_35661,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35662,Wajir,KEN_35662,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+35663,West Pokot,KEN_35663,4,KEN,KEN,,manual,100,NE states shapefile is US-only - subnational deferred
+43872,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43873,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43874,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43875,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43877,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43880,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43881,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43882,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43883,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43884,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43885,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43886,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43887,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43888,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43890,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43891,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43892,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43893,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43894,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43895,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43896,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43898,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43899,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43900,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43901,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43902,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43903,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43904,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43905,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43906,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43908,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43909,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43910,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43911,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43913,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43916,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43917,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43918,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43919,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43920,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43921,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43922,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43923,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43924,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43926,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43927,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43928,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43929,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43930,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43931,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43932,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43934,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43935,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43936,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43937,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43938,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43939,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43940,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43941,,,0,,,,manual,100,aggregate level - intentionally unmappable
+43942,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44538,Other Union Territories,IND_44538,4,IND,IND,,manual,100,NE states shapefile is US-only - subnational deferred
+44539,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44540,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44559,Africa,,0,,,,manual,100,aggregate level - intentionally unmappable
+44560,America,,0,,,,manual,100,aggregate level - intentionally unmappable
+44561,Asia,,0,,,,manual,100,aggregate level - intentionally unmappable
+44562,Europe,,0,,,,manual,100,aggregate level - intentionally unmappable
+44563,African Region,,0,,,,manual,100,aggregate level - intentionally unmappable
+44564,Region of the Americas,,0,,,,manual,100,aggregate level - intentionally unmappable
+44565,South-East Asia Region,,0,,,,manual,100,aggregate level - intentionally unmappable
+44566,European Region,,0,,,,manual,100,aggregate level - intentionally unmappable
+44567,Eastern Mediterranean Region,,0,,,,manual,100,aggregate level - intentionally unmappable
+44568,Western Pacific Region,,0,,,,manual,100,aggregate level - intentionally unmappable
+44575,World Bank High Income,,0,,,,manual,100,aggregate level - intentionally unmappable
+44576,World Bank Upper Middle Income,,0,,,,manual,100,aggregate level - intentionally unmappable
+44577,World Bank Lower Middle Income,,0,,,,manual,100,aggregate level - intentionally unmappable
+44578,World Bank Low Income,,0,,,,manual,100,aggregate level - intentionally unmappable
+44584,OECD Countries,,0,,,,manual,100,aggregate level - intentionally unmappable
+44586,G20,,0,,,,manual,100,aggregate level - intentionally unmappable
+44587,African Union,,0,,,,manual,100,aggregate level - intentionally unmappable
+44634,High-middle SDI,,0,,,,manual,100,aggregate level - intentionally unmappable
+44635,High SDI,,0,,,,manual,100,aggregate level - intentionally unmappable
+44636,Low-middle SDI,,0,,,,manual,100,aggregate level - intentionally unmappable
+44637,Low SDI,,0,,,,manual,100,aggregate level - intentionally unmappable
+44638,North America,,0,,,,manual,100,aggregate level - intentionally unmappable
+44639,Middle SDI,,0,,,,manual,100,aggregate level - intentionally unmappable
+44642,Nordic Region,,0,,,,manual,100,aggregate level - intentionally unmappable
+44643,Darlington,,0,,,,manual,100,aggregate level - intentionally unmappable
+44644,Northumberland,,0,,,,manual,100,aggregate level - intentionally unmappable
+44645,Stockton-on-Tees,,0,,,,manual,100,aggregate level - intentionally unmappable
+44646,Newcastle upon Tyne,,0,,,,manual,100,aggregate level - intentionally unmappable
+44647,North Tyneside,,0,,,,manual,100,aggregate level - intentionally unmappable
+44648,Redcar and Cleveland,,0,,,,manual,100,aggregate level - intentionally unmappable
+44649,County Durham,,0,,,,manual,100,aggregate level - intentionally unmappable
+44650,Gateshead,,0,,,,manual,100,aggregate level - intentionally unmappable
+44651,Middlesbrough,,0,,,,manual,100,aggregate level - intentionally unmappable
+44652,South Tyneside,,0,,,,manual,100,aggregate level - intentionally unmappable
+44653,Sunderland,,0,,,,manual,100,aggregate level - intentionally unmappable
+44654,Hartlepool,,0,,,,manual,100,aggregate level - intentionally unmappable
+44655,Cheshire East,,0,,,,manual,100,aggregate level - intentionally unmappable
+44656,Stockport,,0,,,,manual,100,aggregate level - intentionally unmappable
+44657,Trafford,,0,,,,manual,100,aggregate level - intentionally unmappable
+44658,Cheshire West and Chester,,0,,,,manual,100,aggregate level - intentionally unmappable
+44659,Sefton,,0,,,,manual,100,aggregate level - intentionally unmappable
+44660,Lancashire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44661,Cumbria,,0,,,,manual,100,aggregate level - intentionally unmappable
+44662,Bolton,,0,,,,manual,100,aggregate level - intentionally unmappable
+44663,Wirral,,0,,,,manual,100,aggregate level - intentionally unmappable
+44664,Bury,,0,,,,manual,100,aggregate level - intentionally unmappable
+44665,St Helens,,0,,,,manual,100,aggregate level - intentionally unmappable
+44666,Warrington,,0,,,,manual,100,aggregate level - intentionally unmappable
+44667,Oldham,,0,,,,manual,100,aggregate level - intentionally unmappable
+44668,Rochdale,,0,,,,manual,100,aggregate level - intentionally unmappable
+44669,Wigan,,0,,,,manual,100,aggregate level - intentionally unmappable
+44670,Halton,,0,,,,manual,100,aggregate level - intentionally unmappable
+44671,Liverpool,,0,,,,manual,100,aggregate level - intentionally unmappable
+44672,Tameside,,0,,,,manual,100,aggregate level - intentionally unmappable
+44673,Salford,,0,,,,manual,100,aggregate level - intentionally unmappable
+44674,Blackburn with Darwen,,0,,,,manual,100,aggregate level - intentionally unmappable
+44675,Knowsley,,0,,,,manual,100,aggregate level - intentionally unmappable
+44676,Blackpool,,0,,,,manual,100,aggregate level - intentionally unmappable
+44677,Manchester,,0,,,,manual,100,aggregate level - intentionally unmappable
+44678,North Yorkshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44679,East Riding of Yorkshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44680,York,,0,,,,manual,100,aggregate level - intentionally unmappable
+44681,North East Lincolnshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44682,Calderdale,,0,,,,manual,100,aggregate level - intentionally unmappable
+44683,North Lincolnshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44684,Bradford,,0,,,,manual,100,aggregate level - intentionally unmappable
+44685,Kirklees,,0,,,,manual,100,aggregate level - intentionally unmappable
+44686,Leeds,,0,,,,manual,100,aggregate level - intentionally unmappable
+44687,Sheffield,,0,,,,manual,100,aggregate level - intentionally unmappable
+44688,Wakefield,,0,,,,manual,100,aggregate level - intentionally unmappable
+44689,Rotherham,,0,,,,manual,100,aggregate level - intentionally unmappable
+44690,Doncaster,,0,,,,manual,100,aggregate level - intentionally unmappable
+44691,"Kingston upon Hull, City of",,0,,,,manual,100,aggregate level - intentionally unmappable
+44692,Barnsley,,0,,,,manual,100,aggregate level - intentionally unmappable
+44693,Northamptonshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44694,Leicestershire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44695,Lincolnshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44696,Rutland,,0,,,,manual,100,aggregate level - intentionally unmappable
+44697,Derby,,0,,,,manual,100,aggregate level - intentionally unmappable
+44698,Derbyshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44699,Nottinghamshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44700,Nottingham,,0,,,,manual,100,aggregate level - intentionally unmappable
+44701,Leicester,,0,,,,manual,100,aggregate level - intentionally unmappable
+44702,Warwickshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44703,"Herefordshire, County of",,0,,,,manual,100,aggregate level - intentionally unmappable
+44704,Solihull,,0,,,,manual,100,aggregate level - intentionally unmappable
+44705,Shropshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44706,Worcestershire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44707,Staffordshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44708,Dudley,,0,,,,manual,100,aggregate level - intentionally unmappable
+44709,Coventry,,0,,,,manual,100,aggregate level - intentionally unmappable
+44710,Telford and Wrekin,,0,,,,manual,100,aggregate level - intentionally unmappable
+44711,Stoke-on-Trent,,0,,,,manual,100,aggregate level - intentionally unmappable
+44712,Walsall,,0,,,,manual,100,aggregate level - intentionally unmappable
+44713,Wolverhampton,,0,,,,manual,100,aggregate level - intentionally unmappable
+44714,Birmingham,,0,,,,manual,100,aggregate level - intentionally unmappable
+44715,Sandwell,,0,,,,manual,100,aggregate level - intentionally unmappable
+44716,Bedford,,0,,,,manual,100,aggregate level - intentionally unmappable
+44717,Central Bedfordshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44718,Suffolk,,0,,,,manual,100,aggregate level - intentionally unmappable
+44719,Hertfordshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44720,Essex,,0,,,,manual,100,aggregate level - intentionally unmappable
+44721,Cambridgeshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44722,Thurrock,,0,,,,manual,100,aggregate level - intentionally unmappable
+44723,Norfolk,,0,,,,manual,100,aggregate level - intentionally unmappable
+44724,Southend-on-Sea,,0,,,,manual,100,aggregate level - intentionally unmappable
+44725,Peterborough,,0,,,,manual,100,aggregate level - intentionally unmappable
+44726,Luton,,0,,,,manual,100,aggregate level - intentionally unmappable
+44727,Richmond upon Thames,,0,,,,manual,100,aggregate level - intentionally unmappable
+44728,Kensington and Chelsea,,0,,,,manual,100,aggregate level - intentionally unmappable
+44729,Barnet,,0,,,,manual,100,aggregate level - intentionally unmappable
+44730,Westminster,,0,,,,manual,100,aggregate level - intentionally unmappable
+44731,Bromley,,0,,,,manual,100,aggregate level - intentionally unmappable
+44732,Bexley,,0,,,,manual,100,aggregate level - intentionally unmappable
+44733,Redbridge,,0,,,,manual,100,aggregate level - intentionally unmappable
+44734,Merton,,0,,,,manual,100,aggregate level - intentionally unmappable
+44735,Brent,,0,,,,manual,100,aggregate level - intentionally unmappable
+44736,Hillingdon,,0,,,,manual,100,aggregate level - intentionally unmappable
+44737,Havering,,0,,,,manual,100,aggregate level - intentionally unmappable
+44738,Kingston upon Thames,,0,,,,manual,100,aggregate level - intentionally unmappable
+44739,Sutton,,0,,,,manual,100,aggregate level - intentionally unmappable
+44740,Harrow,,0,,,,manual,100,aggregate level - intentionally unmappable
+44741,Enfield,,0,,,,manual,100,aggregate level - intentionally unmappable
+44742,Croydon,,0,,,,manual,100,aggregate level - intentionally unmappable
+44743,Hammersmith and Fulham,,0,,,,manual,100,aggregate level - intentionally unmappable
+44744,Ealing,,0,,,,manual,100,aggregate level - intentionally unmappable
+44745,Greenwich,,0,,,,manual,100,aggregate level - intentionally unmappable
+44746,Wandsworth,,0,,,,manual,100,aggregate level - intentionally unmappable
+44747,Waltham Forest,,0,,,,manual,100,aggregate level - intentionally unmappable
+44748,Camden,,0,,,,manual,100,aggregate level - intentionally unmappable
+44749,Lambeth,,0,,,,manual,100,aggregate level - intentionally unmappable
+44750,Lewisham,,0,,,,manual,100,aggregate level - intentionally unmappable
+44751,Hounslow,,0,,,,manual,100,aggregate level - intentionally unmappable
+44752,Southwark,,0,,,,manual,100,aggregate level - intentionally unmappable
+44753,Newham,,0,,,,manual,100,aggregate level - intentionally unmappable
+44754,Barking and Dagenham,,0,,,,manual,100,aggregate level - intentionally unmappable
+44755,Haringey,,0,,,,manual,100,aggregate level - intentionally unmappable
+44756,Hackney,,0,,,,manual,100,aggregate level - intentionally unmappable
+44757,Islington,,0,,,,manual,100,aggregate level - intentionally unmappable
+44758,Tower Hamlets,,0,,,,manual,100,aggregate level - intentionally unmappable
+44759,Wokingham,,0,,,,manual,100,aggregate level - intentionally unmappable
+44760,Buckinghamshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44761,Surrey,,0,,,,manual,100,aggregate level - intentionally unmappable
+44762,Windsor and Maidenhead,,0,,,,manual,100,aggregate level - intentionally unmappable
+44763,West Berkshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44764,Hampshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44765,Bracknell Forest,,0,,,,manual,100,aggregate level - intentionally unmappable
+44766,West Sussex,,0,,,,manual,100,aggregate level - intentionally unmappable
+44767,Oxfordshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44768,Reading,,0,,,,manual,100,aggregate level - intentionally unmappable
+44769,Kent,,0,,,,manual,100,aggregate level - intentionally unmappable
+44770,Brighton and Hove,,0,,,,manual,100,aggregate level - intentionally unmappable
+44771,Medway,,0,,,,manual,100,aggregate level - intentionally unmappable
+44772,East Sussex,,0,,,,manual,100,aggregate level - intentionally unmappable
+44773,Portsmouth,,0,,,,manual,100,aggregate level - intentionally unmappable
+44774,Isle of Wight,,0,,,,manual,100,aggregate level - intentionally unmappable
+44775,Milton Keynes,,0,,,,manual,100,aggregate level - intentionally unmappable
+44776,Southampton,,0,,,,manual,100,aggregate level - intentionally unmappable
+44777,Slough,,0,,,,manual,100,aggregate level - intentionally unmappable
+44778,South Gloucestershire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44779,Dorset,,0,,,,manual,100,aggregate level - intentionally unmappable
+44780,Wiltshire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44781,North Somerset,,0,,,,manual,100,aggregate level - intentionally unmappable
+44782,Devon,,0,,,,manual,100,aggregate level - intentionally unmappable
+44783,Poole,,0,,,,manual,100,aggregate level - intentionally unmappable
+44784,Bath and North East Somerset,,0,,,,manual,100,aggregate level - intentionally unmappable
+44785,Gloucestershire,,0,,,,manual,100,aggregate level - intentionally unmappable
+44786,Somerset,,0,,,,manual,100,aggregate level - intentionally unmappable
+44787,Swindon,,0,,,,manual,100,aggregate level - intentionally unmappable
+44788,Torbay,,0,,,,manual,100,aggregate level - intentionally unmappable
+44789,"Bristol, City of",,0,,,,manual,100,aggregate level - intentionally unmappable
+44790,Bournemouth,,0,,,,manual,100,aggregate level - intentionally unmappable
+44791,Cornwall,,0,,,,manual,100,aggregate level - intentionally unmappable
+44792,Plymouth,,0,,,,manual,100,aggregate level - intentionally unmappable
+44850,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44851,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44852,Tigray,ETH_44852,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+44853,Afar,ETH_44853,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+44854,Amhara,ETH_44854,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+44855,Oromia,ETH_44855,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+44856,Somali,ETH_44856,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+44857,Benishangul-Gumuz,ETH_44857,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+44859,Harari,ETH_44859,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+44860,Gambella,ETH_44860,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+44861,Addis Ababa,ETH_44861,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+44862,Dire Dawa,ETH_44862,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+44864,Alborz,IRN_44864,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44865,Ardebil,IRN_44865,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44866,East Azarbayejan,IRN_44866,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44867,West Azarbayejan,IRN_44867,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44868,Bushehr,IRN_44868,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44869,Chahar Mahaal and Bakhtiari,IRN_44869,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44870,Fars,IRN_44870,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44871,Gilan,IRN_44871,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44872,Golestan,IRN_44872,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44873,Hamadan,IRN_44873,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44874,Hormozgan,IRN_44874,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44875,Ilam,IRN_44875,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44876,Isfahan,IRN_44876,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44877,Kerman,IRN_44877,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44878,Kermanshah,IRN_44878,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44879,North Khorasan,IRN_44879,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44880,Khorasan-e-Razavi,IRN_44880,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44881,South Khorasan,IRN_44881,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44882,Khuzestan,IRN_44882,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44883,Kohgiluyeh and Boyer-Ahmad,IRN_44883,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44884,Kurdistan,IRN_44884,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44885,Lorestan,IRN_44885,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44886,Markazi,IRN_44886,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44887,Mazandaran,IRN_44887,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44888,Qazvin,IRN_44888,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44889,Qom,IRN_44889,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44890,Semnan,IRN_44890,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44891,Sistan and Baluchistan,IRN_44891,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44892,Tehran,IRN_44892,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44893,Yazd,IRN_44893,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44894,Zanjan,IRN_44894,4,IRN,IRN,,manual,100,NE states shapefile is US-only - subnational deferred
+44903,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44904,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44905,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44906,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44907,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44908,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44909,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44910,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44911,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44912,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44913,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44914,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44915,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44916,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44917,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44918,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44919,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44920,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44921,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44922,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44923,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44924,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44925,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44926,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44927,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44928,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44929,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44930,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44931,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44932,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44933,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44934,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44935,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44936,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44937,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44938,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44939,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44940,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44941,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44942,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44943,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44944,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44945,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44946,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44947,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44948,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44949,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44950,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44951,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44952,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44953,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44954,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44955,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44956,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44957,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44958,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44959,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44960,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44961,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44962,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44963,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44964,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44965,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44966,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44967,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44968,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44969,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44970,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44971,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44972,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44973,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44974,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44975,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44976,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44977,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44978,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44979,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44980,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44981,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44982,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44983,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44984,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44985,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44986,,,0,,,,manual,100,aggregate level - intentionally unmappable
+44987,,,0,,,,manual,100,aggregate level - intentionally unmappable
+50559,,,0,,,,manual,100,aggregate level - intentionally unmappable
+53432,Trøndelag,NOR_53432,4,NOR,NOR,,manual,100,NE states shapefile is US-only - subnational deferred
+53533,Mountain Province,PHL_53533,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53534,Ifugao,PHL_53534,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53535,Benguet,PHL_53535,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53536,Abra,PHL_53536,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53537,Apayao,PHL_53537,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53538,Kalinga,PHL_53538,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53539,La Union,PHL_53539,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53540,Ilocos Norte,PHL_53540,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53541,Ilocos Sur,PHL_53541,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53542,Pangasinan,PHL_53542,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53543,Nueva Vizcaya,PHL_53543,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53544,Cagayan,PHL_53544,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53545,Isabela,PHL_53545,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53546,Quirino,PHL_53546,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53547,Batanes,PHL_53547,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53548,Bataan,PHL_53548,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53549,Zambales,PHL_53549,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53550,Tarlac,PHL_53550,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53551,Pampanga,PHL_53551,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53552,Bulacan,PHL_53552,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53553,Nueva Ecija,PHL_53553,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53554,Aurora,PHL_53554,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53555,Rizal,PHL_53555,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53556,Cavite,PHL_53556,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53557,Laguna,PHL_53557,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53558,Batangas,PHL_53558,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53559,Quezon,PHL_53559,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53560,Occidental Mindoro,PHL_53560,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53561,Oriental Mindoro,PHL_53561,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53562,Romblon,PHL_53562,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53563,Palawan,PHL_53563,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53564,Marinduque,PHL_53564,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53565,Catanduanes,PHL_53565,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53566,Camarines Norte,PHL_53566,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53567,Sorsogon,PHL_53567,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53568,Albay,PHL_53568,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53569,Masbate,PHL_53569,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53570,Camarines Sur,PHL_53570,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53571,Capiz,PHL_53571,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53572,Aklan,PHL_53572,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53573,Antique,PHL_53573,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53574,Negros Occidental,PHL_53574,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53575,Iloilo,PHL_53575,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53576,Guimaras,PHL_53576,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53577,Negros Oriental,PHL_53577,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53578,Cebu,PHL_53578,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53579,Bohol,PHL_53579,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53580,Siquijor,PHL_53580,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53581,Southern Leyte,PHL_53581,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53582,Eastern Samar,PHL_53582,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53583,Northern Samar,PHL_53583,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53584,Samar (Western Samar),PHL_53584,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53585,Leyte,PHL_53585,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53586,Biliran,PHL_53586,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53587,Zamboanga Sibugay,PHL_53587,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53588,Zamboanga Del Norte,PHL_53588,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53589,Zamboanga Del Sur,PHL_53589,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53590,Misamis Occidental,PHL_53590,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53591,Bukidnon,PHL_53591,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53592,Lanao Del Norte,PHL_53592,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53593,Misamis Oriental,PHL_53593,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53594,Camiguin,PHL_53594,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53595,Davao Oriental,PHL_53595,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53596,Davao de Oro,PHL_53596,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53597,Davao Del Sur,PHL_53597,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53598,Davao Occidental,PHL_53598,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53599,Davao Del Norte,PHL_53599,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53600,South Cotabato,PHL_53600,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53601,Sultan Kudarat,PHL_53601,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53602,Cotabato (North Cotabato),PHL_53602,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53603,Sarangani,PHL_53603,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53604,Agusan Del Norte,PHL_53604,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53605,Agusan Del Sur,PHL_53605,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53606,Surigao Del Sur,PHL_53606,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53607,Surigao Del Norte,PHL_53607,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53608,Dinagat Islands,PHL_53608,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53609,Tawi-Tawi,PHL_53609,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53610,Basilan,PHL_53610,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53611,Sulu,PHL_53611,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53612,Maguindanao,PHL_53612,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53613,Lanao Del Sur,PHL_53613,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53614,National Capital Region,PHL_53614,4,PHL,PHL,,manual,100,NE states shapefile is US-only - subnational deferred
+53615,Azad Jammu & Kashmir,PAK_53615,4,PAK,PAK,,manual,100,NE states shapefile is US-only - subnational deferred
+53616,Balochistan,PAK_53616,4,PAK,PAK,,manual,100,NE states shapefile is US-only - subnational deferred
+53617,Gilgit-Baltistan,PAK_53617,4,PAK,PAK,,manual,100,NE states shapefile is US-only - subnational deferred
+53618,Islamabad Capital Territory,PAK_53618,4,PAK,PAK,,manual,100,NE states shapefile is US-only - subnational deferred
+53619,Khyber Pakhtunkhwa,PAK_53619,4,PAK,PAK,,manual,100,NE states shapefile is US-only - subnational deferred
+53620,Punjab,PAK_53620,4,PAK,PAK,,manual,100,NE states shapefile is US-only - subnational deferred
+53621,Sindh,PAK_53621,4,PAK,PAK,,manual,100,NE states shapefile is US-only - subnational deferred
+53660,Dolnośląskie,POL_53660,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53661,Kujawsko-Pomorskie,POL_53661,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53662,Łódzkie,POL_53662,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53663,Lubelskie,POL_53663,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53664,Lubuskie,POL_53664,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53665,Małopolskie,POL_53665,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53666,Mazowieckie,POL_53666,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53667,Opolskie,POL_53667,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53668,Podkarpackie,POL_53668,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53669,Podlaskie,POL_53669,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53670,Pomorskie,POL_53670,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53671,Śląskie,POL_53671,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53672,Świętokrzyskie,POL_53672,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53673,Warmińsko-Mazurskie,POL_53673,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53674,Wielkopolskie,POL_53674,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+53675,Zachodniopomorskie,POL_53675,4,POL,POL,,manual,100,NE states shapefile is US-only - subnational deferred
+60132,Vestland,NOR_60132,4,NOR,NOR,,manual,100,NE states shapefile is US-only - subnational deferred
+60133,Agder,NOR_60133,4,NOR,NOR,,manual,100,NE states shapefile is US-only - subnational deferred
+60134,Vestfold og Telemark,NOR_60134,4,NOR,NOR,,manual,100,NE states shapefile is US-only - subnational deferred
+60135,Innlandet,NOR_60135,4,NOR,NOR,,manual,100,NE states shapefile is US-only - subnational deferred
+60136,Viken,NOR_60136,4,NOR,NOR,,manual,100,NE states shapefile is US-only - subnational deferred
+60137,Troms og Finnmark,NOR_60137,4,NOR,NOR,,manual,100,NE states shapefile is US-only - subnational deferred
+60908,Sidama,ETH_60908,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+94364,South West,ETH_94364,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
+95069,"Southern Nations, Nationalities, and Peoples",ETH_95069,4,ETH,ETH,,manual,100,NE states shapefile is US-only - subnational deferred
