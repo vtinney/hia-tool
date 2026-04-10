@@ -1,0 +1,33 @@
+{
+  "type": "FeatureCollection",
+  "crs": {
+    "type": "name",
+    "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "ID_UC_G0": 1001 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[103, 35], [104, 35], [104, 36], [103, 36], [103, 35]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "ID_UC_G0": 1002 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-42, -12], [-41, -12], [-41, -11], [-42, -11], [-42, -12]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "ID_UC_G0": 1003 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[115, 0], [116, 0], [116, 1], [115, 1], [115, 0]]]
+      }
+    }
+  ]
+}
