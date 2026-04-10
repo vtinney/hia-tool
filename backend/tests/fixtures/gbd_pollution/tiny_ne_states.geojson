@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "adm1_code": "BRA-1",
+        "adm0_a3": "BRA",
+        "name": "Bahia",
+        "name_en": "Bahia"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-45, -15], [-40, -15], [-40, -10], [-45, -10], [-45, -15]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "adm1_code": "BRA-2",
+        "adm0_a3": "BRA",
+        "name": "São Paulo",
+        "name_en": "Sao Paulo"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-50, -25], [-45, -25], [-45, -20], [-50, -20], [-50, -25]]]
+      }
+    }
+  ]
+}

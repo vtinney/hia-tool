@@ -1,0 +1,44 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ADM0_A3": "CHN",
+        "ISO_A3": "CHN",
+        "NAME": "China",
+        "NAME_EN": "China"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[100, 30], [110, 30], [110, 40], [100, 40], [100, 30]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ADM0_A3": "IDN",
+        "ISO_A3": "IDN",
+        "NAME": "Indonesia",
+        "NAME_EN": "Indonesia"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[110, -5], [120, -5], [120, 5], [110, 5], [110, -5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ADM0_A3": "BRA",
+        "ISO_A3": "BRA",
+        "NAME": "Brazil",
+        "NAME_EN": "Brazil"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-55, -15], [-45, -15], [-45, -5], [-55, -5], [-55, -15]]]
+      }
+    }
+  ]
+}
