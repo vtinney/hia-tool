@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.models.database import get_db
 from backend.models.file_upload import FileUpload
 from backend.services.hia_engine import compute_hia, _summarise_spatial
+from backend.services.pollution_exposure import get_default_raster_path
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,8 @@ class ComputeResponse(BaseModel):
 
 
 class SpatialComputeRequest(BaseModel):
-    concentrationFileId: int
+    concentrationFileId: int | None = None
+    defaultConcentrationLayer: str | None = None
     controlFileId: int | None = None
     controlConcentration: float | None = None
     populationFileId: int
@@ -268,6 +270,26 @@ def _run_spatial_compute(
     }
 
 
+def _resolve_default_concentration_layer(layer_id: str | None) -> Path | None:
+    """Resolve a ``defaultConcentrationLayer`` string to a filesystem path.
+
+    Layer IDs have the format ``"{pollutant}_{dataset}_{year}"``, e.g.
+    ``"pm25_gbd2023_2019"``. Only PM2.5 layers are supported in v1.
+    Returns ``None`` for any unparseable, unknown, or missing layer.
+    """
+    if not layer_id:
+        return None
+    parts = layer_id.split("_")
+    if len(parts) < 3:
+        return None
+    pollutant = parts[0]
+    try:
+        year = int(parts[-1])
+    except ValueError:
+        return None
+    return get_default_raster_path(pollutant, year)
+
+
 @router.post("/compute/spatial", response_model=SpatialComputeResponse)
 async def run_spatial_compute(
     req: SpatialComputeRequest,
@@ -278,8 +300,23 @@ async def run_spatial_compute(
     Looks up uploaded file paths, delegates heavy computation to a
     ProcessPoolExecutor worker, and returns per-zone results.
     """
-    # Resolve file IDs to paths
-    file_ids = [req.concentrationFileId, req.populationFileId, req.boundaryFileId]
+    # Concentration source: prefer explicit upload, fall back to default layer
+    conc_path: str | None = None
+    if req.concentrationFileId is not None:
+        file_ids = [req.concentrationFileId, req.populationFileId, req.boundaryFileId]
+    else:
+        default_path = _resolve_default_concentration_layer(req.defaultConcentrationLayer)
+        if default_path is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "No concentration source: supply concentrationFileId for "
+                    "an uploaded raster, or defaultConcentrationLayer for a "
+                    "built-in layer (e.g. 'pm25_gbd2023_2019')."
+                ),
+            )
+        conc_path = str(default_path)
+        file_ids = [req.populationFileId, req.boundaryFileId]
     if req.controlFileId:
         file_ids.append(req.controlFileId)
 
@@ -298,7 +335,8 @@ async def run_spatial_compute(
                 f"{records[fid].error_message}",
             )
 
-    conc_path = str(_resolve_file_path(records[req.concentrationFileId]))
+    if conc_path is None:
+        conc_path = str(_resolve_file_path(records[req.concentrationFileId]))
     pop_path = str(_resolve_file_path(records[req.populationFileId]))
     boundary_path = str(_resolve_file_path(records[req.boundaryFileId]))
     ctrl_path = (
