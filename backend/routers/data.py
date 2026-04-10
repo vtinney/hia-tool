@@ -322,3 +322,55 @@ async def list_datasets(
         datasets = [d for d in datasets if d.get("country") == country]
 
     return {"datasets": datasets}
+
+
+# ── Pollution default-concentration endpoints ─────────────────
+
+
+from backend.services.pollution_exposure import (  # noqa: E402
+    get_default_concentration as _get_default_concentration,
+    get_default_raster_path as _get_default_raster_path,
+    _load_raster_catalog as _load_raster_catalog_df,
+)
+
+
+@router.get("/pollution/default")
+def get_pollution_default(
+    pollutant: str,
+    year: int,
+    ne_country_uid: str | None = None,
+    ne_state_uid: str | None = None,
+    ghs_uid: int | None = None,
+):
+    """Return a default concentration for a location × year, or 404."""
+    result = _get_default_concentration(
+        pollutant, year,
+        ne_country_uid=ne_country_uid,
+        ne_state_uid=ne_state_uid,
+        ghs_uid=ghs_uid,
+    )
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No default concentration available for pollutant={pollutant} "
+                f"year={year} ne_country_uid={ne_country_uid} "
+                f"ne_state_uid={ne_state_uid} ghs_uid={ghs_uid}"
+            ),
+        )
+    return {"pollutant": pollutant, **result}
+
+
+@router.get("/pollution/raster-catalog")
+def get_pollution_raster_catalog(pollutant: str):
+    """Return the on-disk raster catalog for a pollutant.
+
+    Returns an empty list if no catalog is available for that pollutant
+    (NO2 and ozone never have catalogs in v1).
+    """
+    if pollutant != "pm25":
+        return []
+    catalog = _load_raster_catalog_df()
+    if catalog is None or catalog.empty:
+        return []
+    return catalog.to_dict(orient="records")
