@@ -4,15 +4,231 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────
+   Design tokens (CSS variables)
+   These mirror tailwind.config.js so they're usable in arbitrary
+   styles, animations, and 3rd-party CSS overrides.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --ink: #0a0a0b;
+  --ink-soft: #1a1a1c;
+  --paper: #fafaf9;
+  --rule: rgba(10, 10, 11, 0.08);
+  --rule-strong: rgba(10, 10, 11, 0.14);
+  --accent: #155852;
+}
+
 @layer base {
   html {
-    @apply text-gray-900 antialiased;
-    font-feature-settings: "cv11", "ss01";
+    @apply text-ink antialiased;
+    font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   body {
-    @apply text-sm leading-relaxed;
+    @apply text-[15px] leading-relaxed bg-paper;
+    font-synthesis: none;
   }
-  h1 { @apply text-2xl font-bold tracking-tight; }
-  h2 { @apply text-xl font-semibold; }
-  h3 { @apply text-base font-semibold; }
+
+  /* Editorial type scale — controlled by weight + color, not just size */
+  h1 {
+    @apply font-sans text-4xl md:text-5xl font-medium tracking-tightest leading-[1.05] text-ink;
+  }
+  h2 {
+    @apply font-sans text-2xl md:text-[28px] font-medium tracking-tight leading-tight text-ink;
+  }
+  h3 {
+    @apply font-sans text-base font-semibold tracking-tight text-ink;
+  }
+  p {
+    @apply text-[15px] leading-relaxed text-zinc-600;
+  }
+
+  /* Tabular numbers everywhere — this is a numbers-first tool */
+  .tabular,
+  table,
+  td,
+  th,
+  input[type='number'] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Honest focus ring — accessible, on-brand, never blue browser default */
+  *:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: rgba(21, 88, 82, 0.18);
+    color: var(--ink);
+  }
+}
+
+@layer components {
+  /* ── Buttons ────────────────────────────────────────────────
+     Tactile, fast, custom-eased. Press always responds with
+     scale(0.97) (Emil's rule). Never animate `all`.            */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2
+           px-4 py-2 text-[13px] font-medium tracking-tight
+           rounded-lg select-none whitespace-nowrap;
+    transition: transform 160ms var(--ease-out-strong),
+                background-color 160ms var(--ease-out-strong),
+                color 160ms var(--ease-out-strong),
+                border-color 160ms var(--ease-out-strong),
+                box-shadow 160ms var(--ease-out-strong);
+  }
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-ink text-paper shadow-soft;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--ink-soft);
+  }
+
+  .btn-accent {
+    @apply btn text-paper;
+    background-color: var(--accent);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.12) inset,
+      0 1px 2px rgba(7, 33, 32, 0.18);
+  }
+  .btn-accent:hover:not(:disabled) {
+    background-color: #114641;
+  }
+
+  .btn-ghost {
+    @apply btn text-zinc-700 border border-zinc-200 bg-white;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    @apply bg-zinc-50 border-zinc-300;
+  }
+
+  .btn-link {
+    @apply inline-flex items-center gap-1 text-[13px] font-medium text-ink;
+    transition: color 160ms var(--ease-out-strong);
+  }
+  .btn-link:hover {
+    color: var(--accent);
+  }
+
+  /* ── Inputs ─────────────────────────────────────────────── */
+  .input {
+    @apply w-full px-3 py-2 text-[14px] text-ink bg-white
+           border border-zinc-200 rounded-lg
+           placeholder:text-zinc-400;
+    transition: border-color 160ms var(--ease-out-strong),
+                box-shadow 160ms var(--ease-out-strong);
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(21, 88, 82, 0.12);
+  }
+
+  /* ── Hairline rule used for grouping (not card) ───────── */
+  .rule {
+    @apply border-t border-zinc-200/80;
+  }
+
+  /* ── Eyebrow label (small caps section markers) ───────── */
+  .eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500;
+  }
+
+  /* ── Editorial card — used sparingly, only for elevation */
+  .surface {
+    @apply bg-white border border-zinc-200/80 rounded-2xl;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset,
+                0 1px 2px rgba(10, 10, 11, 0.04);
+  }
+}
+
+/* ── Skeleton shimmer (used by Spinner.jsx skeletons) ───── */
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* ── Slow editorial marquee (CRF references on landing) ── */
+@keyframes hia-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.hia-marquee {
+  animation: hia-marquee 40s linear infinite;
+  will-change: transform;
+}
+.hia-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* ── SVG stroke draw (CRF curve in landing hero) ───────── */
+@keyframes hia-draw {
+  to { stroke-dashoffset: 0; }
+}
+.hia-draw {
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation: hia-draw 1.6s var(--ease-out-strong) 0.2s forwards;
+}
+
+/* ── CI bracket bar fade-in ─────────────────────────────── */
+@keyframes hia-bar-grow {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+.hia-bar-grow {
+  transform-origin: left center;
+  animation: hia-bar-grow 800ms var(--ease-out-strong) 0.1s both;
+}
+
+/* ── Stagger entrance for lists (CSS only, off main thread) ── */
+@keyframes hia-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.hia-rise {
+  opacity: 0;
+  animation: hia-rise 360ms var(--ease-out-strong) forwards;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+
+/* ── Reduced motion: keep opacity, drop movement ──────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
 }

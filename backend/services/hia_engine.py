@@ -477,17 +477,90 @@ def _compute_single_crf(
 _MORTALITY_KEYWORDS = ("mortality", "death", "deaths")
 
 
+def _analytical_crf_summary(
+    form: str,
+    crf: dict[str, Any],
+    c_base: float | np.ndarray,
+    c_ctrl: float | np.ndarray,
+    y0: float,
+    pop: float | np.ndarray,
+) -> dict[str, dict[str, float]]:
+    """Closed-form CI: propagate beta, betaLow, betaHigh through the CRF.
+
+    Returns a dict with three series — ``attributableCases``,
+    ``attributableFraction``, ``attributableRate`` — each shaped
+    ``{mean, lower95, upper95}``.
+
+    For monotonic forms with positive ΔC the lower bound corresponds
+    to ``betaLow`` and the upper bound to ``betaHigh``.  We sort the
+    pair to be safe in the unusual case where ΔC is negative or the
+    form is non-monotonic.
+    """
+    per_100k = 100_000
+    pop_arr = np.asarray(pop, dtype=np.float64)
+
+    def at(b: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        beta_arr = np.asarray([b], dtype=np.float64)
+        cases, paf = _compute_single_crf(form, beta_arr, c_base, c_ctrl, y0, pop)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            rate = np.where(pop_arr > 0, (cases / pop_arr) * per_100k, 0.0)
+        return cases, paf, rate
+
+    cases_m, paf_m, rate_m = at(crf["beta"])
+    cases_l, paf_l, rate_l = at(crf["betaLow"])
+    cases_h, paf_h, rate_h = at(crf["betaHigh"])
+
+    def bounds(lo: np.ndarray, hi: np.ndarray) -> tuple[float, float]:
+        lo_v = float(np.asarray(lo).mean())
+        hi_v = float(np.asarray(hi).mean())
+        return (min(lo_v, hi_v), max(lo_v, hi_v))
+
+    c_lo, c_hi = bounds(cases_l, cases_h)
+    p_lo, p_hi = bounds(paf_l, paf_h)
+    r_lo, r_hi = bounds(rate_l, rate_h)
+
+    return {
+        "attributableCases": {
+            "mean": float(np.asarray(cases_m).mean()),
+            "lower95": c_lo,
+            "upper95": c_hi,
+        },
+        "attributableFraction": {
+            "mean": float(np.asarray(paf_m).mean()),
+            "lower95": p_lo,
+            "upper95": p_hi,
+        },
+        "attributableRate": {
+            "mean": float(np.asarray(rate_m).mean()),
+            "lower95": r_lo,
+            "upper95": r_hi,
+        },
+    }
+
+
 def compute_hia(config: dict[str, Any]) -> dict[str, Any]:
     """Run a full Health Impact Assessment computation.
 
-    For each selected CRF the engine:
+    Two uncertainty modes are supported:
 
-    1. Derives SE from the 95 % CI stored in the CRF record.
-    2. Draws ``monte_carlo_iterations`` samples of β ~ N(β̂, SE²)
-       in a single vectorised call.
-    3. Computes attributable cases, PAF, and rate per 100 000 for
-       every draw simultaneously.
-    4. Summarises across draws (mean, 2.5th, 97.5th percentiles).
+    - **Analytical (default).**  When ``monteCarloIterations`` is 0
+      or omitted, the engine propagates the CRF's published 95 % CI on
+      beta directly through the functional form.  Lower and upper
+      bounds on the burden come from ``crf['betaLow']`` and
+      ``crf['betaHigh']`` — exactly the relative-risk uncertainty the
+      underlying epidemiological study reports.
+
+    - **Monte Carlo (optional).**  When ``monteCarloIterations > 0``,
+      beta is treated as N(β̂, SE²) with SE derived from the CI bounds,
+      and that many samples are drawn per CRF in a single vectorised
+      call.
+
+    Pooling across CRFs is controlled by ``poolingMethod``:
+
+    - ``'none'``     — Per-CRF results only; ``totalDeaths`` is ``None``.
+    - ``'separate'`` — Sum mortality endpoints across CRFs (default).
+    - ``'fixed'`` / ``'random'`` — Currently behave like ``'separate'``;
+      proper inverse-variance pooling is a planned refinement.
 
     Parameters
     ----------
@@ -501,29 +574,43 @@ def compute_hia(config: dict[str, Any]) -> dict[str, Any]:
         - ``selectedCRFs`` (list[dict]): CRF objects from the library.
           Each must contain ``id``, ``source``, ``endpoint``, ``beta``,
           ``betaLow``, ``betaHigh``, ``functionalForm``.
-        - ``monteCarloIterations`` (int, optional): Defaults to 1000.
+        - ``monteCarloIterations`` (int, optional): Defaults to 0
+          (analytical mode).
+        - ``poolingMethod`` (str, optional): One of ``'none'``,
+          ``'separate'``, ``'fixed'``, ``'random'``.
 
     Returns
     -------
     dict
-        ``results``: list of per-CRF dicts with ``crfId``, ``study``,
-        ``endpoint``, ``attributableCases``, ``attributableFraction``,
-        ``attributableRate`` (each with ``mean``, ``lower95``, ``upper95``).
+        ``results``: list of per-CRF dicts.
 
-        ``totalDeaths``: aggregated mortality estimate with ``mean``,
-        ``lower95``, ``upper95``.
+        ``totalDeaths``: aggregated mortality estimate, or ``None`` when
+        ``poolingMethod`` is ``'none'``.
+
+        ``meta``: ``{uncertaintyMethod, poolingMethod}``.
     """
     c_base = config["baselineConcentration"]
     c_ctrl = config["controlConcentration"]
     y0_global = config["baselineIncidence"]
     pop = config["population"]
     selected_crfs = config.get("selectedCRFs", [])
-    n_iter = config.get("monteCarloIterations", 1000)
+    n_iter = int(config.get("monteCarloIterations", 0) or 0)
+    pooling_method = config.get("poolingMethod", "separate")
+
+    use_analytical = n_iter <= 0
+    skip_pooling = pooling_method in ("none", "separate")
+    meta = {
+        "uncertaintyMethod": "analytical" if use_analytical else "monte-carlo",
+        "poolingMethod": pooling_method,
+    }
 
     if not selected_crfs:
         return {
             "results": [],
-            "totalDeaths": {"mean": 0.0, "lower95": 0.0, "upper95": 0.0},
+            "totalDeaths": None
+            if skip_pooling
+            else {"mean": 0.0, "lower95": 0.0, "upper95": 0.0},
+            "meta": meta,
         }
 
     rng = np.random.default_rng()
@@ -532,45 +619,54 @@ def compute_hia(config: dict[str, Any]) -> dict[str, Any]:
     results: list[dict[str, Any]] = []
 
     for crf in selected_crfs:
-        se = _beta_se(crf["betaLow"], crf["betaHigh"])
         form = crf.get("functionalForm", "log-linear")
         y0 = crf.get("defaultRate", y0_global) or y0_global
 
-        # Vectorised MC sampling
-        betas = rng.normal(loc=crf["beta"], scale=se, size=n_iter)
+        if use_analytical:
+            summary = _analytical_crf_summary(form, crf, c_base, c_ctrl, y0, pop)
+        else:
+            se = _beta_se(crf["betaLow"], crf["betaHigh"])
+            betas = rng.normal(loc=crf["beta"], scale=se, size=n_iter)
 
-        cases, paf = _compute_single_crf(form, betas, c_base, c_ctrl, y0, pop)
+            cases, paf = _compute_single_crf(form, betas, c_base, c_ctrl, y0, pop)
 
-        # Rate per 100 000
-        pop_arr = np.asarray(pop, dtype=np.float64)
-        with np.errstate(invalid="ignore", divide="ignore"):
-            rate = np.where(pop_arr > 0, (cases / pop_arr) * per_100k, 0.0)
+            pop_arr = np.asarray(pop, dtype=np.float64)
+            with np.errstate(invalid="ignore", divide="ignore"):
+                rate = np.where(pop_arr > 0, (cases / pop_arr) * per_100k, 0.0)
+
+            summary = {
+                "attributableCases": _summarise(cases),
+                "attributableFraction": _summarise(paf),
+                "attributableRate": _summarise(rate),
+            }
 
         results.append(
             {
                 "crfId": crf["id"],
                 "study": crf.get("source", ""),
                 "endpoint": crf.get("endpoint", ""),
-                "attributableCases": _summarise(cases),
-                "attributableFraction": _summarise(paf),
-                "attributableRate": _summarise(rate),
+                **summary,
             }
         )
 
-    # Total deaths: sum across mortality endpoints
-    mortality_results = [
-        r
-        for r in results
-        if any(kw in r["endpoint"].lower() for kw in _MORTALITY_KEYWORDS)
-    ]
-    total_deaths = {
-        "mean": sum(r["attributableCases"]["mean"] for r in mortality_results),
-        "lower95": sum(
-            r["attributableCases"]["lower95"] for r in mortality_results
-        ),
-        "upper95": sum(
-            r["attributableCases"]["upper95"] for r in mortality_results
-        ),
-    }
+    # Pooling across CRFs. 'none' and 'separate' skip pooling so users
+    # do not double-count overlapping mortality endpoints.
+    if skip_pooling:
+        total_deaths = None
+    else:
+        mortality_results = [
+            r
+            for r in results
+            if any(kw in r["endpoint"].lower() for kw in _MORTALITY_KEYWORDS)
+        ]
+        total_deaths = {
+            "mean": sum(r["attributableCases"]["mean"] for r in mortality_results),
+            "lower95": sum(
+                r["attributableCases"]["lower95"] for r in mortality_results
+            ),
+            "upper95": sum(
+                r["attributableCases"]["upper95"] for r in mortality_results
+            ),
+        }
 
-    return {"results": results, "totalDeaths": total_deaths}
+    return {"results": results, "totalDeaths": total_deaths, "meta": meta}

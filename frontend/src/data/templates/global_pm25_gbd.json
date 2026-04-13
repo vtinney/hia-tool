@@ -1,11 +1,11 @@
 {
-  "name": "Global PM2.5 Burden (GBD Framework)",
-  "description": "Global burden-of-disease style analysis using all GBD 2023 MR-BRT cause-specific CRFs for PM2.5. Requires gridded data.",
+  "name": "Global PM₂.₅ Burden (GBD Framework)",
+  "description": "Global burden-of-disease style analysis using all GBD 2023 MR-BRT cause-specific CRFs for PM₂.₅. Requires gridded data.",
   "step1": {
     "studyArea": { "type": "country", "id": "global", "name": "Global" },
     "pollutant": "pm25",
     "years": { "start": 2021, "end": 2021 },
-    "analysisName": "Global PM2.5 Burden — GBD 2023"
+    "analysisName": "Global PM₂.₅ Burden — GBD 2023"
   },
   "step2": {
     "baseline": { "type": "dataset", "datasetId": "acag_v5" },
