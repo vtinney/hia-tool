@@ -6,7 +6,7 @@ export default function App() {
   const element = useRoutes(routes)
   return (
     <ErrorBoundary fallbackMessage="The application encountered an unexpected error. Your analysis data is saved — try refreshing the page.">
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-[100dvh] bg-paper text-ink">
         {element}
       </div>
     </ErrorBoundary>

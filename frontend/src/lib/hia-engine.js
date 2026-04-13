@@ -201,15 +201,15 @@ function interpolateRR(table, c) {
  *
  * Burnett et al. (2018) parameterised the hazard ratio as:
  *
- *     HR(z) = exp( θ × z / (1 + exp(−(z − μ) / τ)) )
+ *     HR(z) = exp( θ × z / (1 + exp(−(z − µ) / τ)) )
  *
  * where
  *   z  = max(0, C − TMREL)        exposure above the theoretical
  *                                  minimum risk exposure level
  *   θ  = shape parameter           (stored as `beta` in the CRF)
- *   μ  = inflection concentration  (default 20 μg/m³ if not provided)
+ *   µ  = inflection concentration  (default 20 µg/m³ if not provided)
  *   τ  = scale parameter           (default 8 if not provided)
- *   TMREL = 2.4 μg/m³             (the no-risk threshold for PM2.5)
+ *   TMREL = 2.4 µg/m³             (the no-risk threshold for PM₂.₅)
  *
  * The PAF between two concentrations is:
  *
@@ -431,13 +431,109 @@ function computeSingleCRF(form, beta, cBase, cCtrl, y0, pop) {
 // ────────────────────────────────────────────────────────────────────
 
 /**
+ * Run a single CRF computation analytically at three beta values
+ * (beta_hat, beta_low, beta_high) and return mean / lower95 / upper95
+ * for cases, PAF, and rate per 100k.
+ *
+ * This is the **default** uncertainty path.  The 95 % CI in the CRF
+ * record already encodes the analyst's uncertainty about the relative
+ * risk; propagating betaLow and betaHigh through the same functional
+ * form gives a closed-form CI for the attributable burden — no
+ * sampling required.
+ *
+ * @private
+ */
+function analyticalCRF(form, crf, cBase, cCtrl, y0, pop) {
+  const PER_100K = 100_000
+  const ratePerPop = (c) => (pop > 0 ? (c / pop) * PER_100K : 0)
+
+  const at = (b) => computeSingleCRF(form, b, cBase, cCtrl, y0, pop)
+
+  const r0 = at(crf.beta)
+  const rL = at(crf.betaLow)
+  const rH = at(crf.betaHigh)
+
+  // For monotonic forms with positive ΔC, betaLow → smaller cases.
+  // We sort to be safe in case ΔC is negative or the form is non-monotonic.
+  const cases = [rL.cases, rH.cases].sort((a, b) => a - b)
+  const pafs  = [rL.paf,   rH.paf  ].sort((a, b) => a - b)
+  const rates = [ratePerPop(rL.cases), ratePerPop(rH.cases)].sort((a, b) => a - b)
+
+  return {
+    attributableCases: {
+      mean: r0.cases,
+      lower95: cases[0],
+      upper95: cases[1],
+    },
+    attributableFraction: {
+      mean: r0.paf,
+      lower95: pafs[0],
+      upper95: pafs[1],
+    },
+    attributableRate: {
+      mean: ratePerPop(r0.cases),
+      lower95: rates[0],
+      upper95: rates[1],
+    },
+  }
+}
+
+/**
+ * Run a single CRF computation via Monte Carlo sampling of beta from
+ * N(β̂, SE²) where SE is derived from the CI bounds.
+ *
+ * Use this when you want a true sampling distribution (e.g. to study
+ * non-linear effects of beta uncertainty on the burden).  For the
+ * standard HIA workflow, the analytical path above is preferred.
+ *
+ * @private
+ */
+function monteCarloCRF(form, crf, cBase, cCtrl, y0, pop, nIter) {
+  const PER_100K = 100_000
+  const se = betaSE(crf.betaLow, crf.betaHigh)
+  const caseSamples = []
+  const pafSamples = []
+  const rateSamples = []
+
+  for (let i = 0; i < nIter; i++) {
+    const sampledBeta = sampleNormal(crf.beta, se)
+    const { cases, paf } = computeSingleCRF(form, sampledBeta, cBase, cCtrl, y0, pop)
+    caseSamples.push(cases)
+    pafSamples.push(paf)
+    rateSamples.push(pop > 0 ? (cases / pop) * PER_100K : 0)
+  }
+
+  return {
+    attributableCases: summarise(caseSamples),
+    attributableFraction: summarise(pafSamples),
+    attributableRate: summarise(rateSamples),
+  }
+}
+
+/**
  * Run a full Health Impact Assessment computation.
  *
- * For each selected CRF the engine:
- *   1. Derives SE from the 95 % CI in the CRF record.
- *   2. Runs `monteCarloIterations` draws of beta ~ N(β̂, SE²).
- *   3. Computes attributable cases, PAF, and rate for each draw.
- *   4. Summarises across draws (mean, 2.5th, 97.5th percentiles).
+ * Two uncertainty modes are supported:
+ *
+ * - **Analytical (default).**  When `monteCarloIterations` is 0 or
+ *   omitted, the engine propagates the CRF's published 95 % CI on
+ *   beta directly through the functional form.  Lower / upper bounds
+ *   on the burden come from `crf.betaLow` and `crf.betaHigh` — exactly
+ *   the relative-risk uncertainty epidemiologists report in the
+ *   underlying study.  This is fast, deterministic, and reproducible.
+ *
+ * - **Monte Carlo (optional).**  When `monteCarloIterations > 0`, beta
+ *   is treated as a normal random variable with SE derived from the
+ *   CI, and the engine draws that many samples per CRF.  Use when you
+ *   want a sampling distribution rather than a parametric interval.
+ *
+ * Pooling across CRFs is controlled by `poolingMethod`:
+ *
+ * - `'none'` / `'separate'` — Per-CRF results only; `totalDeaths` is
+ *   `null`. `'separate'` is the default — each CRF stands on its own
+ *   so users do not double-count overlapping mortality endpoints.
+ * - `'fixed'` / `'random'` — Sum mortality endpoints across CRFs.
+ *   A future release will implement true inverse-variance pooling.
  *
  * @param {object} config
  * @param {number}   config.baselineConcentration  - C_baseline.
@@ -447,8 +543,9 @@ function computeSingleCRF(form, beta, cBase, cCtrl, y0, pop) {
  * @param {object[]} config.selectedCRFs            - Array of CRF objects
  *   from crf-library.json.  Each must include at minimum: id, source,
  *   endpoint, beta, betaLow, betaHigh, functionalForm.
- * @param {number}  [config.monteCarloIterations=1000]
- *   Number of MC draws per CRF.
+ * @param {number}  [config.monteCarloIterations=0]
+ *   Number of MC draws per CRF.  0 selects the analytical path.
+ * @param {('none'|'separate'|'fixed'|'random')} [config.poolingMethod='separate']
  *
  * @returns {{
  *   results: Array<{
@@ -459,7 +556,8 @@ function computeSingleCRF(form, beta, cBase, cCtrl, y0, pop) {
  *     attributableFraction: { mean: number, lower95: number, upper95: number },
  *     attributableRate:     { mean: number, lower95: number, upper95: number },
  *   }>,
- *   totalDeaths: { mean: number, lower95: number, upper95: number }
+ *   totalDeaths: { mean: number, lower95: number, upper95: number } | null,
+ *   meta: { uncertaintyMethod: 'analytical'|'monte-carlo', poolingMethod: string }
  * }}
  */
 export function computeHIA(config) {
@@ -469,73 +567,71 @@ export function computeHIA(config) {
     baselineIncidence,
     population,
     selectedCRFs,
-    monteCarloIterations = 1000,
+    monteCarloIterations = 0,
+    poolingMethod = 'separate',
   } = config
 
+  const useAnalytical = !monteCarloIterations || monteCarloIterations <= 0
+
+  const skipPooling = poolingMethod === 'none' || poolingMethod === 'separate'
+
   if (!selectedCRFs || selectedCRFs.length === 0) {
-    return { results: [], totalDeaths: { mean: 0, lower95: 0, upper95: 0 } }
+    return {
+      results: [],
+      totalDeaths: skipPooling ? null : { mean: 0, lower95: 0, upper95: 0 },
+      meta: {
+        uncertaintyMethod: useAnalytical ? 'analytical' : 'monte-carlo',
+        poolingMethod,
+      },
+    }
   }
 
-  const PER_100K = 100_000
-
   const results = selectedCRFs.map((crf) => {
-    const se = betaSE(crf.betaLow, crf.betaHigh)
     const form = crf.functionalForm || 'log-linear'
-
     // Use CRF-specific incidence rate if provided, else the global config rate
     const y0 = crf.defaultRate ?? baselineIncidence
 
-    const caseSamples = []
-    const pafSamples = []
-    const rateSamples = []
-
-    for (let i = 0; i < monteCarloIterations; i++) {
-      const sampledBeta = sampleNormal(crf.beta, se)
-
-      const { cases, paf } = computeSingleCRF(
-        form,
-        sampledBeta,
-        baselineConcentration,
-        controlConcentration,
-        y0,
-        population,
-      )
-
-      caseSamples.push(cases)
-      pafSamples.push(paf)
-      rateSamples.push(population > 0 ? (cases / population) * PER_100K : 0)
-    }
+    const summary = useAnalytical
+      ? analyticalCRF(form, crf, baselineConcentration, controlConcentration, y0, population)
+      : monteCarloCRF(form, crf, baselineConcentration, controlConcentration, y0, population, monteCarloIterations)
 
     return {
       crfId: crf.id,
       study: crf.source,
       endpoint: crf.endpoint,
-      attributableCases: summarise(caseSamples),
-      attributableFraction: summarise(pafSamples),
-      attributableRate: summarise(rateSamples),
+      ...summary,
     }
   })
 
-  // Total deaths: sum of attributable cases across all *mortality* CRFs.
-  // Non-mortality endpoints (hospitalisations, ED visits, incidence) are
-  // excluded from the death total.
-  const mortalityKeywords = ['mortality', 'death', 'deaths']
-  const isMortality = (endpoint) =>
-    mortalityKeywords.some((kw) => (endpoint || '').toLowerCase().includes(kw))
+  // ── Pooling across CRFs ──────────────────────────────────────
+  // 'none' and 'separate' → no pooled total. Each CRF stands alone
+  // so users do not double-count overlapping mortality endpoints.
+  // 'fixed'/'random' sum mortality endpoints (true inverse-variance
+  // pooling is a planned refinement).
+  let totalDeaths
+  if (skipPooling) {
+    totalDeaths = null
+  } else {
+    const mortalityKeywords = ['mortality', 'death', 'deaths']
+    const isMortality = (endpoint) =>
+      mortalityKeywords.some((kw) => (endpoint || '').toLowerCase().includes(kw))
 
-  // We sum per-iteration across mortality CRFs to properly capture
-  // correlated uncertainty.  Since each CRF is sampled independently,
-  // we just sum the per-CRF means / bounds as an approximation.
-  // (A full joint MC would re-sample all CRFs per iteration — deferred
-  // to a future release.)
-  const mortalityResults = results.filter((r) => isMortality(r.endpoint))
-  const totalDeaths = {
-    mean: mortalityResults.reduce((s, r) => s + r.attributableCases.mean, 0),
-    lower95: mortalityResults.reduce((s, r) => s + r.attributableCases.lower95, 0),
-    upper95: mortalityResults.reduce((s, r) => s + r.attributableCases.upper95, 0),
+    const mortalityResults = results.filter((r) => isMortality(r.endpoint))
+    totalDeaths = {
+      mean: mortalityResults.reduce((s, r) => s + r.attributableCases.mean, 0),
+      lower95: mortalityResults.reduce((s, r) => s + r.attributableCases.lower95, 0),
+      upper95: mortalityResults.reduce((s, r) => s + r.attributableCases.upper95, 0),
+    }
   }
 
-  return { results, totalDeaths }
+  return {
+    results,
+    totalDeaths,
+    meta: {
+      uncertaintyMethod: useAnalytical ? 'analytical' : 'monte-carlo',
+      poolingMethod,
+    },
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -582,15 +678,23 @@ export function computeTimeSeriesHIA(config) {
     baselineIncidence,
     population,
     selectedCRFs,
-    monteCarloIterations = 1000,
+    monteCarloIterations = 0,
+    poolingMethod = 'separate',
   } = config
+
+  const useAnalytical = !monteCarloIterations || monteCarloIterations <= 0
+  const skipPooling = poolingMethod === 'none' || poolingMethod === 'separate'
 
   if (!selectedCRFs || selectedCRFs.length === 0 || !baselineTimeSeries || baselineTimeSeries.length === 0) {
     return {
       daily: [],
       monthly: [],
       results: [],
-      totalCases: { mean: 0, lower95: 0, upper95: 0 },
+      totalCases: skipPooling ? null : { mean: 0, lower95: 0, upper95: 0 },
+      meta: {
+        uncertaintyMethod: useAnalytical ? 'analytical' : 'monte-carlo',
+        poolingMethod,
+      },
     }
   }
 
@@ -599,14 +703,23 @@ export function computeTimeSeriesHIA(config) {
   const isControlArray = Array.isArray(controlConcentration)
   const PER_100K = 100_000
 
-  const results = selectedCRFs.map((crf) => {
-    const se = betaSE(crf.betaLow, crf.betaHigh)
-    const totalSamples = []
+  // Sum cases over the whole series for a given beta value.
+  const sumOverDays = (beta) => {
+    let total = 0
+    for (let d = 0; d < nDays; d++) {
+      const cBase = baselineTimeSeries[d].concentration
+      const cCtrl = isControlArray ? controlConcentration[d].concentration : controlConcentration
+      const deltaC = cBase - cCtrl
+      const { cases } = logLinear(beta, deltaC, dailyRate, population)
+      total += cases
+    }
+    return total
+  }
 
-    // Daily breakdown using the central beta (for charts)
+  const results = selectedCRFs.map((crf) => {
+    // Daily breakdown using the central beta (for charts) — same in both modes
     const dailyBreakdown = []
     let cumulativeCentral = 0
-
     for (let d = 0; d < nDays; d++) {
       const row = baselineTimeSeries[d]
       const cBase = row.concentration
@@ -625,32 +738,53 @@ export function computeTimeSeriesHIA(config) {
       })
     }
 
-    // Monte Carlo for uncertainty on the total
-    for (let iter = 0; iter < monteCarloIterations; iter++) {
-      const sampledBeta = sampleNormal(crf.beta, se)
-      let iterTotal = 0
+    let totalCases
+    let attributableFraction
+    let attributableRate
 
-      for (let d = 0; d < nDays; d++) {
-        const cBase = baselineTimeSeries[d].concentration
-        const cCtrl = isControlArray ? controlConcentration[d].concentration : controlConcentration
-        const deltaC = cBase - cCtrl
-        const { cases } = logLinear(sampledBeta, deltaC, dailyRate, population)
-        iterTotal += cases
+    if (useAnalytical) {
+      // Propagate the published CI directly: totals at beta_low, beta, beta_high
+      const t0 = sumOverDays(crf.beta)
+      const tL = sumOverDays(crf.betaLow)
+      const tH = sumOverDays(crf.betaHigh)
+
+      const sortedTotals = [tL, tH].sort((a, b) => a - b)
+      const ratePerPop = (c) => (population > 0 ? (c / population) * PER_100K : 0)
+      const pafFor = (c) => (population > 0 ? c / (baselineIncidence * population) : 0)
+
+      totalCases = { mean: t0, lower95: sortedTotals[0], upper95: sortedTotals[1] }
+      attributableFraction = {
+        mean: pafFor(t0),
+        lower95: pafFor(sortedTotals[0]),
+        upper95: pafFor(sortedTotals[1]),
       }
-      totalSamples.push(iterTotal)
+      attributableRate = {
+        mean: ratePerPop(t0),
+        lower95: ratePerPop(sortedTotals[0]),
+        upper95: ratePerPop(sortedTotals[1]),
+      }
+    } else {
+      const se = betaSE(crf.betaLow, crf.betaHigh)
+      const totalSamples = []
+      for (let iter = 0; iter < monteCarloIterations; iter++) {
+        totalSamples.push(sumOverDays(sampleNormal(crf.beta, se)))
+      }
+      totalCases = summarise(totalSamples)
+      attributableFraction = summarise(
+        totalSamples.map((c) => (population > 0 ? c / (baselineIncidence * population) : 0)),
+      )
+      attributableRate = summarise(
+        totalSamples.map((c) => (population > 0 ? (c / population) * PER_100K : 0)),
+      )
     }
-
-    const totalCases = summarise(totalSamples)
-    const totalPafSamples = totalSamples.map((c) => (population > 0 ? c / (baselineIncidence * population) : 0))
-    const totalRateSamples = totalSamples.map((c) => (population > 0 ? (c / population) * PER_100K : 0))
 
     return {
       crfId: crf.id,
       study: crf.source,
       endpoint: crf.endpoint,
       totalCases,
-      attributableFraction: summarise(totalPafSamples),
-      attributableRate: summarise(totalRateSamples),
+      attributableFraction,
+      attributableRate,
       daily: dailyBreakdown,
     }
   })
@@ -661,23 +795,29 @@ export function computeTimeSeriesHIA(config) {
   // Monthly aggregation
   const monthlyMap = {}
   for (const day of daily) {
-    const month = day.date.slice(0, 7) // "YYYY-MM"
+    const month = day.date.slice(0, 7)
     monthlyMap[month] = (monthlyMap[month] || 0) + day.attributableCases
   }
   const monthly = Object.entries(monthlyMap)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, cases]) => ({ month, cases }))
 
-  // Total across mortality CRFs
-  const mortalityKeywords = ['mortality', 'death', 'deaths']
-  const isMortality = (endpoint) =>
-    mortalityKeywords.some((kw) => (endpoint || '').toLowerCase().includes(kw))
+  // Pooled total across mortality CRFs. 'none' and 'separate' skip
+  // pooling so users do not double-count overlapping endpoints.
+  let totalCases
+  if (skipPooling) {
+    totalCases = null
+  } else {
+    const mortalityKeywords = ['mortality', 'death', 'deaths']
+    const isMortality = (endpoint) =>
+      mortalityKeywords.some((kw) => (endpoint || '').toLowerCase().includes(kw))
 
-  const mortalityResults = results.filter((r) => isMortality(r.endpoint))
-  const totalCases = {
-    mean: mortalityResults.reduce((s, r) => s + r.totalCases.mean, 0),
-    lower95: mortalityResults.reduce((s, r) => s + r.totalCases.lower95, 0),
-    upper95: mortalityResults.reduce((s, r) => s + r.totalCases.upper95, 0),
+    const mortalityResults = results.filter((r) => isMortality(r.endpoint))
+    totalCases = {
+      mean: mortalityResults.reduce((s, r) => s + r.totalCases.mean, 0),
+      lower95: mortalityResults.reduce((s, r) => s + r.totalCases.lower95, 0),
+      upper95: mortalityResults.reduce((s, r) => s + r.totalCases.upper95, 0),
+    }
   }
 
   return {
@@ -685,6 +825,10 @@ export function computeTimeSeriesHIA(config) {
     monthly,
     results: results.map(({ daily: _d, ...rest }) => rest),
     totalCases,
+    meta: {
+      uncertaintyMethod: useAnalytical ? 'analytical' : 'monte-carlo',
+      poolingMethod,
+    },
   }
 }
 

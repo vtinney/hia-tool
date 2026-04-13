@@ -1,11 +1,11 @@
 {
-  "name": "U.S. National PM2.5 (NAAQS Comparison)",
-  "description": "National-level PM2.5 analysis comparing current U.S. levels to the NAAQS standard. Uses Krewski 2009 and Di 2017 CRFs.",
+  "name": "U.S. National PM₂.₅ (NAAQS Comparison)",
+  "description": "National-level PM₂.₅ analysis comparing current U.S. levels to the NAAQS standard. Uses Krewski 2009 and Di 2017 CRFs.",
   "step1": {
     "studyArea": { "type": "country", "id": "united-states", "name": "United States" },
     "pollutant": "pm25",
     "years": { "start": 2020, "end": 2020 },
-    "analysisName": "U.S. National PM2.5 — NAAQS Comparison"
+    "analysisName": "U.S. National PM₂.₅ — NAAQS Comparison"
   },
   "step2": {
     "baseline": { "type": "manual", "value": 10.5 },

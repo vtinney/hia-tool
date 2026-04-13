@@ -9,7 +9,7 @@ import {
 
 // ── Shared test fixtures ───────────────────────────────────────────
 
-/** Krewski-style CRF: RR = 1.06 per 10 μg/m³ → beta ≈ 0.005827 */
+/** Krewski-style CRF: RR = 1.06 per 10 µg/m³ → beta ≈ 0.005827 */
 const KREWSKI_CRF = {
   id: 'test_krewski',
   source: 'Krewski et al. 2009',
@@ -33,7 +33,7 @@ const GEMM_CRF = {
   defaultRate: 0.008,
 }
 
-// ── Test 1: Single-value PM2.5, Krewski CRF ───────────────────────
+// ── Test 1: Single-value PM₂.₅, Krewski CRF ───────────────────────
 
 describe('Log-linear (Krewski CRF)', () => {
   const baseline = 12
@@ -85,7 +85,7 @@ describe('Log-linear (Krewski CRF)', () => {
     expect(r.attributableRate).toHaveProperty('mean')
   })
 
-  it('totalDeaths sums mortality endpoints', () => {
+  it('separate (default) does not pool mortality endpoints', () => {
     const result = computeHIA({
       baselineConcentration: baseline,
       controlConcentration: control,
@@ -95,11 +95,9 @@ describe('Log-linear (Krewski CRF)', () => {
       monteCarloIterations: 2000,
     })
 
-    // "All-cause mortality" should be counted in totalDeaths
-    expect(result.totalDeaths.mean).toBeGreaterThan(0)
-    expect(result.totalDeaths.mean).toBeCloseTo(
-      result.results[0].attributableCases.mean, 0,
-    )
+    // 'separate' (the default) keeps each CRF on its own — no pooled total
+    expect(result.totalDeaths).toBeNull()
+    expect(result.results[0].attributableCases.mean).toBeGreaterThan(0)
   })
 })
 
@@ -173,7 +171,134 @@ describe('Monte Carlo uncertainty', () => {
   })
 })
 
-// ── Test 4: Edge cases ─────────────────────────────────────────────
+// ── Test 4: Analytical CIs (the new default) ──────────────────────
+
+describe('Analytical CIs (monteCarloIterations = 0)', () => {
+  const baseline = 12
+  const control = 5
+  const pop = 1_000_000
+  const y0 = 0.008
+
+  it('is fully deterministic across runs', () => {
+    const cfg = {
+      baselineConcentration: baseline,
+      controlConcentration: control,
+      baselineIncidence: y0,
+      population: pop,
+      selectedCRFs: [KREWSKI_CRF],
+      monteCarloIterations: 0,
+    }
+    const a = computeHIA(cfg)
+    const b = computeHIA(cfg)
+    expect(a.results[0].attributableCases.mean).toBe(b.results[0].attributableCases.mean)
+    expect(a.results[0].attributableCases.lower95).toBe(b.results[0].attributableCases.lower95)
+    expect(a.results[0].attributableCases.upper95).toBe(b.results[0].attributableCases.upper95)
+  })
+
+  it('lower95 equals analytical cases at betaLow', () => {
+    const result = computeHIA({
+      baselineConcentration: baseline,
+      controlConcentration: control,
+      baselineIncidence: y0,
+      population: pop,
+      selectedCRFs: [KREWSKI_CRF],
+      monteCarloIterations: 0,
+    })
+
+    const deltaC = baseline - control
+    // Reference values straight from the formula
+    const meanRef = (1 - Math.exp(-KREWSKI_CRF.beta * deltaC))     * y0 * pop
+    const loRef   = (1 - Math.exp(-KREWSKI_CRF.betaLow * deltaC))  * y0 * pop
+    const hiRef   = (1 - Math.exp(-KREWSKI_CRF.betaHigh * deltaC)) * y0 * pop
+
+    const r = result.results[0]
+    expect(r.attributableCases.mean).toBeCloseTo(meanRef, 3)
+    expect(r.attributableCases.lower95).toBeCloseTo(loRef, 3)
+    expect(r.attributableCases.upper95).toBeCloseTo(hiRef, 3)
+  })
+
+  it('reports analytical method in meta', () => {
+    const result = computeHIA({
+      baselineConcentration: baseline,
+      controlConcentration: control,
+      baselineIncidence: y0,
+      population: pop,
+      selectedCRFs: [KREWSKI_CRF],
+      monteCarloIterations: 0,
+    })
+    expect(result.meta.uncertaintyMethod).toBe('analytical')
+  })
+
+  it('reports monte-carlo method when iterations > 0', () => {
+    const result = computeHIA({
+      baselineConcentration: baseline,
+      controlConcentration: control,
+      baselineIncidence: y0,
+      population: pop,
+      selectedCRFs: [KREWSKI_CRF],
+      monteCarloIterations: 500,
+    })
+    expect(result.meta.uncertaintyMethod).toBe('monte-carlo')
+  })
+
+  it('defaults to analytical when monteCarloIterations is omitted', () => {
+    const result = computeHIA({
+      baselineConcentration: baseline,
+      controlConcentration: control,
+      baselineIncidence: y0,
+      population: pop,
+      selectedCRFs: [KREWSKI_CRF],
+    })
+    expect(result.meta.uncertaintyMethod).toBe('analytical')
+  })
+})
+
+// ── Test 5: Pooling method ────────────────────────────────────────
+
+describe('Pooling method', () => {
+  const baseCfg = {
+    baselineConcentration: 12,
+    controlConcentration: 5,
+    baselineIncidence: 0.008,
+    population: 1_000_000,
+    selectedCRFs: [KREWSKI_CRF],
+    monteCarloIterations: 0,
+  }
+
+  it('separate (default) returns null pooled total', () => {
+    const result = computeHIA({ ...baseCfg, poolingMethod: 'separate' })
+    expect(result.totalDeaths).toBeNull()
+  })
+
+  it('fixed pools mortality endpoints into a numeric total', () => {
+    const result = computeHIA({ ...baseCfg, poolingMethod: 'fixed' })
+    expect(result.totalDeaths).not.toBeNull()
+    expect(result.totalDeaths.mean).toBeGreaterThan(0)
+  })
+
+  it('none returns totalDeaths === null', () => {
+    const result = computeHIA({ ...baseCfg, poolingMethod: 'none' })
+    expect(result.totalDeaths).toBeNull()
+    // Per-CRF results still populated
+    expect(result.results).toHaveLength(1)
+    expect(result.results[0].attributableCases.mean).toBeGreaterThan(0)
+  })
+
+  it('none with empty CRF list returns null without throwing', () => {
+    const result = computeHIA({
+      ...baseCfg,
+      selectedCRFs: [],
+      poolingMethod: 'none',
+    })
+    expect(result.totalDeaths).toBeNull()
+    expect(result.results).toHaveLength(0)
+  })
+
+  it('reports pooling method in meta', () => {
+    const result = computeHIA({ ...baseCfg, poolingMethod: 'none' })
+    expect(result.meta.poolingMethod).toBe('none')
+  })
+})
 
 describe('Edge cases', () => {
   it('deltaC = 0 returns 0 deaths', () => {
@@ -191,7 +316,7 @@ describe('Edge cases', () => {
     expect(Math.abs(r.attributableCases.mean)).toBeLessThan(5)
   })
 
-  it('very high concentration (200 μg/m³) computes without error', () => {
+  it('very high concentration (200 µg/m³) computes without error', () => {
     const result = computeHIA({
       baselineConcentration: 200,
       controlConcentration: 5,
@@ -232,7 +357,8 @@ describe('Edge cases', () => {
     })
 
     expect(result.results).toHaveLength(0)
-    expect(result.totalDeaths.mean).toBe(0)
+    // Default pooling is 'separate' → no pooled total
+    expect(result.totalDeaths).toBeNull()
   })
 
   it('population = 0 returns 0 cases', () => {

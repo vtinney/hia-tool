@@ -1,11 +1,11 @@
 {
-  "name": "Single City PM2.5 (WHO Guideline)",
-  "description": "City-level PM2.5 analysis comparing current levels to the WHO annual guideline of 5 μg/m³. Uses the GEMM NCD+LRI model.",
+  "name": "Single City PM₂.₅ (WHO Guideline)",
+  "description": "City-level PM₂.₅ analysis comparing current levels to the WHO annual guideline of 5 µg/m³. Uses the GEMM NCD+LRI model.",
   "step1": {
     "studyArea": { "type": "custom", "id": "", "name": "" },
     "pollutant": "pm25",
     "years": null,
-    "analysisName": "City PM2.5 — WHO Guideline Comparison"
+    "analysisName": "City PM₂.₅ — WHO Guideline Comparison"
   },
   "step2": {
     "baseline": { "type": "manual", "value": null },

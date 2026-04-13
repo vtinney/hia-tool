@@ -41,13 +41,13 @@ const COLUMNS = [
 function SortArrow({ direction }) {
   if (!direction) {
     return (
-      <svg className="w-3.5 h-3.5 text-gray-300 ml-1 inline-block" viewBox="0 0 14 14" fill="currentColor">
+      <svg className="w-3 h-3 text-zinc-300 ml-1 inline-block" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
         <path d="M7 2l3.5 4h-7L7 2zM7 12L3.5 8h7L7 12z" />
       </svg>
     )
   }
   return (
-    <svg className="w-3.5 h-3.5 text-blue-600 ml-1 inline-block" viewBox="0 0 14 14" fill="currentColor">
+    <svg className="w-3 h-3 text-accent-700 ml-1 inline-block" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
       {direction === 'asc'
         ? <path d="M7 2l3.5 4h-7L7 2z" />
         : <path d="M7 12L3.5 8h7L7 12z" />}
@@ -132,9 +132,11 @@ export default function ResultsTable({ rows = [], hasValuation = false, hasSpati
 
   if (rows.length === 0) {
     return (
-      <p className="text-gray-400 py-12 text-center">
-        No detailed results available.
-      </p>
+      <div className="py-16 text-center">
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+          No detailed results available
+        </p>
+      </div>
     )
   }
 
@@ -143,11 +145,11 @@ export default function ResultsTable({ rows = [], hasValuation = false, hasSpati
   return (
     <div>
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-5">
         <div className="relative">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -156,14 +158,14 @@ export default function ResultsTable({ rows = [], hasValuation = false, hasSpati
             placeholder="Filter by endpoint…"
             value={endpointFilter}
             onChange={(e) => setEndpointFilter(e.target.value)}
-            className="pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none w-56 bg-white"
+            className="input pl-9 w-60"
           />
         </div>
 
         <select
           value={frameworkFilter}
           onChange={(e) => setFrameworkFilter(e.target.value)}
-          className="px-3 py-2 text-sm rounded-lg border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none bg-white text-gray-700"
+          className="input w-auto"
         >
           <option value="">All frameworks</option>
           {frameworks.map((fw) => (
@@ -173,28 +175,31 @@ export default function ResultsTable({ rows = [], hasValuation = false, hasSpati
 
         {(endpointFilter || frameworkFilter) && (
           <button
+            type="button"
             onClick={() => { setEndpointFilter(''); setFrameworkFilter('') }}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            className="btn-link text-zinc-500"
           >
             Clear filters
           </button>
         )}
 
-        <span className="ml-auto text-xs text-gray-400">
-          {sorted.length} of {rows.length} row{rows.length !== 1 ? 's' : ''}
+        <span className="ml-auto font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400 tabular-nums">
+          {sorted.length} / {rows.length} {rows.length === 1 ? 'row' : 'rows'}
         </span>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200">
-        <table className="min-w-full text-sm">
+      {/* Table — borders, not boxes */}
+      <div className="overflow-x-auto border-y border-zinc-200/80">
+        <table className="min-w-full text-[13px]">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
+            <tr className="border-b border-zinc-200/80">
               {visibleColumns.map((col) => (
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none hover:text-gray-900 transition-colors"
+                  className={`px-4 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500 whitespace-nowrap cursor-pointer select-none
+                              hover:text-ink transition-colors duration-150 ease-out
+                              ${col.numeric ? 'text-right' : 'text-left'}`}
                 >
                   {col.label}
                   <SortArrow direction={sortKey === col.key ? sortDir : null} />
@@ -202,24 +207,28 @@ export default function ResultsTable({ rows = [], hasValuation = false, hasSpati
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-zinc-100">
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={visibleColumns.length} className="px-4 py-8 text-center text-gray-400">
-                  No rows match the current filters.
+                <td colSpan={visibleColumns.length} className="px-4 py-10 text-center">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+                    No rows match the current filters
+                  </span>
                 </td>
               </tr>
             ) : (
               sorted.map((row, i) => (
-                <tr key={i} className="hover:bg-gray-50 transition-colors">
+                <tr key={i} className="hover:bg-zinc-50/60 transition-colors duration-150 ease-out">
                   {visibleColumns.map((col) => (
                     <td
                       key={col.key}
                       className={`px-4 py-3 whitespace-nowrap ${
-                        col.numeric ? 'text-right tabular-nums text-gray-700' : 'text-gray-700'
+                        col.numeric
+                          ? 'text-right font-mono text-[12.5px] tabular-nums text-ink'
+                          : 'text-zinc-700'
                       }`}
                     >
-                      {row[col.key] != null ? col.format(row[col.key]) : '—'}
+                      {row[col.key] != null ? col.format(row[col.key]) : <span className="text-zinc-300">—</span>}
                     </td>
                   ))}
                 </tr>

@@ -41,7 +41,9 @@ const DEFAULT_STEP5 = {
 
 const DEFAULT_STEP6 = {
   poolingMethod: 'separate',
-  monteCarloIterations: 1000,
+  // 0 = analytical CIs (propagate the published betaLow/betaHigh
+  // through the CRF). Set > 0 to use Monte Carlo sampling instead.
+  monteCarloIterations: 0,
   spatialAggregation: null,
 }
 
@@ -174,7 +176,7 @@ const useAnalysisStore = create(
     }),
     {
       name: 'hia-analysis',
-      version: 3,
+      version: 4,
       partialize: (state) => ({
         // Persist only the data that matters for resume — skip transient UI state
         currentStep: state.currentStep,
@@ -189,8 +191,10 @@ const useAnalysisStore = create(
         step7: state.step7,
       }),
       migrate: (persisted, version) => {
-        // Future-proof: if the stored version is older, start fresh
-        if (version < 3) return initialState()
+        // Future-proof: if the stored version is older, start fresh.
+        // v4 resets stale step6 (defaults: MC iterations 1000 → 0,
+        // pooling 'fixed' → 'separate') and any persisted SO2 selections.
+        if (version < 4) return initialState()
         return persisted
       },
     },

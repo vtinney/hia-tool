@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Papa from 'papaparse'
 import { jsPDF } from 'jspdf'
@@ -6,8 +6,7 @@ import html2canvas from 'html2canvas'
 import useAnalysisStore from '../stores/useAnalysisStore'
 import ResultsTable from '../components/ResultsTable'
 
-// ── Formatting helpers ──────────────────────────────────────────
-
+// ── Formatting helpers ─────────────────────────────────────────
 function fmtNumber(n, decimals = 0) {
   if (n == null) return '—'
   return Number(n).toLocaleString(undefined, {
@@ -15,31 +14,26 @@ function fmtNumber(n, decimals = 0) {
     maximumFractionDigits: decimals,
   })
 }
-
+function fmtCompact(n) {
+  if (n == null) return '—'
+  if (Math.abs(n) >= 1e9) return `${(n / 1e9).toFixed(2)}B`
+  if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(2)}M`
+  if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(1)}k`
+  return fmtNumber(n)
+}
 function fmtPercent(n) {
   if (n == null) return '—'
   return `${(Number(n) * 100).toFixed(1)}%`
 }
-
 function fmtCurrency(n) {
   if (n == null) return '—'
   if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`
   if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`
   return `$${fmtNumber(n)}`
 }
-
-function fmtRate(n) {
-  if (n == null) return '—'
-  return fmtNumber(n, 1)
-}
-
 function slugify(name) {
-  return (name || 'hia-analysis')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
+  return (name || 'hia-analysis').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
-
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -49,90 +43,292 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
-// ── Summary Card ────────────────────────────────────────────────
+// ── Inline icons ──────────────────────────────────────────────
+function ChevronLeft(props) {
+  return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d="M10 3.5L5.5 8l4.5 4.5" /></svg>
+}
+function ArrowRight(props) {
+  return <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" /></svg>
+}
+function CheckIcon(props) {
+  return <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d="M2.5 6.5L5 9l4.5-5.5" /></svg>
+}
 
-function SummaryCard({ label, value, ci, subtitle, bgClass }) {
-  return (
-    <div className={`rounded-2xl p-6 shadow-sm ${bgClass}`}>
-      <p className="text-sm font-medium text-gray-500 mb-1">{label}</p>
-      <p className="text-3xl font-bold text-gray-900 leading-tight">{value}</p>
-      {ci && (
-        <p className="text-sm text-gray-500 mt-1">
-          95% CI: {ci}
+// ── Count-up hook (used by hero number) ─────────────────────
+function useCountUp(target, duration = 1100) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    if (target == null || isNaN(target)) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setValue(target)
+      return
+    }
+    let raf
+    const start = performance.now()
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration)
+      // Strong ease-out (cubic-bezier(0.23, 1, 0.32, 1)) approximation
+      const eased = 1 - Math.pow(1 - t, 3)
+      setValue(target * eased)
+      if (t < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, duration])
+  return value
+}
+
+// ── Hero: massive number + CI bar ──────────────────────────
+function HeroNumber({ totalDeaths, isSpatial, zoneCount, uncertaintyMethod }) {
+  // When pooling is 'none', the engine returns totalDeaths === null.
+  // We render a distinct state instead of a misleading zero.
+  const isPooled = totalDeaths != null
+  const mean = isPooled ? totalDeaths.mean : 0
+  const lower = isPooled ? totalDeaths.lower95 : 0
+  const upper = isPooled ? totalDeaths.upper95 : 0
+  const animatedMean = useCountUp(mean)
+
+  if (!isPooled) {
+    return (
+      <div className="surface p-8 lg:p-10">
+        <div className="flex items-baseline justify-between mb-6">
+          <p className="eyebrow">Headline result</p>
+          <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-400">
+            Pooling: none
+          </p>
+        </div>
+        <p className="font-sans font-medium text-ink leading-tight tracking-tightest text-[40px] md:text-[48px] max-w-prose">
+          Per-CRF results only.
+          <span className="block text-zinc-400">No pooled total computed.</span>
         </p>
-      )}
-      {subtitle && (
-        <p className="text-xs text-gray-400 mt-2">{subtitle}</p>
-      )}
+        <p className="mt-5 text-[14px] text-zinc-500 max-w-prose">
+          Pooling was set to <span className="font-mono text-ink">none</span>, so each CRF
+          stands on its own below. Switch to <span className="font-mono text-ink">Run separately</span> on
+          the Run step to sum mortality endpoints.
+        </p>
+      </div>
+    )
+  }
+
+  // CI bar geometry. The bracket spans the full width (with a small
+  // margin) so the visual is dominated by the CI rather than by an
+  // arbitrary axis. The point-estimate marker sits visually centered
+  // between the two brackets — the precise numeric values are shown
+  // in the labels underneath, so the bar's job is to communicate the
+  // *width* of the interval, not the absolute scale.
+  const lowerPct = 6
+  const upperPct = 94
+  const widthPct = upperPct - lowerPct
+  const meanPct = (lowerPct + upperPct) / 2
+
+  return (
+    <div className="surface p-8 lg:p-10">
+      <div className="flex items-baseline justify-between mb-6">
+        <p className="eyebrow">Headline result</p>
+        <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-400">
+          Attributable deaths · 95% CI
+          {uncertaintyMethod && (
+            <span className="ml-2 text-zinc-300">
+              · {uncertaintyMethod === 'analytical' ? 'analytical' : 'monte carlo'}
+            </span>
+          )}
+        </p>
+      </div>
+
+      <div className="flex flex-col lg:flex-row lg:items-end gap-8 lg:gap-12">
+        {/* Massive mean */}
+        <div className="lg:flex-1">
+          <p className="font-mono font-medium text-ink leading-[0.85] tracking-tightest tabular-nums text-[88px] md:text-[112px] lg:text-[128px]">
+            {fmtNumber(Math.round(animatedMean))}
+          </p>
+          <p className="mt-3 text-[14px] text-zinc-500">
+            attributable deaths
+            {isSpatial && zoneCount ? (
+              <span className="text-zinc-400"> · across {zoneCount.toLocaleString()} zones</span>
+            ) : null}
+          </p>
+        </div>
+
+        {/* CI bracket bar */}
+        <div className="lg:flex-1 lg:pb-3">
+          <div className="relative h-12">
+            {/* baseline */}
+            <div className="absolute inset-x-0 top-1/2 -translate-y-px h-px bg-zinc-200" />
+
+            {/* CI band */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 h-2 rounded-full hia-bar-grow"
+              style={{
+                left: `${lowerPct}%`,
+                width: `${widthPct}%`,
+                background:
+                  'linear-gradient(90deg, rgba(21,88,82,0.18), rgba(21,88,82,0.42), rgba(21,88,82,0.18))',
+                boxShadow: 'inset 0 0 0 1px rgba(21,88,82,0.25)',
+              }}
+            />
+
+            {/* Lower bracket */}
+            <div className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: `${lowerPct}%` }}>
+              <div className="h-5 w-px bg-accent-700" />
+            </div>
+
+            {/* Upper bracket */}
+            <div className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: `${upperPct}%` }}>
+              <div className="h-5 w-px bg-accent-700" />
+            </div>
+
+            {/* Mean marker */}
+            <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2" style={{ left: `${meanPct}%` }}>
+              <div className="h-7 w-[3px] bg-ink rounded-full" />
+            </div>
+          </div>
+
+          {/* CI labels */}
+          <div className="mt-3 flex items-baseline justify-between font-mono text-[11px] tabular-nums">
+            <div>
+              <span className="text-zinc-400 uppercase tracking-[0.12em] mr-2 text-[9.5px]">Lower</span>
+              <span className="text-zinc-600">{fmtNumber(lower)}</span>
+            </div>
+            <div className="text-center">
+              <span className="text-zinc-400 uppercase tracking-[0.12em] mr-2 text-[9.5px]">Point estimate</span>
+              <span className="text-ink">{fmtNumber(mean)}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-zinc-400 uppercase tracking-[0.12em] mr-2 text-[9.5px]">Upper</span>
+              <span className="text-zinc-600">{fmtNumber(upper)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
 
-// ── Tab: Map placeholder ────────────────────────────────────────
+// ── Secondary stats row ───────────────────────────────────
+function SecondaryStat({ label, value, sub }) {
+  return (
+    <div className="border-t border-zinc-200/80 pt-5">
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 mb-2">{label}</p>
+      <p className="font-mono text-[28px] tracking-tight text-ink tabular-nums leading-none">{value}</p>
+      {sub && <p className="mt-2 text-[12px] text-zinc-500 leading-snug">{sub}</p>}
+    </div>
+  )
+}
 
+// ── Endpoint breakdown chart (hand-rolled SVG) ─────────────
+// Horizontal bars sorted by point-estimate attributable cases.
+// Each bar's length is proportional to the point estimate alone —
+// the count to the right is the absolute number, not a percentage
+// of any total. (CI bounds are not displayed here; they live in the
+// detail table below for analysts who need them.)
+function EndpointBreakdown({ rows = [] }) {
+  const data = useMemo(() => {
+    // Group by endpoint, sum across CRFs / spatial units
+    const grouped = {}
+    for (const r of rows) {
+      const k = r.endpoint || 'Unknown'
+      if (!grouped[k]) grouped[k] = { endpoint: k, mean: 0 }
+      grouped[k].mean += Number(r.attributableCases) || 0
+    }
+    return Object.values(grouped)
+      .filter((d) => d.mean > 0)
+      .sort((a, b) => b.mean - a.mean)
+      .slice(0, 8)
+  }, [rows])
+
+  if (data.length === 0) return null
+
+  const maxMean = Math.max(...data.map((d) => d.mean)) || 1
+
+  return (
+    <div className="surface p-7 lg:p-8">
+      <div className="flex items-baseline justify-between mb-6">
+        <p className="eyebrow">By endpoint</p>
+        <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-400 tabular-nums">
+          Top {data.length} · attributable cases
+        </p>
+      </div>
+
+      <ul className="space-y-5">
+        {data.map((d, i) => {
+          const widthPct = (d.mean / maxMean) * 100
+          return (
+            <li
+              key={d.endpoint}
+              className="hia-rise"
+              style={{ '--i': i + 1 }}
+            >
+              <div className="flex items-baseline justify-between mb-2">
+                <span className="text-[13px] text-ink truncate pr-3">{d.endpoint}</span>
+                <span className="font-mono text-[13px] text-ink tabular-nums shrink-0">
+                  {fmtNumber(d.mean)}
+                </span>
+              </div>
+              <div className="relative h-2.5">
+                <div className="absolute inset-y-0 left-0 right-0 bg-zinc-100 rounded-full" />
+                <div
+                  className="absolute top-0 bottom-0 bg-accent-700 rounded-full hia-bar-grow"
+                  style={{ left: 0, width: `${widthPct}%` }}
+                />
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+// ── Map placeholder (zone summary) ─────────────────────────
 function MapTab({ zones }) {
   if (!zones || zones.length === 0) {
     return (
-      <div className="flex items-center justify-center h-80 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
-        <div className="text-center">
-          <svg className="mx-auto h-12 w-12 text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-          </svg>
-          <p className="text-gray-400 font-medium">Spatial map available for gridded analyses</p>
-          <p className="text-xs text-gray-300 mt-1">Run a gridded analysis to generate spatial results</p>
-        </div>
+      <div className="border border-dashed border-zinc-200 rounded-2xl py-20 text-center">
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+          Spatial map available for gridded analyses
+        </p>
+        <p className="mt-2 text-[13px] text-zinc-500">
+          Run a gridded analysis to generate spatial results.
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-center h-64 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
-        <div className="text-center">
-          <svg className="mx-auto h-12 w-12 text-blue-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-          </svg>
-          <p className="text-blue-500 font-medium">Choropleth map rendering coming soon</p>
-          <p className="text-xs text-gray-400 mt-1">{zones.length} zones with spatial results available</p>
-        </div>
+    <div className="space-y-6">
+      <div className="border border-dashed border-zinc-200 rounded-2xl py-16 text-center">
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-700">
+          Choropleth rendering coming soon
+        </p>
+        <p className="mt-2 text-[13px] text-zinc-500 tabular-nums">
+          {zones.length} zones with spatial results available
+        </p>
       </div>
 
-      {/* Zone-level summary table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+      <div className="overflow-x-auto border-y border-zinc-200/80">
+        <table className="w-full text-[13px]">
           <thead>
-            <tr className="bg-gray-50">
-              <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">Zone</th>
-              <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Population</th>
-              <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Baseline Conc.</th>
-              <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Control Conc.</th>
-              <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Attr. Cases</th>
-              <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">95% CI</th>
+            <tr className="border-b border-zinc-200/80">
+              {['Zone', 'Population', 'Baseline conc.', 'Control conc.', 'Attr. cases', '95% CI'].map((h, i) => (
+                <th key={h} className={`px-3 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500 ${i === 0 ? 'text-left' : 'text-right'}`}>
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-zinc-100">
             {zones.map((zone) => {
               const totalCases = zone.results?.reduce((s, r) => s + (r.attributableCases?.mean || 0), 0) || 0
               const totalLower = zone.results?.reduce((s, r) => s + (r.attributableCases?.lower95 || 0), 0) || 0
               const totalUpper = zone.results?.reduce((s, r) => s + (r.attributableCases?.upper95 || 0), 0) || 0
               return (
-                <tr key={zone.zoneId} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 border-b border-gray-100 font-medium text-gray-900">
-                    {zone.zoneName || zone.zoneId}
-                  </td>
-                  <td className="px-3 py-2 border-b border-gray-100 text-right text-gray-700">
-                    {fmtNumber(zone.population)}
-                  </td>
-                  <td className="px-3 py-2 border-b border-gray-100 text-right text-gray-700">
-                    {fmtNumber(zone.baselineConcentration, 1)}
-                  </td>
-                  <td className="px-3 py-2 border-b border-gray-100 text-right text-gray-700">
-                    {fmtNumber(zone.controlConcentration, 1)}
-                  </td>
-                  <td className="px-3 py-2 border-b border-gray-100 text-right font-medium text-gray-900">
-                    {fmtNumber(totalCases)}
-                  </td>
-                  <td className="px-3 py-2 border-b border-gray-100 text-right text-gray-500 text-xs">
+                <tr key={zone.zoneId} className="hover:bg-zinc-50/60 transition-colors">
+                  <td className="px-3 py-2.5 text-ink">{zone.zoneName || zone.zoneId}</td>
+                  <td className="px-3 py-2.5 text-right font-mono tabular-nums text-zinc-700">{fmtNumber(zone.population)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono tabular-nums text-zinc-700">{fmtNumber(zone.baselineConcentration, 1)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono tabular-nums text-zinc-700">{fmtNumber(zone.controlConcentration, 1)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono tabular-nums text-ink">{fmtNumber(totalCases)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono tabular-nums text-zinc-500 text-[11.5px]">
                     {fmtNumber(totalLower)} – {fmtNumber(totalUpper)}
                   </td>
                 </tr>
@@ -145,39 +341,26 @@ function MapTab({ zones }) {
   )
 }
 
-// ── Tab: Results Table ──────────────────────────────────────────
-
 function TableTab({ results, hasValuation }) {
   const rows = results?.detail ?? []
   const hasSpatialUnits = rows.some((r) => r.spatialUnit != null)
-
-  return (
-    <ResultsTable
-      rows={rows}
-      hasValuation={hasValuation}
-      hasSpatialUnits={hasSpatialUnits}
-    />
-  )
+  return <ResultsTable rows={rows} hasValuation={hasValuation} hasSpatialUnits={hasSpatialUnits} />
 }
-
-// ── Tab: Trend placeholder ──────────────────────────────────────
 
 function TrendTab() {
   return (
-    <div className="flex items-center justify-center h-80 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
-      <div className="text-center">
-        <svg className="mx-auto h-12 w-12 text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-        </svg>
-        <p className="text-gray-400 font-medium">Multi-year trend chart</p>
-        <p className="text-xs text-gray-300 mt-1">Available when analyzing multiple years</p>
-      </div>
+    <div className="border border-dashed border-zinc-200 rounded-2xl py-20 text-center">
+      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+        Multi-year trend chart
+      </p>
+      <p className="mt-2 text-[13px] text-zinc-500">
+        Available when analyzing multiple years.
+      </p>
     </div>
   )
 }
 
-// ── Save Template Modal ─────────────────────────────────────────
-
+// ── Save Template Modal ─────────────────────────────────────
 function SaveTemplateModal({ open, onClose, onSave, saving }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -190,44 +373,36 @@ function SaveTemplateModal({ open, onClose, onSave, saving }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Save as Template</h3>
-        <div className="space-y-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-sm p-4">
+      <div className="surface w-full max-w-md p-7">
+        <p className="eyebrow mb-2">Reusable</p>
+        <h3 className="text-[20px] font-medium tracking-tight text-ink mb-5">Save as template</h3>
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
+            <label className="block font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500 mb-1.5">Template name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. PM2.5 US Standard Analysis"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+              placeholder="e.g. PM₂.₅ US standard analysis"
+              className="input"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+            <label className="block font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500 mb-1.5">Description (optional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder="Brief description of this configuration..."
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none"
+              placeholder="Brief description of this configuration…"
+              className="input resize-none"
             />
           </div>
         </div>
-        <div className="flex justify-end gap-3 mt-5">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 border border-gray-300 rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!name.trim() || saving}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            {saving ? 'Saving...' : 'Save Template'}
+        <div className="flex justify-end gap-3 mt-6">
+          <button onClick={onClose} className="btn-ghost">Cancel</button>
+          <button onClick={handleSave} disabled={!name.trim() || saving} className="btn-accent">
+            {saving ? 'Saving…' : 'Save template'}
           </button>
         </div>
       </div>
@@ -235,80 +410,62 @@ function SaveTemplateModal({ open, onClose, onSave, saving }) {
   )
 }
 
-// ── Export button card ───────────────────────────────────────────
-
-function ExportButton({ icon, label, description, onClick, disabled, busy, colorClass = 'text-blue-500', hoverClass = 'hover:border-blue-300 hover:bg-blue-50' }) {
+// ── Export tile ─────────────────────────────────────────────
+function ExportTile({ kicker, label, description, onClick, disabled, busy }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled || busy}
-      className={`flex flex-col items-center gap-2 p-6 rounded-xl border border-gray-200 ${hoverClass} transition-colors disabled:opacity-40 disabled:cursor-not-allowed`}
+      className="group text-left p-6 border border-zinc-200/80 rounded-2xl bg-white hover:border-accent-300 transition-colors duration-200 ease-out disabled:opacity-40 disabled:cursor-not-allowed"
     >
-      {busy ? (
-        <svg className="animate-spin h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-      ) : (
-        <svg className={`h-8 w-8 ${colorClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          {icon}
-        </svg>
-      )}
-      <span className="font-medium text-gray-700">{busy ? 'Generating...' : label}</span>
-      <span className="text-xs text-gray-400">{description}</span>
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 mb-3">
+        {busy ? 'Generating…' : kicker}
+      </p>
+      <p className="text-[15px] font-medium text-ink mb-1.5">{label}</p>
+      <p className="text-[12.5px] text-zinc-500 leading-relaxed">{description}</p>
+      <span className="mt-4 inline-flex items-center gap-1 text-[12px] text-accent-700 group-hover:gap-1.5 transition-all duration-200 ease-out">
+        Download
+        <ArrowRight className="w-3 h-3" />
+      </span>
     </button>
   )
 }
 
-// ── Tab: Export ──────────────────────────────────────────────────
-
 const CSV_COLUMNS = [
-  { key: 'crfStudy',            header: 'CRF Study' },
-  { key: 'framework',           header: 'Framework' },
-  { key: 'endpoint',            header: 'Endpoint' },
-  { key: 'spatialUnit',         header: 'Spatial Unit' },
-  { key: 'attributableCases',   header: 'Attributable Cases (mean)' },
-  { key: 'lower95',             header: 'Lower 95% CI' },
-  { key: 'upper95',             header: 'Upper 95% CI' },
+  { key: 'crfStudy',             header: 'CRF Study' },
+  { key: 'framework',            header: 'Framework' },
+  { key: 'endpoint',             header: 'Endpoint' },
+  { key: 'spatialUnit',          header: 'Spatial Unit' },
+  { key: 'attributableCases',    header: 'Attributable Cases (mean)' },
+  { key: 'lower95',              header: 'Lower 95% CI' },
+  { key: 'upper95',              header: 'Upper 95% CI' },
   { key: 'attributableFraction', header: 'Attributable Fraction' },
-  { key: 'ratePer100k',         header: 'Rate per 100,000' },
-  { key: 'economicValue',       header: 'Economic Value' },
+  { key: 'ratePer100k',          header: 'Rate per 100,000' },
+  { key: 'economicValue',        header: 'Economic Value' },
 ]
 
 function ExportTab({ results, analysisName, hasValuation, summaryRef, tableRef, step1, step6, step7, exportConfig, onOpenTemplateModal }) {
   const [pdfBusy, setPdfBusy] = useState(false)
-
   const slug = slugify(analysisName)
   const rows = results?.detail ?? []
   const hasSpatialUnits = rows.some((r) => r.spatialUnit != null)
 
-  // ── 1. Download CSV (Papaparse) ─────────────────────────────
-
   const handleDownloadCSV = useCallback(() => {
     if (rows.length === 0) return
-
     const visibleCols = CSV_COLUMNS.filter((col) => {
       if (col.key === 'economicValue' && !hasValuation) return false
       if (col.key === 'spatialUnit' && !hasSpatialUnits) return false
       return true
     })
-
     const data = rows.map((row) => {
       const obj = {}
-      for (const col of visibleCols) {
-        obj[col.header] = row[col.key] ?? ''
-      }
+      for (const col of visibleCols) obj[col.header] = row[col.key] ?? ''
       return obj
     })
-
     const csv = Papa.unparse(data)
-    triggerDownload(
-      new Blob([csv], { type: 'text/csv;charset=utf-8' }),
-      `${slug}-results.csv`,
-    )
+    triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${slug}-results.csv`)
   }, [rows, hasValuation, hasSpatialUnits, slug])
-
-  // ── 2. Download PDF Report ──────────────────────────────────
 
   const handleDownloadPDF = useCallback(async () => {
     setPdfBusy(true)
@@ -318,30 +475,28 @@ function ExportTab({ results, analysisName, hasValuation, summaryRef, tableRef, 
       const pageH = pdf.internal.pageSize.getHeight()
       const margin = 20
 
-      // — Title page —
       pdf.setFontSize(28)
-      pdf.setTextColor(15, 23, 42) // slate-900
+      pdf.setTextColor(15, 23, 42)
       pdf.text(analysisName || 'HIA Analysis Report', margin, 50)
-
       pdf.setFontSize(12)
-      pdf.setTextColor(100, 116, 139) // slate-500
+      pdf.setTextColor(100, 116, 139)
       pdf.text(`Generated: ${new Date().toLocaleDateString()}`, margin, 65)
 
-      // Key parameters
       let y = 90
       pdf.setFontSize(14)
       pdf.setTextColor(15, 23, 42)
       pdf.text('Analysis Parameters', margin, y)
       y += 10
-
       pdf.setFontSize(10)
-      pdf.setTextColor(71, 85, 105) // slate-600
+      pdf.setTextColor(71, 85, 105)
       const params = [
         ['Study Area', step1?.studyArea?.name || '—'],
         ['Pollutant', step1?.pollutant || '—'],
         ['Years', step1?.years ? (step1.years.start === step1.years.end ? String(step1.years.start) : `${step1.years.start}–${step1.years.end}`) : '—'],
         ['Pooling Method', step6?.poolingMethod || '—'],
-        ['Monte Carlo Iterations', String(step6?.monteCarloIterations ?? '—')],
+        ['Uncertainty Method', results?.meta?.uncertaintyMethod === 'monte-carlo'
+          ? `Monte Carlo (${step6?.monteCarloIterations ?? 0} iterations)`
+          : 'Analytical 95% CI'],
       ]
       if (hasValuation) {
         params.push(
@@ -350,56 +505,35 @@ function ExportTab({ results, analysisName, hasValuation, summaryRef, tableRef, 
         )
       }
       for (const [label, value] of params) {
-        pdf.setFont(undefined, 'bold')
-        pdf.text(`${label}:`, margin, y)
-        pdf.setFont(undefined, 'normal')
-        pdf.text(value, margin + 55, y)
+        pdf.setFont(undefined, 'bold'); pdf.text(`${label}:`, margin, y)
+        pdf.setFont(undefined, 'normal'); pdf.text(value, margin + 55, y)
         y += 7
       }
 
-      // — Summary cards capture —
       if (summaryRef.current) {
         pdf.addPage()
-        pdf.setFontSize(16)
-        pdf.setTextColor(15, 23, 42)
+        pdf.setFontSize(16); pdf.setTextColor(15, 23, 42)
         pdf.text('Summary', margin, 25)
-
-        const summaryCanvas = await html2canvas(summaryRef.current, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#f8fafc',
-        })
+        const summaryCanvas = await html2canvas(summaryRef.current, { scale: 2, useCORS: true, backgroundColor: '#fafaf9' })
         const summaryImg = summaryCanvas.toDataURL('image/png')
         const imgW = pageW - margin * 2
         const imgH = (summaryCanvas.height / summaryCanvas.width) * imgW
         pdf.addImage(summaryImg, 'PNG', margin, 35, imgW, Math.min(imgH, pageH - 55))
       }
 
-      // — Table capture —
       if (tableRef.current) {
         pdf.addPage()
-        pdf.setFontSize(16)
-        pdf.setTextColor(15, 23, 42)
+        pdf.setFontSize(16); pdf.setTextColor(15, 23, 42)
         pdf.text('Detailed Results by CRF', margin, 25)
-
-        const tableCanvas = await html2canvas(tableRef.current, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-        })
+        const tableCanvas = await html2canvas(tableRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
         const tableImg = tableCanvas.toDataURL('image/png')
         const imgW = pageW - margin * 2
         const imgH = (tableCanvas.height / tableCanvas.width) * imgW
-
-        // If the table image is taller than one page, scale to fit width and let it clip
-        // A production version would paginate; for now, fit what we can.
         const maxImgH = pageH - 45
         const finalH = Math.min(imgH, maxImgH)
         pdf.addImage(tableImg, 'PNG', margin, 35, imgW, finalH)
-
         if (imgH > maxImgH) {
-          pdf.setFontSize(9)
-          pdf.setTextColor(148, 163, 184)
+          pdf.setFontSize(9); pdf.setTextColor(148, 163, 184)
           pdf.text('Table truncated — download CSV for full data.', margin, pageH - 10)
         }
       }
@@ -412,8 +546,6 @@ function ExportTab({ results, analysisName, hasValuation, summaryRef, tableRef, 
       setPdfBusy(false)
     }
   }, [analysisName, hasValuation, step1, step6, step7, summaryRef, tableRef, slug])
-
-  // ── 3. Download JSON Config ─────────────────────────────────
 
   const handleDownloadConfig = useCallback(() => {
     const config = exportConfig()
@@ -430,62 +562,24 @@ function ExportTab({ results, analysisName, hasValuation, summaryRef, tableRef, 
     )
   }, [exportConfig, analysisName, slug])
 
-  // ── Render ──────────────────────────────────────────────────
-
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <ExportButton
-        label="Download CSV"
-        description="Results table via Papaparse"
-        disabled={rows.length === 0}
-        colorClass="text-teal-500"
-        hoverClass="hover:border-teal-300 hover:bg-teal-50"
-        onClick={handleDownloadCSV}
-        icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />}
-      />
-
-      <ExportButton
-        label="Download PDF Report"
-        description="Summary cards, parameters & table"
-        busy={pdfBusy}
-        colorClass="text-blue-500"
-        hoverClass="hover:border-blue-300 hover:bg-blue-50"
-        onClick={handleDownloadPDF}
-        icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />}
-      />
-
-      <ExportButton
-        label="Download JSON Config"
-        description="Reproducibility file"
-        colorClass="text-blue-400"
-        hoverClass="hover:border-blue-300 hover:bg-blue-50"
-        onClick={handleDownloadConfig}
-        icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />}
-      />
-
-      <ExportButton
-        label="Save as Template"
-        description="Reuse this configuration"
-        colorClass="text-teal-600"
-        hoverClass="hover:border-teal-300 hover:bg-teal-50"
-        onClick={onOpenTemplateModal}
-        icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />}
-      />
+      <ExportTile kicker="CSV" label="Results table" description="Tidy CSV via Papaparse — every CRF, every endpoint, every CI." disabled={rows.length === 0} onClick={handleDownloadCSV} />
+      <ExportTile kicker="PDF" label="Full report" description="Title page, parameters, summary cards, and the detail table." busy={pdfBusy} onClick={handleDownloadPDF} />
+      <ExportTile kicker="JSON" label="Reproducibility config" description="The exact inputs that produced these numbers, in one file." onClick={handleDownloadConfig} />
+      <ExportTile kicker="Save" label="Reusable template" description="Save this configuration to start a new analysis from it." onClick={onOpenTemplateModal} />
     </div>
   )
 }
 
-// ── Tabs ────────────────────────────────────────────────────────
-
 const TABS = [
-  { key: 'map', label: 'Map' },
-  { key: 'table', label: 'Table' },
-  { key: 'trend', label: 'Trend' },
+  { key: 'table',  label: 'Detail' },
+  { key: 'map',    label: 'Map' },
+  { key: 'trend',  label: 'Trend' },
   { key: 'export', label: 'Export' },
 ]
 
-// ── Main Page ───────────────────────────────────────────────────
-
+// ── Main Page ──────────────────────────────────────────────
 export default function Results() {
   const { results, step1, step6, step7, exportConfig } = useAnalysisStore()
   const [activeTab, setActiveTab] = useState('table')
@@ -501,6 +595,7 @@ export default function Results() {
   const totalDeaths = isSpatial ? results?.totalDeaths : summary.totalDeaths
   const hasValuation = step7?.runValuation && summary.economicValue != null
   const analysisName = results?.meta?.analysisName || step1?.analysisName || ''
+  const detailRows = results?.detail ?? []
 
   const handleSaveTemplate = useCallback(async ({ name, description }) => {
     setSavingTemplate(true)
@@ -523,116 +618,118 @@ export default function Results() {
   }, [exportConfig])
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+    <div className="min-h-[100dvh] bg-paper">
+      {/* Header */}
+      <header className="border-b border-zinc-200/80">
+        <div className="max-w-[1280px] mx-auto px-6 lg:px-10 py-6 flex items-start justify-between gap-6">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Analysis Results</h1>
+            <p className="eyebrow mb-2">Run complete</p>
+            <h1 className="text-ink">Analysis results</h1>
             {analysisName && (
-              <p className="text-slate-500 mt-1">{analysisName}</p>
+              <p className="mt-2 text-[14px] text-zinc-500 max-w-prose">{analysisName}</p>
             )}
           </div>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             {templateSaved && (
-              <span className="flex items-center gap-1 text-sm text-teal-600 font-medium animate-pulse">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+              <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-accent-700">
+                <CheckIcon className="w-3 h-3" />
                 Template saved
               </span>
             )}
-            <Link
-              to="/analysis/7"
-              className="px-5 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors text-sm font-medium"
-            >
-              Back to Wizard
+            <Link to="/" className="btn-ghost">
+              <ChevronLeft className="w-3.5 h-3.5" />
+              Home
             </Link>
-            <Link
-              to="/"
-              className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              New Analysis
+            <Link to="/" className="btn-primary">
+              New analysis
             </Link>
           </div>
         </div>
+      </header>
 
-        {/* No results state */}
+      <div className="max-w-[1280px] mx-auto px-6 lg:px-10 py-12">
         {!results ? (
-          <div className="bg-white rounded-2xl shadow-sm p-16 text-center">
-            <svg className="mx-auto h-16 w-16 text-gray-200 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            <p className="text-gray-400 text-lg font-medium">No results yet</p>
-            <p className="text-gray-300 text-sm mt-1">Complete the analysis wizard to see results here.</p>
-            <Link
-              to="/analysis/1"
-              className="inline-block mt-6 px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              Start Analysis
+          // ── Empty state ──────────────────────────────────
+          <div className="surface p-16 text-center">
+            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+              No results yet
+            </p>
+            <p className="mt-3 text-[15px] text-zinc-600">
+              No analysis has been run yet.
+            </p>
+            <Link to="/" className="btn-accent inline-flex mt-6">
+              Home
+              <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         ) : (
           <>
-            {/* Summary Cards */}
-            <div
-              ref={summaryRef}
-              className={`grid gap-4 mb-8 ${hasValuation ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'}`}
-            >
-              <SummaryCard
-                label="Total Attributable Deaths"
-                value={fmtNumber(totalDeaths?.mean)}
-                ci={
-                  totalDeaths
-                    ? `${fmtNumber(totalDeaths.lower95)} – ${fmtNumber(totalDeaths.upper95)}`
-                    : null
-                }
-                subtitle={isSpatial ? `Across ${results.zones.length} zones` : undefined}
-                bgClass="bg-blue-50"
+            {/* ── Hero summary ─────────────────────────────── */}
+            <div ref={summaryRef} className="space-y-6 mb-12">
+              <HeroNumber
+                totalDeaths={totalDeaths}
+                isSpatial={isSpatial}
+                zoneCount={results?.zones?.length}
+                uncertaintyMethod={results?.meta?.uncertaintyMethod}
               />
-              <SummaryCard
-                label="Attributable Fraction"
-                value={fmtPercent(summary.attributableFraction)}
-                subtitle="Share of deaths attributable to exposure"
-                bgClass="bg-teal-50"
-              />
-              <SummaryCard
-                label="Attributable Rate"
-                value={fmtRate(summary.attributableRate)}
-                subtitle="Per 100,000 population"
-                bgClass="bg-blue-50"
-              />
-              {hasValuation && (
-                <SummaryCard
-                  label="Economic Value"
-                  value={fmtCurrency(summary.economicValue)}
-                  subtitle={`VSL-based valuation (${step7.currency} ${step7.dollarYear})`}
-                  bgClass="bg-teal-50"
+
+              <div className={`grid gap-x-10 gap-y-8 ${hasValuation ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+                <SecondaryStat
+                  label="Attributable fraction"
+                  value={fmtPercent(summary.attributableFraction)}
+                  sub="Share of deaths attributable to exposure"
                 />
-              )}
+                <SecondaryStat
+                  label="Rate per 100k"
+                  value={summary.attributableRate != null ? fmtNumber(summary.attributableRate, 1) : '—'}
+                  sub="Per 100,000 population"
+                />
+                {hasValuation && (
+                  <SecondaryStat
+                    label="Economic value"
+                    value={fmtCurrency(summary.economicValue)}
+                    sub={`VSL-based valuation · ${step7.currency} ${step7.dollarYear}`}
+                  />
+                )}
+              </div>
             </div>
 
-            {/* Tabs */}
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              <div className="border-b border-gray-200">
-                <nav className="flex -mb-px">
-                  {TABS.map((tab) => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                        activeTab === tab.key
-                          ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
+            {/* ── Endpoint breakdown ───────────────────────── */}
+            {detailRows.length > 0 && (
+              <div className="mb-12">
+                <EndpointBreakdown rows={detailRows} />
+              </div>
+            )}
+
+            {/* ── Tabs ─────────────────────────────────────── */}
+            <div>
+              <div className="flex items-center justify-between border-b border-zinc-200/80">
+                <nav className="flex items-center -mb-px">
+                  {TABS.map((tab) => {
+                    const active = activeTab === tab.key
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setActiveTab(tab.key)}
+                        className={`relative px-4 py-3 text-[13px] font-medium tracking-tight
+                                    transition-colors duration-150 ease-out
+                                    ${active ? 'text-ink' : 'text-zinc-500 hover:text-ink'}`}
+                      >
+                        {tab.label}
+                        {active && (
+                          <span className="absolute inset-x-3 -bottom-px h-px bg-ink" />
+                        )}
+                      </button>
+                    )
+                  })}
                 </nav>
+                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 hidden sm:block">
+                  {detailRows.length} {detailRows.length === 1 ? 'row' : 'rows'}
+                </p>
               </div>
 
-              <div className="p-6">
+              <div className="pt-8">
                 {activeTab === 'map' && <MapTab zones={results?.zones} />}
                 {activeTab === 'table' && (
                   <div ref={tableRef}>
@@ -660,7 +757,6 @@ export default function Results() {
         )}
       </div>
 
-      {/* Save Template Modal */}
       <SaveTemplateModal
         open={templateModal}
         onClose={() => setTemplateModal(false)}
