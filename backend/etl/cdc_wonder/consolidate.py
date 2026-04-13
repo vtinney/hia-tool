@@ -1,4 +1,12 @@
-"""Consolidate cached CDC Wonder TSVs into tidy parquet files."""
+"""Consolidate cached CDC Wonder XML responses into a tidy parquet file.
+
+Since the CDC Wonder API only provides national-level data (county/state
+grouping is unavailable via the API), each cached response contains
+age-group-level rows for a single (year, ICD group) combination. This
+module reads all cached responses, sums deaths and population across
+the age groups that belong to each age bucket (all, 25plus, 65plus),
+and writes one national-level parquet.
+"""
 
 from __future__ import annotations
 
@@ -11,9 +19,25 @@ from backend.etl.cdc_wonder.parser import parse_response
 
 logger = logging.getLogger("cdc_wonder.consolidate")
 
+# Map CDC Wonder age-group labels to our bucket membership.
+# Each response row has a label like "25-34 years".
+_AGE_LABEL_TO_BUCKETS: dict[str, list[str]] = {
+    "< 1 year": ["all"],
+    "1-4 years": ["all"],
+    "5-14 years": ["all"],
+    "15-24 years": ["all"],
+    "25-34 years": ["all", "25plus"],
+    "35-44 years": ["all", "25plus"],
+    "45-54 years": ["all", "25plus"],
+    "55-64 years": ["all", "25plus"],
+    "65-74 years": ["all", "25plus", "65plus"],
+    "75-84 years": ["all", "25plus", "65plus"],
+    "85+ years": ["all", "25plus", "65plus"],
+}
+
 
 def _iter_cached(raw_root: Path):
-    """Yield (database, year, icd_group, age_bucket, tsv_text) tuples."""
+    """Yield (year, icd_group, xml_text) tuples from cached responses."""
     if not raw_root.exists():
         return
     for db_dir in sorted(raw_root.iterdir()):
@@ -26,81 +50,71 @@ def _iter_cached(raw_root: Path):
                 year = int(year_dir.name)
             except ValueError:
                 continue
-            for tsv_path in sorted(year_dir.glob("*.tsv")):
-                stem = tsv_path.stem
-                if "_" not in stem:
-                    continue
-                icd_group, age_bucket = stem.rsplit("_", 1)
-                yield db_dir.name, year, icd_group, age_bucket, tsv_path.read_text()
+            for xml_path in sorted(year_dir.glob("*.xml")):
+                icd_group = xml_path.stem  # e.g. "cvd"
+                yield year, icd_group, xml_path.read_text()
 
 
 def consolidate(
     *,
     raw_root: Path,
-    county_parquet: Path,
-    state_parquet: Path,
-    master_fips: list[str],
+    output_parquet: Path,
 ) -> None:
-    """Build the tidy county and state parquets from cached raw TSVs."""
-    rows: list[pd.DataFrame] = []
-    for database, year, icd_group, age_bucket, text in _iter_cached(raw_root):
+    """Build the national-level mortality rate parquet from cached XML responses.
+
+    Parameters
+    ----------
+    raw_root : Path
+        Directory containing ``{database}/{year}/{icd_group}.xml`` files.
+    output_parquet : Path
+        Output parquet destination.
+    """
+    all_rows: list[dict] = []
+
+    for year, icd_group, text in _iter_cached(raw_root):
         parsed = parse_response(text)
         if parsed.empty:
+            logger.warning("empty response for year=%d icd=%s", year, icd_group)
             continue
-        parsed["year"] = year
-        parsed["icd_group"] = icd_group
-        parsed["age_bucket"] = age_bucket
-        rows.append(parsed)
 
-    if not rows:
+        # For each age group row, add to the appropriate buckets
+        for _, row in parsed.iterrows():
+            label = row["age_group"]
+            buckets = _AGE_LABEL_TO_BUCKETS.get(label, [])
+            for bucket in buckets:
+                all_rows.append({
+                    "year": year,
+                    "icd_group": icd_group,
+                    "age_bucket": bucket,
+                    "deaths": row["deaths"],
+                    "population": row["population"],
+                })
+
+    if not all_rows:
         raise RuntimeError(
-            f"No cached CDC Wonder TSVs found under {raw_root}. "
+            f"No cached CDC Wonder XML responses found under {raw_root}. "
             "Run the fetch step first."
         )
 
-    df = pd.concat(rows, ignore_index=True)
+    df = pd.DataFrame(all_rows)
 
-    combos = df[["year", "icd_group", "age_bucket"]].drop_duplicates()
-    master = pd.DataFrame({"fips": master_fips})
-    master["key"] = 1
-    combos["key"] = 1
-    grid = master.merge(combos, on="key").drop(columns="key")
-
-    merged = grid.merge(
-        df, on=["fips", "year", "icd_group", "age_bucket"], how="left"
-    )
-    merged["deaths"] = merged["deaths"].fillna(0).astype("int32")
-    merged["population"] = merged["population"].fillna(0).astype("int32")
-    merged["state_fips"] = merged["fips"].str[:2]
-    merged["year"] = merged["year"].astype("int16")
-    merged["icd_group"] = merged["icd_group"].astype("category")
-    merged["age_bucket"] = merged["age_bucket"].astype("category")
-
-    rate = merged["deaths"].astype("float64") / merged["population"].replace(0, pd.NA)
-    merged["rate_per_person_year"] = rate.fillna(0).astype("float32")
-
-    out = merged[[
-        "fips", "state_fips", "year", "icd_group",
-        "age_bucket", "deaths", "population", "rate_per_person_year",
-    ]]
-
-    county_parquet.parent.mkdir(parents=True, exist_ok=True)
-    out.to_parquet(county_parquet, index=False)
-    logger.info("wrote %d county rows to %s", len(out), county_parquet)
-
-    state = (
-        out.groupby(
-            ["state_fips", "year", "icd_group", "age_bucket"],
-            observed=True,
-        )
+    # Sum across age groups within each bucket
+    agg = (
+        df.groupby(["year", "icd_group", "age_bucket"])
         .agg(deaths=("deaths", "sum"), population=("population", "sum"))
         .reset_index()
     )
-    state_rate = state["deaths"].astype("float64") / state["population"].replace(0, pd.NA)
-    state["rate_per_person_year"] = state_rate.fillna(0).astype("float32")
-    state["deaths"] = state["deaths"].astype("int64")
-    state["population"] = state["population"].astype("int64")
 
-    state_parquet.parent.mkdir(parents=True, exist_ok=True)
-    state.to_parquet(state_parquet, index=False)
-    logger.info("wrote %d state rows to %s", len(state), state_parquet)
+    # Compute rate
+    rate = agg["deaths"].astype("float64") / agg["population"].replace(0, pd.NA)
+    agg["rate_per_person_year"] = rate.fillna(0).astype("float64")
+
+    agg["year"] = agg["year"].astype("int16")
+    agg["icd_group"] = agg["icd_group"].astype("category")
+    agg["age_bucket"] = agg["age_bucket"].astype("category")
+
+    output_parquet.parent.mkdir(parents=True, exist_ok=True)
+    agg.to_parquet(output_parquet, index=False)
+    logger.info(
+        "wrote %d national rows to %s", len(agg), output_parquet,
+    )

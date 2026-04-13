@@ -62,10 +62,9 @@ AGE_BUCKETS: dict[str, list[str]] = {
 # On-disk layout
 RAW_DIR = Path("data/raw/cdc_wonder")
 PROCESSED_DIR = Path("data/processed/incidence/us")
-COUNTY_PARQUET = PROCESSED_DIR / "cdc_wonder_mortality.parquet"
-STATE_PARQUET = PROCESSED_DIR / "cdc_wonder_mortality_state.parquet"
+NATIONAL_PARQUET = PROCESSED_DIR / "cdc_wonder_mortality_national.parquet"
 
 # HTTP
 CDC_WONDER_URL = "https://wonder.cdc.gov/controller/datarequest/{db}"
-REQUEST_DELAY_SECONDS = 1.0
+REQUEST_DELAY_SECONDS = 16.0  # CDC Wonder requires >= 15s between API requests
 MAX_RETRIES = 5

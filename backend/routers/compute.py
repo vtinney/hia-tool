@@ -72,7 +72,7 @@ class CRFResult(BaseModel):
 
 class ComputeResponse(BaseModel):
     results: list[CRFResult]
-    totalDeaths: EstimateCI
+    totalDeaths: EstimateCI | None = None
 
 
 # ── Spatial models ─────────────────────────────────────────────────
@@ -116,28 +116,19 @@ def _stamp_us_baseline_rates(
     crfs: list[dict],
     *,
     country_code: str | None,
-    fips_codes: list[str] | None,
     year: int | None,
 ) -> None:
-    """In-place: override each CRF's defaultRate with a US county rate
+    """In-place: override each CRF's defaultRate with the US national rate
     when the analysis is US-based and a mapping exists."""
-    if country_code != "US" or not fips_codes or year is None:
+    if country_code != "US" or year is None:
         return
-    import numpy as np
 
     for crf in crfs:
         endpoint = crf.get("endpoint", "")
-        rate = get_baseline_rate(endpoint, year, fips_codes)
+        rate = get_baseline_rate(endpoint, year, country_code=country_code)
         if rate is None:
             continue
-        if hasattr(rate, "__len__"):
-            crf["_perZoneRates"] = list(rate)
-            if len(rate) == 1:
-                crf["defaultRate"] = float(rate[0])
-            else:
-                crf["defaultRate"] = float(np.mean(rate))
-        else:
-            crf["defaultRate"] = float(rate)
+        crf["defaultRate"] = rate
 
 
 # ── Scalar endpoint ────────────────────────────────────────────────
@@ -147,16 +138,15 @@ def _stamp_us_baseline_rates(
 async def run_compute(req: ComputeRequest) -> ComputeResponse:
     """Run HIA computation synchronously and return results.
 
-    When the request specifies countryCode='US' with fipsCodes and year,
-    each CRF's defaultRate is overridden with the matching CDC Wonder
-    county rate before the engine runs.
+    When the request specifies countryCode='US' and year, each CRF's
+    defaultRate is overridden with the matching CDC Wonder national
+    rate before the engine runs.
     """
     config = req.model_dump()
     config["selectedCRFs"] = [crf.model_dump() for crf in req.selectedCRFs]
     _stamp_us_baseline_rates(
         config["selectedCRFs"],
         country_code=req.countryCode,
-        fips_codes=req.fipsCodes,
         year=req.year,
     )
     result = compute_hia(config)

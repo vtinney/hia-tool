@@ -1,76 +1,79 @@
-"""Parse CDC Wonder TSV responses into tidy DataFrames.
+"""Parse CDC Wonder XML responses into tidy DataFrames.
 
-CDC Wonder returns tab-separated text with a header row, one row per
-grouped result, a "---" separator, and footer notes describing the query.
-Small cells (1-9 deaths) come back as the literal string "Suppressed".
+The CDC Wonder API returns XML containing a <data-table> element with
+<r> (row) elements, each containing <c> (cell) elements. When grouped
+by ten-year age groups, each row has: age-group label, deaths count,
+population count, and crude rate.
 """
 
 from __future__ import annotations
 
-import io
+import xml.etree.ElementTree as ET
 
 import pandas as pd
 
 
 def parse_response(text: str) -> pd.DataFrame:
-    """Parse a CDC Wonder TSV response body.
+    """Parse a CDC Wonder XML response body.
 
-    Returns DataFrame with columns: fips (str, 5-digit), deaths (int), population (int).
+    Parameters
+    ----------
+    text : str
+        Full XML response body from the CDC Wonder API.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per age group, with columns:
+        - ``age_group`` (str, e.g. "25-34 years")
+        - ``deaths`` (int; suppressed/missing -> 0)
+        - ``population`` (int; "Not Applicable"/missing -> 0)
     """
-    lines = text.splitlines()
-    data_lines: list[str] = []
-    for line in lines:
-        stripped = line.strip().strip('"')
-        if stripped == "---":
-            break
-        data_lines.append(line)
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return pd.DataFrame(columns=["age_group", "deaths", "population"])
 
-    if not data_lines:
-        return pd.DataFrame(columns=["fips", "deaths", "population"])
+    dt = root.find(".//data-table")
+    if dt is None:
+        return pd.DataFrame(columns=["age_group", "deaths", "population"])
 
-    raw = pd.read_csv(
-        io.StringIO("\n".join(data_lines)),
-        sep="\t",
-        dtype=str,
-        keep_default_na=False,
-    )
+    rows: list[dict] = []
+    for r in dt.findall("r"):
+        cells = r.findall("c")
+        if len(cells) < 3:
+            continue
 
-    for col in raw.columns:
-        raw[col] = raw[col].str.strip().str.strip('"')
+        label = cells[0].get("l", "").strip()
+        deaths_str = cells[1].get("v", "0").strip()
+        pop_str = cells[2].get("v", "0").strip()
 
-    col_map = {}
-    for col in raw.columns:
-        lower = col.lower()
-        if "county code" in lower:
-            col_map[col] = "fips"
-        elif lower == "deaths":
-            col_map[col] = "deaths"
-        elif lower == "population":
-            col_map[col] = "population"
-    df = raw.rename(columns=col_map)
+        rows.append({
+            "age_group": label,
+            "deaths": _to_int(deaths_str),
+            "population": _to_int(pop_str),
+        })
 
-    required = {"fips", "deaths", "population"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"CDC Wonder response missing required columns: {sorted(missing)}. Got: {list(df.columns)}")
+    if not rows:
+        return pd.DataFrame(columns=["age_group", "deaths", "population"])
 
-    df = df[["fips", "deaths", "population"]].copy()
-    df["fips"] = df["fips"].str.zfill(5)
+    df = pd.DataFrame(rows)
+    df["deaths"] = df["deaths"].astype("int64")
+    df["population"] = df["population"].astype("int64")
 
-    def _to_int(value: str) -> int:
-        if value is None:
-            return 0
-        v = value.strip()
-        if not v or v.lower() == "suppressed" or v == "Missing":
-            return 0
-        try:
-            return int(float(v))
-        except ValueError:
-            return 0
+    # Drop "Not Stated" rows
+    df = df[~df["age_group"].str.contains("Not Stated", case=False, na=False)]
+    return df.reset_index(drop=True)
 
-    df["deaths"] = df["deaths"].map(_to_int).astype("int32")
-    df["population"] = df["population"].map(_to_int).astype("int32")
-    df = df[df["fips"].str.match(r"^\d{5}$")].reset_index(drop=True)
-    df["fips"] = df["fips"].astype(object)
 
-    return df
+def _to_int(value: str) -> int:
+    """Convert a CDC Wonder cell value to int, handling commas and special values."""
+    if not value:
+        return 0
+    v = value.replace(",", "").strip()
+    if v.lower() in ("suppressed", "not applicable", "missing", ""):
+        return 0
+    try:
+        return int(float(v))
+    except ValueError:
+        return 0

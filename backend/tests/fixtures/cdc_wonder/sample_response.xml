@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<page>
+<platform>prod</platform>
+<data-table>
+<r><c l="25-34 years"/><c v="4,570"/><c v="45,940,321"/><c v="9.9"/></r>
+<r><c l="35-44 years"/><c v="13,672"/><c v="41,659,144"/><c v="32.8"/></r>
+<r><c l="45-54 years"/><c v="39,551"/><c v="40,874,902"/><c v="96.8"/></r>
+<r><c l="55-64 years"/><c v="101,673"/><c v="42,448,537"/><c v="239.5"/></r>
+<r><c l="65-74 years"/><c v="159,034"/><c v="31,483,433"/><c v="505.1"/></r>
+<r><c l="75-84 years"/><c v="214,683"/><c v="15,969,872"/><c v="1,344.3"/></r>
+<r><c l="85+ years"/><c v="339,362"/><c v="6,604,958"/><c v="5,138.0"/></r>
+<r><c l="Not Stated"/><c v="44"/><c v="Not Applicable"/><c v="Not Applicable"/></r>
+</data-table>
+</page>

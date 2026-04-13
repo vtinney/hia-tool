@@ -7,81 +7,76 @@ import pandas as pd
 from backend.etl.cdc_wonder.consolidate import consolidate
 
 
-def _write_tsv(path: Path, rows: list[tuple[str, str, tuple[str, str]]]) -> None:
-    """Write a minimal CDC Wonder TSV fixture with the given county rows."""
-    header = '"Notes"\t"County"\t"County Code"\t"Deaths"\t"Population"\t"Crude Rate"'
-    body = "\n".join(
-        f'\t"{name}"\t"{fips}"\t"{deaths}"\t"{pop}"\t"0"'
-        for fips, name, (deaths, pop) in rows
+def _write_xml(path: Path, rows: list[tuple[str, int, int]]) -> None:
+    """Write a minimal CDC Wonder XML response fixture."""
+    r_elements = "\n".join(
+        f'<r><c l="{label}"/><c v="{deaths}"/><c v="{pop}"/><c v="0"/></r>'
+        for label, deaths, pop in rows
     )
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"{header}\n{body}\n\"---\"\n")
+    path.write_text(
+        f'<?xml version="1.0"?><page><data-table>{r_elements}</data-table></page>'
+    )
 
 
-def test_consolidate_writes_long_county_parquet(tmp_path: Path):
+def test_consolidate_sums_age_groups_into_buckets(tmp_path: Path):
     raw_root = tmp_path / "raw"
-    out_county = tmp_path / "county.parquet"
-    out_state = tmp_path / "state.parquet"
+    out = tmp_path / "national.parquet"
 
-    _write_tsv(
-        raw_root / "D158" / "2019" / "cvd_25plus.tsv",
-        [("01001", "Autauga, AL", ("10", "40000"))],
-    )
-    _write_tsv(
-        raw_root / "D158" / "2019" / "ihd_25plus.tsv",
-        [("01001", "Autauga, AL", ("5", "40000"))],
-    )
-
-    consolidate(
-        raw_root=raw_root,
-        county_parquet=out_county,
-        state_parquet=out_state,
-        master_fips=["01001", "01003"],
-    )
-
-    df = pd.read_parquet(out_county)
-
-    assert set(df.columns) == {
-        "fips", "state_fips", "year", "icd_group",
-        "age_bucket", "deaths", "population", "rate_per_person_year",
-    }
-    # 2 counties x 2 icd groups x 1 year x 1 age bucket = 4 rows
-    assert len(df) == 4
-
-    filled = df[df["fips"] == "01003"]
-    assert (filled["deaths"] == 0).all()
-    assert (filled["rate_per_person_year"] == 0).all()
-
-    cvd_01001 = df[(df["fips"] == "01001") & (df["icd_group"] == "cvd")].iloc[0]
-    assert cvd_01001["deaths"] == 10
-    assert cvd_01001["population"] == 40000
-    assert abs(cvd_01001["rate_per_person_year"] - 10 / 40000) < 1e-6
-
-
-def test_consolidate_state_rollup(tmp_path: Path):
-    raw_root = tmp_path / "raw"
-    out_county = tmp_path / "county.parquet"
-    out_state = tmp_path / "state.parquet"
-
-    _write_tsv(
-        raw_root / "D158" / "2019" / "cvd_25plus.tsv",
+    _write_xml(
+        raw_root / "D158" / "2019" / "cvd.xml",
         [
-            ("01001", "Autauga, AL", ("10", "40000")),
-            ("01003", "Baldwin, AL", ("20", "60000")),
+            ("25-34 years", 100, 1000000),
+            ("35-44 years", 200, 1000000),
+            ("65-74 years", 500, 500000),
+            ("75-84 years", 400, 300000),
+            ("85+ years", 300, 100000),
         ],
     )
 
-    consolidate(
-        raw_root=raw_root,
-        county_parquet=out_county,
-        state_parquet=out_state,
-        master_fips=["01001", "01003"],
+    consolidate(raw_root=raw_root, output_parquet=out)
+
+    df = pd.read_parquet(out)
+    assert set(df.columns) == {
+        "year", "icd_group", "age_bucket",
+        "deaths", "population", "rate_per_person_year",
+    }
+
+    # 25plus bucket: all 5 age groups (all are 25+)
+    row_25 = df[(df["icd_group"] == "cvd") & (df["age_bucket"] == "25plus")].iloc[0]
+    assert row_25["deaths"] == 1500
+    assert row_25["population"] == 2900000
+
+    # 65plus bucket: 65-74 + 75-84 + 85+
+    row_65 = df[(df["icd_group"] == "cvd") & (df["age_bucket"] == "65plus")].iloc[0]
+    assert row_65["deaths"] == 1200
+    assert row_65["population"] == 900000
+
+    # Rate is deaths / population
+    assert abs(row_65["rate_per_person_year"] - 1200 / 900000) < 1e-6
+
+
+def test_consolidate_multiple_years_and_icd(tmp_path: Path):
+    raw_root = tmp_path / "raw"
+    out = tmp_path / "national.parquet"
+
+    _write_xml(
+        raw_root / "D158" / "2019" / "cvd.xml",
+        [("25-34 years", 100, 1000000)],
+    )
+    _write_xml(
+        raw_root / "D158" / "2019" / "respiratory.xml",
+        [("25-34 years", 50, 1000000)],
+    )
+    _write_xml(
+        raw_root / "D158" / "2020" / "cvd.xml",
+        [("25-34 years", 120, 1000000)],
     )
 
-    state = pd.read_parquet(out_state)
-    row = state[
-        (state["state_fips"] == "01") & (state["icd_group"] == "cvd")
-    ].iloc[0]
-    assert row["deaths"] == 30
-    assert row["population"] == 100000
-    assert abs(row["rate_per_person_year"] - 30 / 100000) < 1e-6
+    consolidate(raw_root=raw_root, output_parquet=out)
+
+    df = pd.read_parquet(out)
+    # Each creates "all" and "25plus" buckets = 2 per combo = 6 rows
+    assert len(df) == 6
+    assert set(df["year"].unique()) == {2019, 2020}
+    assert set(df["icd_group"].unique()) == {"cvd", "respiratory"}

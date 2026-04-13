@@ -35,11 +35,9 @@ class CdcWonderClient:
         self.max_retries = max_retries
 
     def _cache_path(
-        self, database: str, year: int, icd_group: str, age_bucket: str
+        self, database: str, year: int, icd_group: str,
     ) -> Path:
-        return (
-            self.cache_root / database / str(year) / f"{icd_group}_{age_bucket}.tsv"
-        )
+        return self.cache_root / database / str(year) / f"{icd_group}.xml"
 
     def fetch(
         self,
@@ -47,17 +45,15 @@ class CdcWonderClient:
         database: str,
         year: int,
         icd_group: str,
-        age_bucket: str,
         xml_body: str,
     ) -> str:
-        """Fetch a CDC Wonder query, returning the raw TSV body."""
-        cached = self._cache_path(database, year, icd_group, age_bucket)
+        """Fetch a CDC Wonder query, returning the raw XML response body."""
+        cached = self._cache_path(database, year, icd_group)
         if cached.exists():
             logger.debug("cache hit: %s", cached)
             return cached.read_text()
 
         url = CDC_WONDER_URL.format(db=database)
-        headers = {"Content-Type": "application/xml"}
         delay = self.request_delay
 
         last_error: str | None = None
@@ -72,7 +68,10 @@ class CdcWonderClient:
             else:
                 time.sleep(delay)
 
-            resp = requests.post(url, data=xml_body, headers=headers, timeout=120)
+            # CDC Wonder expects form-encoded POST with request_xml field
+            resp = requests.post(
+                url, data={"request_xml": xml_body}, timeout=120,
+            )
             if resp.ok:
                 cached.parent.mkdir(parents=True, exist_ok=True)
                 cached.write_text(resp.text)
@@ -83,6 +82,5 @@ class CdcWonderClient:
 
         raise RuntimeError(
             f"CDC Wonder request failed after {self.max_retries} attempts: "
-            f"{last_error} (db={database} year={year} "
-            f"icd={icd_group} age={age_bucket})"
+            f"{last_error} (db={database} year={year} icd={icd_group})"
         )

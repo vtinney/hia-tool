@@ -1,8 +1,12 @@
-"""Per-county baseline mortality rate lookup for the HIA engine.
+"""National baseline mortality rate lookup for the HIA engine.
 
-Loads the processed CDC Wonder parquet once (lazily), maps CRF endpoint
-strings to (ICD group, age bucket) pairs, and returns y0 values for a
-single county or a list of counties.
+Loads the processed CDC Wonder national parquet once (lazily), maps CRF
+endpoint strings to (ICD group, age bucket) pairs, and returns the
+national-level y0 rate.
+
+The CDC Wonder API provides national-level data only (county/state
+grouping is unavailable via the API). The returned rate is the same
+for all US locations in a given year.
 
 Returns None to signal "no US-specific rate available" — the caller
 then falls back to the CRF's globally-published defaultRate.
@@ -11,9 +15,7 @@ then falls back to the CRF's globally-published defaultRate.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable
 
-import numpy as np
 import pandas as pd
 
 CRF_ENDPOINT_TO_BASELINE: dict[str, tuple[str, str]] = {
@@ -31,9 +33,9 @@ CRF_ENDPOINT_TO_BASELINE: dict[str, tuple[str, str]] = {
     "Lower respiratory infection": ("lri", "all"),
 }
 
-_PARQUET_PATH = Path("data/processed/incidence/us/cdc_wonder_mortality.parquet")
+_PARQUET_PATH = Path("data/processed/incidence/us/cdc_wonder_mortality_national.parquet")
 
-_rate_cache: dict[tuple[str, str, int], pd.Series] = {}
+_rate_cache: dict[tuple[str, str, int], float] = {}
 _full_df: pd.DataFrame | None = None
 
 
@@ -54,7 +56,7 @@ def _load_frame() -> pd.DataFrame | None:
     return _full_df
 
 
-def _rate_series(icd_group: str, age_bucket: str, year: int) -> pd.Series | None:
+def _lookup_rate(icd_group: str, age_bucket: str, year: int) -> float | None:
     key = (icd_group, age_bucket, year)
     if key in _rate_cache:
         return _rate_cache[key]
@@ -66,41 +68,42 @@ def _rate_series(icd_group: str, age_bucket: str, year: int) -> pd.Series | None
         & (df["age_bucket"] == age_bucket)
         & (df["year"] == year)
     ]
-    series = pd.Series(
-        subset["rate_per_person_year"].to_numpy(dtype=np.float64),
-        index=subset["fips"].to_numpy(),
-    )
-    _rate_cache[key] = series
-    return series
+    if subset.empty:
+        return None
+    rate = float(subset["rate_per_person_year"].iloc[0])
+    _rate_cache[key] = rate
+    return rate
 
 
 def get_baseline_rate(
     crf_endpoint: str,
     year: int,
-    fips: str | Iterable[str] | None,
-) -> float | np.ndarray | None:
-    """Look up the US county baseline mortality rate for a CRF.
+    country_code: str | None = None,
+) -> float | None:
+    """Look up the US national baseline mortality rate for a CRF.
 
-    Returns float for scalar fips, ndarray for list of fips, None if
-    endpoint is unmapped or fips is None.
+    Parameters
+    ----------
+    crf_endpoint : str
+        The endpoint string from the CRF library.
+    year : int
+        Analysis year. Must be in 2015..2023 for a lookup to succeed.
+    country_code : str or None
+        Pass "US" for US-specific rates. Non-US or None returns None.
+
+    Returns
+    -------
+    float
+        National baseline rate (deaths per person per year).
+    None
+        The caller should fall back to the CRF's global defaultRate.
     """
+    if country_code != "US":
+        return None
+
     mapping = CRF_ENDPOINT_TO_BASELINE.get(crf_endpoint)
     if mapping is None:
         return None
-    if fips is None:
-        return None
 
     icd_group, age_bucket = mapping
-    series = _rate_series(icd_group, age_bucket, year)
-    if series is None:
-        return None
-
-    if isinstance(fips, str):
-        return float(series.get(fips, 0.0))
-
-    fips_list = list(fips)
-    out = np.zeros(len(fips_list), dtype=np.float64)
-    for i, f in enumerate(fips_list):
-        if f in series.index:
-            out[i] = float(series.loc[f])
-    return out
+    return _lookup_rate(icd_group, age_bucket, year)

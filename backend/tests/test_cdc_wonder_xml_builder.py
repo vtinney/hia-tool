@@ -13,12 +13,13 @@ def test_build_request_returns_string():
     assert xml.startswith("<?xml")
 
 
-def test_build_request_contains_group_by_county():
+def test_build_request_groups_by_age():
     xml = build_request_xml(
         database=DB_UCD_2018_2023, year=2019,
         icd_codes=["I00-I99"], age_groups=["25-34"],
     )
-    assert "county" in xml.lower() or "V1-level2" in xml
+    # API groups by ten-year age (V5), not county
+    assert "V5" in xml
 
 
 def test_build_request_contains_year():
@@ -37,13 +38,12 @@ def test_build_request_contains_icd_codes():
     assert "I20-I25" in xml
 
 
-def test_build_request_contains_all_age_groups():
+def test_build_request_includes_action_send():
     xml = build_request_xml(
         database=DB_UCD_2018_2023, year=2019,
         icd_codes=["I00-I99"], age_groups=["25-34", "35-44", "45-54"],
     )
-    for age in ["25-34", "35-44", "45-54"]:
-        assert age in xml
+    assert "action-Send" in xml or "action-send" in xml.lower()
 
 
 def test_build_request_accepts_assurance_flag():
