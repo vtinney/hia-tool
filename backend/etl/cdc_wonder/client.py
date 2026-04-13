@@ -59,7 +59,9 @@ class CdcWonderClient:
         last_error: str | None = None
         for attempt in range(1, self.max_retries + 1):
             if attempt > 1:
-                backoff = delay * (2 ** (attempt - 1))
+                # Only retry on 429 (rate limit). 500s from CDC Wonder
+                # are usually parameter errors, not transient.
+                backoff = delay * 2
                 logger.warning(
                     "retry %d/%d after %.1fs (reason: %s)",
                     attempt, self.max_retries, backoff, last_error,
@@ -77,7 +79,8 @@ class CdcWonderClient:
                 cached.write_text(resp.text)
                 return resp.text
             last_error = f"HTTP {resp.status_code}"
-            if resp.status_code not in (429, 500, 502, 503, 504):
+            # Only retry on 429 (rate limit); all other errors fail fast
+            if resp.status_code != 429:
                 break
 
         raise RuntimeError(

@@ -32,8 +32,8 @@ YEARS: list[int] = sorted(YEAR_TO_DB.keys())
 # "all_cause_nonaccidental" is synthesized as A00-R99 (excluding
 # external causes S00-Y89), matching BenMAP/HRAPIE convention.
 ICD_GROUPS: dict[str, list[str]] = {
-    "all_cause": ["A00-Y89"],
-    "all_cause_nonaccidental": ["A00-R99"],
+    "all_cause": ["*All*"],
+    "all_cause_nonaccidental": ["*All*"],  # TODO: filter out external causes (V01-Y89) in post-processing
     "cvd": ["I00-I99"],
     "ihd": ["I20-I25"],
     "stroke": ["I60-I69"],
