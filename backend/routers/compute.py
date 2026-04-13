@@ -67,7 +67,8 @@ class CRFResult(BaseModel):
 
 class ComputeResponse(BaseModel):
     results: list[CRFResult]
-    totalDeaths: EstimateCI
+    totalDeaths: EstimateCI | None = None
+    warnings: list[str] | None = None
 
 
 # ── Spatial models ─────────────────────────────────────────────────

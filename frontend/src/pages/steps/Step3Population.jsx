@@ -32,10 +32,7 @@ const PRESET_DISTRIBUTIONS = {
 }
 
 const BUILTIN_DATASETS = [
-  { id: 'worldpop_2020', label: 'WorldPop 2020 — Gridded Age/Sex Estimates' },
-  { id: 'gpw_v4', label: 'GPWv4 — Gridded Population of the World' },
-  { id: 'census_acs', label: 'US Census ACS 5-Year Estimates' },
-  { id: 'un_wpp_2022', label: 'UN World Population Prospects 2022' },
+  { id: 'census_acs', label: 'US Census ACS 5-Year Estimates (2015–2024)' },
 ]
 
 const CSV_EXPECTED_COLUMNS = ['spatial_unit_id', 'age_group', 'population']

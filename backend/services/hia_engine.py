@@ -530,11 +530,29 @@ def compute_hia(config: dict[str, Any]) -> dict[str, Any]:
     per_100k = 100_000
 
     results: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    _seen_fallback_forms: set[str] = set()
 
     for crf in selected_crfs:
         se = _beta_se(crf["betaLow"], crf["betaHigh"])
         form = crf.get("functionalForm", "log-linear")
         y0 = crf.get("defaultRate", y0_global) or y0_global
+
+        # Track which forms will use fallback
+        if form == "mr-brt" and "mr-brt" not in _seen_fallback_forms:
+            _seen_fallback_forms.add("mr-brt")
+            warnings.append(
+                "MR-BRT spline data not loaded — GBD CRFs are using a "
+                "log-linear approximation. Results may differ from published "
+                "GBD estimates."
+            )
+        elif form == "fusion-hybrid" and "fusion-hybrid" not in _seen_fallback_forms:
+            _seen_fallback_forms.add("fusion-hybrid")
+            warnings.append(
+                "Fusion marginal-risk table not loaded — Fusion CRFs are "
+                "using a log-linear approximation. Results may differ from "
+                "published Fusion estimates."
+            )
 
         # Vectorised MC sampling
         betas = rng.normal(loc=crf["beta"], scale=se, size=n_iter)
@@ -573,4 +591,7 @@ def compute_hia(config: dict[str, Any]) -> dict[str, Any]:
         ),
     }
 
-    return {"results": results, "totalDeaths": total_deaths}
+    out: dict[str, Any] = {"results": results, "totalDeaths": total_deaths}
+    if warnings:
+        out["warnings"] = warnings
+    return out

@@ -8,16 +8,15 @@
     "analysisName": "Global PM2.5 Burden — GBD 2023"
   },
   "step2": {
-    "baseline": { "type": "dataset", "datasetId": "acag_v5" },
+    "baseline": { "type": "manual", "value": 25 },
     "control": { "type": "manual", "value": 5 }
   },
   "step3": {
-    "populationType": "dataset",
-    "datasetId": "worldpop_2020"
+    "populationType": "manual",
+    "totalPopulation": 7900000000
   },
   "step4": {
-    "incidenceType": "dataset",
-    "datasetId": "gbd2019_rates"
+    "incidenceType": "manual"
   },
   "step5": {
     "selectedCRFs": [
@@ -40,6 +39,6 @@
     "dollarYear": 2024,
     "incomeElasticity": 1.0
   },
-  "stepValidity": { "1": true, "2": false, "3": false, "4": false, "5": true, "6": true, "7": true },
-  "completedSteps": [1, 5, 6, 7]
+  "stepValidity": { "1": true, "2": true, "3": true, "4": false, "5": true, "6": true, "7": true },
+  "completedSteps": [1, 2, 3, 5, 6, 7]
 }
