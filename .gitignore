@@ -6,5 +6,7 @@ __pycache__/
 *.pyc
 data/hia.db
 data/uploads/
+data/raw/
+data/processed/
 .venv/
 dist/

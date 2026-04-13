@@ -1,6 +1,6 @@
 # ACS Demographics ETL Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a local ETL pipeline that downloads ACS 5-year estimates (race/ethnicity, median income, poverty) at the census-tract level for vintages 2015–2024 nationwide + Puerto Rico and writes one Parquet file per vintage under `data/processed/demographics/us/`, plus a backend endpoint to serve the data.
 
@@ -48,7 +48,7 @@ Pure functions (no I/O) get direct unit tests. Functions with I/O (`fetch_acs_ta
 - Modify: `.env.example`
 - Modify: `README.md`
 
-- [ ] **Step 1: Add cenpy and pygris to requirements.txt**
+- [x] **Step 1: Add cenpy and pygris to requirements.txt**
 
 Open `requirements.txt` and append two lines under the `# Geospatial` block (after line 18, after `pyarrow>=15.0.0`):
 
@@ -58,7 +58,7 @@ cenpy>=1.0.1
 pygris>=0.1.6
 ```
 
-- [ ] **Step 2: Install the new dependencies**
+- [x] **Step 2: Install the new dependencies**
 
 Run from project root with the `hia` conda env active:
 
@@ -68,7 +68,7 @@ pip install cenpy pygris
 
 Expected: successful install, no dependency conflicts. If conflicts appear, report them — do not force.
 
-- [ ] **Step 3: Verify imports work**
+- [x] **Step 3: Verify imports work**
 
 Run:
 
@@ -78,7 +78,7 @@ python -c "import cenpy; import pygris; print('cenpy', cenpy.__version__); print
 
 Expected: both versions print without error.
 
-- [ ] **Step 4: Add CENSUS_API_KEY to .env.example**
+- [x] **Step 4: Add CENSUS_API_KEY to .env.example**
 
 Open `.env.example` and append this block to the end of the file (after the `BASE_URL` line):
 
@@ -90,7 +90,7 @@ Open `.env.example` and append this block to the end of the file (after the `BAS
 CENSUS_API_KEY=
 ```
 
-- [ ] **Step 5: Document CENSUS_API_KEY in README.md**
+- [x] **Step 5: Document CENSUS_API_KEY in README.md**
 
 Open `README.md`. Find the environment variables table (around line 86). Add this row to the table, immediately after the `MAPBOX_TOKEN` row:
 
@@ -98,7 +98,7 @@ Open `README.md`. Find the environment variables table (around line 86). Add thi
 | `CENSUS_API_KEY` | *(none)* | Census Bureau API key. Required when running `backend/etl/process_acs.py`. Not read by the backend at runtime. Free at https://api.census.gov/data/key_signup.html |
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add requirements.txt .env.example README.md
@@ -112,7 +112,7 @@ git commit -m "deps: add cenpy and pygris for ACS demographics ETL"
 **Files:**
 - Create: `backend/etl/process_acs.py`
 
-- [ ] **Step 1: Create the file with module docstring and constants**
+- [x] **Step 1: Create the file with module docstring and constants**
 
 Create `backend/etl/process_acs.py` with this content:
 
@@ -219,7 +219,7 @@ STATE_FIPS: tuple[str, ...] = (
 )
 ```
 
-- [ ] **Step 2: Verify the file parses**
+- [x] **Step 2: Verify the file parses**
 
 ```bash
 python -c "from backend.etl import process_acs; print(len(process_acs.STATE_FIPS), 'states'); print(process_acs.boundary_year_for_vintage(2019), process_acs.boundary_year_for_vintage(2020))"
@@ -231,7 +231,7 @@ Expected output:
 2010 2020
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add backend/etl/process_acs.py
@@ -246,7 +246,7 @@ git commit -m "feat(etl): add process_acs skeleton with constants"
 - Create: `backend/tests/test_process_acs.py`
 - Modify: `backend/etl/process_acs.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `backend/tests/test_process_acs.py`:
 
@@ -302,7 +302,7 @@ def test_clean_sentinels_returns_new_dataframe_not_mutating_input():
     pd.testing.assert_frame_equal(df, original)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py -v
@@ -310,7 +310,7 @@ python -m pytest backend/tests/test_process_acs.py -v
 
 Expected: All three `clean_sentinels` tests FAIL with `AttributeError: module 'backend.etl.process_acs' has no attribute 'clean_sentinels'`.
 
-- [ ] **Step 3: Implement clean_sentinels**
+- [x] **Step 3: Implement clean_sentinels**
 
 Append to `backend/etl/process_acs.py`, after the constants block:
 
@@ -349,7 +349,7 @@ def clean_sentinels(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     return out
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py -v
@@ -357,7 +357,7 @@ python -m pytest backend/tests/test_process_acs.py -v
 
 Expected: All three `clean_sentinels` tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/etl/process_acs.py backend/tests/test_process_acs.py
@@ -372,7 +372,7 @@ git commit -m "feat(etl): add Census sentinel-value cleaning"
 - Modify: `backend/tests/test_process_acs.py`
 - Modify: `backend/etl/process_acs.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `backend/tests/test_process_acs.py`:
 
@@ -435,7 +435,7 @@ def test_add_derived_columns_handles_zero_denominator():
     assert math.isnan(result.loc[0, "pct_below_100_pov"])
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py::test_add_derived_columns_computes_percentages backend/tests/test_process_acs.py::test_add_derived_columns_handles_zero_denominator -v
@@ -443,7 +443,7 @@ python -m pytest backend/tests/test_process_acs.py::test_add_derived_columns_com
 
 Expected: Both tests FAIL with `AttributeError: module 'backend.etl.process_acs' has no attribute 'add_derived_columns'`.
 
-- [ ] **Step 3: Implement add_derived_columns**
+- [x] **Step 3: Implement add_derived_columns**
 
 Append to `backend/etl/process_acs.py` after `clean_sentinels`:
 
@@ -496,7 +496,7 @@ def add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
     return out
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py -v
@@ -504,7 +504,7 @@ python -m pytest backend/tests/test_process_acs.py -v
 
 Expected: All tests in the file PASS (5 so far).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/etl/process_acs.py backend/tests/test_process_acs.py
@@ -521,7 +521,7 @@ git commit -m "feat(etl): add derived percentage columns for ACS"
 
 The fetcher function takes a `fetch_fn` callable so tests can pass a fake that returns a canned DataFrame. The production `fetch_fn` wraps `cenpy`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `backend/tests/test_process_acs.py`:
 
@@ -611,7 +611,7 @@ def test_fetch_acs_tables_aborts_after_exhausting_retries():
         )
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py -v -k fetch_acs_tables
@@ -619,7 +619,7 @@ python -m pytest backend/tests/test_process_acs.py -v -k fetch_acs_tables
 
 Expected: All three `fetch_acs_tables` tests FAIL with `AttributeError: module 'backend.etl.process_acs' has no attribute 'fetch_acs_tables'`.
 
-- [ ] **Step 3: Implement fetch_acs_tables**
+- [x] **Step 3: Implement fetch_acs_tables**
 
 Append to `backend/etl/process_acs.py`:
 
@@ -691,7 +691,7 @@ def fetch_acs_tables(
     return pd.concat(frames, ignore_index=True)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py -v -k fetch_acs_tables
@@ -699,7 +699,7 @@ python -m pytest backend/tests/test_process_acs.py -v -k fetch_acs_tables
 
 Expected: All three `fetch_acs_tables` tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/etl/process_acs.py backend/tests/test_process_acs.py
@@ -717,7 +717,7 @@ This is the real fetcher that wraps `cenpy`. Not unit-testable without hitting t
 
 > **Note:** `cenpy`'s public API has shifted across versions. The implementation below targets the modern `cenpy.remote.APIConnection(...).query(...)` idiom. If the smoke test in Task 12 fails with an API-shape error, adjust this function only — every other function in this plan uses dependency injection and does not import cenpy. Check `cenpy`'s current README for the right call shape (e.g., `cenpy.products.ACS(year).from_state(...)`) and update `cenpy_fetch` to return the same DataFrame shape documented in its docstring.
 
-- [ ] **Step 1: Implement cenpy_fetch**
+- [x] **Step 1: Implement cenpy_fetch**
 
 Append to `backend/etl/process_acs.py`:
 
@@ -757,7 +757,7 @@ def cenpy_fetch(vintage: int, state_fips: str) -> pd.DataFrame:
     return df[["state", "county", "tract"] + variables]
 ```
 
-- [ ] **Step 2: Verify the module still imports**
+- [x] **Step 2: Verify the module still imports**
 
 ```bash
 python -c "from backend.etl.process_acs import cenpy_fetch; print('ok')"
@@ -765,7 +765,7 @@ python -c "from backend.etl.process_acs import cenpy_fetch; print('ok')"
 
 Expected: `ok` (lazy `import cenpy` keeps this fast even if the library is broken).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add backend/etl/process_acs.py
@@ -780,7 +780,7 @@ git commit -m "feat(etl): add production cenpy-backed ACS fetcher"
 - Modify: `backend/tests/test_process_acs.py`
 - Modify: `backend/etl/process_acs.py`
 
-- [ ] **Step 1: Write the failing test (with injected fetcher)**
+- [x] **Step 1: Write the failing test (with injected fetcher)**
 
 Append to `backend/tests/test_process_acs.py`:
 
@@ -827,7 +827,7 @@ def test_fetch_tract_geometry_reprojects_to_4326_and_builds_geoid():
     assert result["tract_code"].tolist() == ["400100", "020100"]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py::test_fetch_tract_geometry_reprojects_to_4326_and_builds_geoid -v
@@ -835,7 +835,7 @@ python -m pytest backend/tests/test_process_acs.py::test_fetch_tract_geometry_re
 
 Expected: FAIL with `AttributeError: module 'backend.etl.process_acs' has no attribute 'fetch_tract_geometry'`.
 
-- [ ] **Step 3: Implement fetch_tract_geometry**
+- [x] **Step 3: Implement fetch_tract_geometry**
 
 Append to `backend/etl/process_acs.py`:
 
@@ -892,7 +892,7 @@ def fetch_tract_geometry(
     return gdf[["geoid", "state_fips", "county_fips", "tract_code", "geometry"]]
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py -v
@@ -900,7 +900,7 @@ python -m pytest backend/tests/test_process_acs.py -v
 
 Expected: All tests so far PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/etl/process_acs.py backend/tests/test_process_acs.py
@@ -917,7 +917,7 @@ git commit -m "feat(etl): add TIGER tract geometry fetcher"
 
 This is the "join and shape" step: takes the raw ACS frame + geometry frame, renames Census codes to friendly column names, joins on GEOID, adds vintage + boundary_year columns, runs sentinel cleaning and derived columns.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `backend/tests/test_process_acs.py`:
 
@@ -1014,7 +1014,7 @@ def test_build_demographics_frame_uses_2010_boundary_year_for_2019_vintage():
     assert result["boundary_year"].iloc[0] == 2010
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py -v -k build_demographics_frame
@@ -1022,7 +1022,7 @@ python -m pytest backend/tests/test_process_acs.py -v -k build_demographics_fram
 
 Expected: Both tests FAIL with `AttributeError`.
 
-- [ ] **Step 3: Implement build_demographics_frame**
+- [x] **Step 3: Implement build_demographics_frame**
 
 Append to `backend/etl/process_acs.py`:
 
@@ -1104,7 +1104,7 @@ def build_demographics_frame(
     return merged
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py -v
@@ -1112,7 +1112,7 @@ python -m pytest backend/tests/test_process_acs.py -v
 
 Expected: All tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/etl/process_acs.py backend/tests/test_process_acs.py
@@ -1127,7 +1127,7 @@ git commit -m "feat(etl): add ACS schema assembly with join and derived columns"
 - Modify: `backend/tests/test_process_acs.py`
 - Modify: `backend/etl/process_acs.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `backend/tests/test_process_acs.py`:
 
@@ -1178,7 +1178,7 @@ def test_write_parquet_atomic_does_not_leave_tmp_file_on_success(tmp_path):
     assert tmp_files == []
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py -v -k write_parquet_atomic
@@ -1186,7 +1186,7 @@ python -m pytest backend/tests/test_process_acs.py -v -k write_parquet_atomic
 
 Expected: FAIL with `AttributeError`.
 
-- [ ] **Step 3: Implement write_parquet_atomic**
+- [x] **Step 3: Implement write_parquet_atomic**
 
 Append to `backend/etl/process_acs.py`:
 
@@ -1227,7 +1227,7 @@ def write_parquet_atomic(gdf: gpd.GeoDataFrame, output_path: Path) -> None:
     )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py -v
@@ -1235,7 +1235,7 @@ python -m pytest backend/tests/test_process_acs.py -v
 
 Expected: All tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/etl/process_acs.py backend/tests/test_process_acs.py
@@ -1251,7 +1251,7 @@ git commit -m "feat(etl): add atomic Parquet writer with WKT geometry"
 
 This wires everything together and adds the argparse CLI. No unit tests for the orchestrator itself (it is pure glue); the smoke test in Task 12 exercises it end-to-end.
 
-- [ ] **Step 1: Add process_vintage orchestrator**
+- [x] **Step 1: Add process_vintage orchestrator**
 
 Append to `backend/etl/process_acs.py`:
 
@@ -1287,7 +1287,7 @@ def process_vintage(
     logger.info("Vintage %d complete in %.1f s", vintage, time.perf_counter() - t0)
 ```
 
-- [ ] **Step 2: Add CLI entry point**
+- [x] **Step 2: Add CLI entry point**
 
 Append to `backend/etl/process_acs.py`:
 
@@ -1368,7 +1368,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 3: Verify argparse wiring**
+- [x] **Step 3: Verify argparse wiring**
 
 ```bash
 python -m backend.etl.process_acs --help
@@ -1376,7 +1376,7 @@ python -m backend.etl.process_acs --help
 
 Expected: help text lists `--vintage`, `--all`, `--output`, `--output-dir`, `--verbose`.
 
-- [ ] **Step 4: Verify argparse rejects missing --output with --vintage**
+- [x] **Step 4: Verify argparse rejects missing --output with --vintage**
 
 ```bash
 python -m backend.etl.process_acs --vintage 2022
@@ -1384,7 +1384,7 @@ python -m backend.etl.process_acs --vintage 2022
 
 Expected: exits with error `argument --output is required when --vintage is specified`.
 
-- [ ] **Step 5: Run full test suite**
+- [x] **Step 5: Run full test suite**
 
 ```bash
 python -m pytest backend/tests/test_process_acs.py -v
@@ -1392,7 +1392,7 @@ python -m pytest backend/tests/test_process_acs.py -v
 
 Expected: All tests PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/etl/process_acs.py
@@ -1412,7 +1412,7 @@ The existing `_scan_datasets` function is NOT recursive in a general way — it 
 2. Adds a demographics branch to `_scan_datasets`.
 3. Adds a `GET /api/data/demographics/{country}/{year}` endpoint that returns GeoJSON.
 
-- [ ] **Step 1: Skip "demographics" in the concentration loop**
+- [x] **Step 1: Skip "demographics" in the concentration loop**
 
 In `backend/routers/data.py`, find the `_scan_datasets` function (around line 228). Locate this block:
 
@@ -1428,7 +1428,7 @@ Change it to:
             continue
 ```
 
-- [ ] **Step 2: Add the demographics scan branch**
+- [x] **Step 2: Add the demographics scan branch**
 
 In the same `_scan_datasets` function, after the incidence scan block ends (around line 304, just before `return datasets`), add:
 
@@ -1452,7 +1452,7 @@ In the same `_scan_datasets` function, after the incidence scan block ends (arou
                 })
 ```
 
-- [ ] **Step 3: Add the GET /api/data/demographics endpoint**
+- [x] **Step 3: Add the GET /api/data/demographics endpoint**
 
 In `backend/routers/data.py`, after the incidence endpoint (after `get_incidence` ends, around line 220), add:
 
@@ -1482,7 +1482,7 @@ async def get_demographics(country: str, year: int):
     return _df_to_geojson(df)
 ```
 
-- [ ] **Step 4: Run existing backend tests to make sure nothing regressed**
+- [x] **Step 4: Run existing backend tests to make sure nothing regressed**
 
 ```bash
 python -m pytest backend/tests/ -v
@@ -1490,7 +1490,7 @@ python -m pytest backend/tests/ -v
 
 Expected: All existing tests PASS. The new endpoint has no automated test (it requires data on disk — the smoke test in Task 12 exercises it manually).
 
-- [ ] **Step 5: Verify the router still imports cleanly**
+- [x] **Step 5: Verify the router still imports cleanly**
 
 ```bash
 python -c "from backend.routers import data; print('ok'); print([r.path for r in data.router.routes])"
@@ -1498,7 +1498,7 @@ python -c "from backend.routers import data; print('ok'); print([r.path for r in
 
 Expected: `ok` followed by a list of routes that includes `/api/data/demographics/{country}/{year}`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/routers/data.py
@@ -1513,7 +1513,7 @@ git commit -m "feat(api): serve ACS demographics at /api/data/demographics/{coun
 
 This is a manual test because it requires the Census API key and hits the network. Rhode Island (FIPS `44`) has ~250 tracts — the smallest state, safe and fast to test.
 
-- [ ] **Step 1: Ensure CENSUS_API_KEY is set**
+- [x] **Step 1: Ensure CENSUS_API_KEY is set**
 
 Make sure your `.env` has a real key. Then verify:
 
@@ -1523,7 +1523,7 @@ python -c "from dotenv import load_dotenv; load_dotenv(); import os; print('key 
 
 Expected: `key present: True`.
 
-- [ ] **Step 2: Run a single-state smoke test via a short Python snippet**
+- [x] **Step 2: Run a single-state smoke test via a short Python snippet**
 
 Create a temporary file `backend/etl/_smoke_acs.py` (do not commit — deleted in step 5):
 
@@ -1553,7 +1553,7 @@ python -m backend.etl._smoke_acs
 
 Expected: log lines showing ACS fetch for state 44, TIGER geometry download, join, and a final line reporting ~250 rows written. No exceptions.
 
-- [ ] **Step 3: Inspect the output Parquet**
+- [x] **Step 3: Inspect the output Parquet**
 
 ```bash
 python -c "
@@ -1573,7 +1573,7 @@ Expected:
 - `pct_nh_white` values are between 0 and 1.
 - `median_hh_income` has plausible values (most between 20000 and 200000; some may be NaN).
 
-- [ ] **Step 4: Hit the backend endpoint**
+- [x] **Step 4: Hit the backend endpoint**
 
 Start the backend in one terminal:
 
@@ -1605,7 +1605,7 @@ Expected:
 - feature count matches the row count from Step 3
 - Listing endpoint returns a `demographics` entry with `country: "us"` and `years: [2022]`.
 
-- [ ] **Step 5: Clean up the smoke-test artifacts**
+- [x] **Step 5: Clean up the smoke-test artifacts**
 
 ```bash
 rm data/processed/demographics/us/_smoke_ri_2022.parquet
@@ -1613,7 +1613,7 @@ rm data/processed/demographics/us/2022.parquet
 rm backend/etl/_smoke_acs.py
 ```
 
-- [ ] **Step 6: Commit (if any) or skip**
+- [x] **Step 6: Commit (if any) or skip**
 
 Nothing to commit from this task — it is verification only. If you added `_smoke_acs.py` to git by accident, unstage it:
 

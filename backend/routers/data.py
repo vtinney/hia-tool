@@ -220,16 +220,127 @@ async def get_incidence(country: str, cause: str, year: int):
 
 
 # ────────────────────────────────────────────────────────────────────
-#  4. Dataset listing
+#  4. Demographics (ACS)
 # ────────────────────────────────────────────────────────────────────
 
 
-@lru_cache(maxsize=1)
+@router.get("/demographics/{country}/{year}")
+async def get_demographics(
+    country: str,
+    year: int,
+    state: str | None = Query(
+        None,
+        description="2-digit state FIPS filter (e.g. '06' for California). "
+                    "Required when the full nationwide dataset would be too "
+                    "large to return in one response.",
+        min_length=2,
+        max_length=2,
+    ),
+    county: str | None = Query(
+        None,
+        description="3-digit county FIPS filter (e.g. '037' for Los Angeles). "
+                    "Must be combined with `state`.",
+        min_length=3,
+        max_length=3,
+    ),
+    simplify: float = Query(
+        0.0001,
+        description="Douglas-Peucker tolerance in degrees for geometry "
+                    "simplification. Default 0.0001° (~11 m) is visually "
+                    "lossless but drops ~60-80%% of TIGER vertices. Pass 0 "
+                    "to disable simplification and return full precision.",
+        ge=0.0,
+        le=0.1,
+    ),
+):
+    """Return GeoJSON with ACS 5-year demographics by census tract.
+
+    Reads from ``data/processed/demographics/{country}/{year}.parquet``
+    (output of ``backend/etl/process_acs.py``).
+
+    The nationwide file is ~85k tracts / ~170 MB as raw GeoJSON, which
+    is too large to drop into a browser. Callers should filter by
+    ``state`` (and optionally ``county``) for any interactive use.
+    """
+    if county is not None and state is None:
+        raise HTTPException(
+            status_code=400,
+            detail="`county` filter requires `state` to also be set.",
+        )
+
+    try:
+        directory = _resolve_path("demographics", country)
+        file_path = _find_file(directory, str(year))
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No demographics data for {country}/{year}",
+        )
+
+    df = _read_table(file_path)
+
+    if state is not None:
+        df = df[df["state_fips"] == state]
+    if county is not None:
+        df = df[df["county_fips"] == county]
+
+    if len(df) == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No demographics rows match filter "
+                   f"(state={state}, county={county})",
+        )
+
+    return _df_to_geojson_simplified(df, simplify_tolerance=simplify)
+
+
+def _df_to_geojson_simplified(
+    df: pd.DataFrame,
+    geometry_col: str = "geometry",
+    simplify_tolerance: float = 0.0,
+) -> dict:
+    """Like ``_df_to_geojson`` but simplifies each geometry on the fly.
+
+    A tolerance of 0 means "no simplification" (behavior matches
+    ``_df_to_geojson`` exactly). Non-zero tolerance applies
+    Douglas-Peucker with ``preserve_topology=True`` so neighboring
+    tracts don't develop slivers at shared borders.
+    """
+    features = []
+    for _, row in df.iterrows():
+        props = {
+            k: _sanitize(v)
+            for k, v in row.items()
+            if k != geometry_col
+        }
+        geom_val = row.get(geometry_col)
+        if isinstance(geom_val, str):
+            shape = wkt.loads(geom_val)
+            if simplify_tolerance > 0:
+                shape = shape.simplify(simplify_tolerance, preserve_topology=True)
+            geom = shape.__geo_interface__
+        else:
+            geom = None
+        features.append({
+            "type": "Feature",
+            "properties": props,
+            "geometry": geom,
+        })
+    return {"type": "FeatureCollection", "features": features}
+
+
+# ────────────────────────────────────────────────────────────────────
+#  5. Dataset listing
+# ────────────────────────────────────────────────────────────────────
+
+
 def _scan_datasets() -> list[dict[str, Any]]:
     """Walk DATA_ROOT to discover available datasets and their metadata.
 
     Returns a list of dataset descriptors with pollutant, source, years,
-    and countries.
+    and countries. Intentionally NOT cached so newly-built parquet files
+    (e.g. from running an ETL script against a live backend) are picked
+    up on the next request without a server restart.
     """
     datasets: list[dict[str, Any]] = []
 
@@ -242,7 +353,7 @@ def _scan_datasets() -> list[dict[str, Any]]:
         if not pollutant_dir.is_dir():
             continue
         key = pollutant_dir.name
-        if key in ("population", "incidence"):
+        if key in ("population", "incidence", "demographics"):
             continue
 
         for country_dir in sorted(pollutant_dir.iterdir()):
@@ -301,6 +412,24 @@ def _scan_datasets() -> list[dict[str, Any]]:
                         "years": years,
                         "source": "Processed incidence data",
                     })
+
+    # Demographics datasets: demographics/{country}/{year}.parquet
+    demo_dir = DATA_ROOT / "demographics"
+    if demo_dir.exists():
+        for country_dir in sorted(demo_dir.iterdir()):
+            if not country_dir.is_dir():
+                continue
+            years = sorted(
+                int(f.stem) for f in country_dir.iterdir()
+                if f.suffix in (".parquet", ".csv") and f.stem.isdigit()
+            )
+            if years:
+                datasets.append({
+                    "type": "demographics",
+                    "country": country_dir.name,
+                    "years": years,
+                    "source": "ACS 5-year estimates (B03002, B19013, C17002)",
+                })
 
     return datasets
 
