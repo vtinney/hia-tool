@@ -1,0 +1,8 @@
+"Notes"	"County"	"County Code"	"Deaths"	"Population"	"Crude Rate"
+	"Autauga County, AL"	"01001"	"45"	"55200"	"81.5"
+	"Baldwin County, AL"	"01003"	"210"	"218022"	"96.3"
+	"Barbour County, AL"	"01005"	"Suppressed"	"24881"	"Suppressed"
+"---"
+"Dataset: Underlying Cause of Death, 1999-2020"
+"Query Parameters:"
+"Group By: County"

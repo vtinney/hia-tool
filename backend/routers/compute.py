@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.database import get_db
 from backend.models.file_upload import FileUpload
+from backend.services.baseline_rates import get_baseline_rate
 from backend.services.hia_engine import compute_hia, _summarise_spatial
 from backend.services.pollution_exposure import get_default_raster_path
 
@@ -49,6 +50,9 @@ class ComputeRequest(BaseModel):
     population: float
     selectedCRFs: list[CRFInput]
     monteCarloIterations: int = Field(default=1000, ge=100, le=50_000)
+    countryCode: str | None = None
+    fipsCodes: list[str] | None = None
+    year: int | None = None
 
 
 class EstimateCI(BaseModel):
@@ -84,6 +88,9 @@ class SpatialComputeRequest(BaseModel):
     baselineIncidence: float
     selectedCRFs: list[CRFInput]
     monteCarloIterations: int = Field(default=1000, ge=100, le=50_000)
+    countryCode: str | None = None
+    fipsCodes: list[str] | None = None
+    year: int | None = None
 
 
 class ZoneResult(BaseModel):
@@ -102,6 +109,37 @@ class SpatialComputeResponse(BaseModel):
     totalDeaths: EstimateCI
 
 
+# ── Baseline rate stamping ─────────────────────────────────────────
+
+
+def _stamp_us_baseline_rates(
+    crfs: list[dict],
+    *,
+    country_code: str | None,
+    fips_codes: list[str] | None,
+    year: int | None,
+) -> None:
+    """In-place: override each CRF's defaultRate with a US county rate
+    when the analysis is US-based and a mapping exists."""
+    if country_code != "US" or not fips_codes or year is None:
+        return
+    import numpy as np
+
+    for crf in crfs:
+        endpoint = crf.get("endpoint", "")
+        rate = get_baseline_rate(endpoint, year, fips_codes)
+        if rate is None:
+            continue
+        if hasattr(rate, "__len__"):
+            crf["_perZoneRates"] = list(rate)
+            if len(rate) == 1:
+                crf["defaultRate"] = float(rate[0])
+            else:
+                crf["defaultRate"] = float(np.mean(rate))
+        else:
+            crf["defaultRate"] = float(rate)
+
+
 # ── Scalar endpoint ────────────────────────────────────────────────
 
 
@@ -109,10 +147,18 @@ class SpatialComputeResponse(BaseModel):
 async def run_compute(req: ComputeRequest) -> ComputeResponse:
     """Run HIA computation synchronously and return results.
 
-    Accepts the same config shape as the frontend JS engine.
+    When the request specifies countryCode='US' with fipsCodes and year,
+    each CRF's defaultRate is overridden with the matching CDC Wonder
+    county rate before the engine runs.
     """
     config = req.model_dump()
     config["selectedCRFs"] = [crf.model_dump() for crf in req.selectedCRFs]
+    _stamp_us_baseline_rates(
+        config["selectedCRFs"],
+        country_code=req.countryCode,
+        fips_codes=req.fipsCodes,
+        year=req.year,
+    )
     result = compute_hia(config)
     return ComputeResponse(**result)
 
