@@ -248,6 +248,17 @@ def fetch_acs_tables(
     return pd.concat(frames, ignore_index=True)
 
 
+_cenpy_conn_cache: dict[int, object] = {}
+
+
+def _get_cenpy_conn(vintage: int):
+    """Return a cached cenpy APIConnection for the given vintage."""
+    if vintage not in _cenpy_conn_cache:
+        import cenpy
+        _cenpy_conn_cache[vintage] = cenpy.remote.APIConnection(f"ACSDT5Y{vintage}")
+    return _cenpy_conn_cache[vintage]
+
+
 def cenpy_fetch(vintage: int, state_fips: str) -> pd.DataFrame:
     """Fetch ACS 5-year tables B03002, B19013, C17002 for all tracts in one state.
 
@@ -257,10 +268,7 @@ def cenpy_fetch(vintage: int, state_fips: str) -> pd.DataFrame:
     Returns a DataFrame with columns: state, county, tract, and one column per
     variable in ``ACS_VARIABLES`` (using the Census codes, e.g. "B03002_001E").
     """
-    import cenpy  # imported lazily so tests can run without the dep installed
-
-    dataset_name = f"ACSDT5Y{vintage}"
-    conn = cenpy.remote.APIConnection(dataset_name)
+    conn = _get_cenpy_conn(vintage)
 
     variables = list(ACS_VARIABLES.keys())
 
@@ -289,9 +297,30 @@ def cenpy_fetch(vintage: int, state_fips: str) -> pd.DataFrame:
 
 
 def _pygris_fetch(year: int, cb: bool) -> gpd.GeoDataFrame:
-    """Production fetcher — calls pygris.tracts for all US tracts."""
+    """Production fetcher — calls pygris.tracts for all US tracts.
+
+    Older vintages (pre-2019) require per-state fetching; newer ones
+    support fetching all tracts nationally in a single call.
+    """
     import pygris  # lazy import
-    return pygris.tracts(year=year, cb=cb, cache=True)
+
+    try:
+        return pygris.tracts(year=year, cb=cb, cache=True)
+    except ValueError:
+        # Fallback: fetch per-state and concatenate
+        logger.info("Fetching tracts per-state for vintage %d (national not supported)...", year)
+        # All 50 states + DC + PR
+        all_fips = [f"{i:02d}" for i in range(1, 57)] + ["72"]
+        frames = []
+        for fips in all_fips:
+            try:
+                gdf = pygris.tracts(state=fips, year=year, cb=cb, cache=True)
+                frames.append(gdf)
+            except Exception:
+                pass  # skip FIPS codes that don't map to real states
+        if not frames:
+            raise RuntimeError(f"No tract geometry fetched for vintage {year}")
+        return pd.concat(frames, ignore_index=True)
 
 
 def fetch_tract_geometry(
