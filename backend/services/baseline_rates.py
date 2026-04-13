@@ -15,7 +15,7 @@ import pandas as pd
 #  GBD baseline rate lookup
 # ────────────────────────────────────────────────────────────────────
 
-_GBD_PARQUET_PATH = Path("data/processed/incidence/gbd_rates.parquet")
+_GBD_PARQUET_PATH = Path(__file__).resolve().parents[2] / "data/processed/incidence/gbd_rates.parquet"
 
 _gbd_df: pd.DataFrame | None = None
 
@@ -27,6 +27,7 @@ def _clear_gbd_cache() -> None:
 
 
 def _load_gbd_frame() -> pd.DataFrame | None:
+    """Lazy-load the GBD rates parquet into a module-level cache."""
     global _gbd_df
     if _gbd_df is not None:
         return _gbd_df
