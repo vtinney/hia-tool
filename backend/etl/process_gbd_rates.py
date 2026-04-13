@@ -111,8 +111,7 @@ def process_gbd_rates(
             frames.append(frame)
 
     if not frames:
-        logger.error("No data processed. Check that CSVs exist in %s", raw_dir)
-        sys.exit(1)
+        raise RuntimeError(f"No data processed. Check that CSVs exist in {raw_dir}")
 
     df = pd.concat(frames, ignore_index=True)
     logger.info("Concatenated %d rows across %d causes", len(df), len(frames))
@@ -164,7 +163,11 @@ def main() -> int:
         logger.error("Raw GBD rates directory not found: %s", RAW_DIR)
         return 1
 
-    process_gbd_rates()
+    try:
+        process_gbd_rates()
+    except RuntimeError as exc:
+        logger.error("%s", exc)
+        return 1
 
     # Print summary
     df = pd.read_parquet(OUTPUT_PATH)
