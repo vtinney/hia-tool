@@ -16,6 +16,12 @@ export default function NotFound() {
           >
             Go Home
           </Link>
+          <Link
+            to="/analysis/1"
+            className="px-5 py-2.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Start Analysis
+          </Link>
         </div>
       </div>
     </div>

@@ -22,8 +22,12 @@ const ACCEPTED_FILE_TYPES = '.csv,.nc,.tif,.tiff,.geotiff'
 const ACCEPTED_EXTENSIONS = ['csv', 'nc', 'tif', 'tiff', 'geotiff']
 
 const BUILTIN_DATASETS = [
-  { id: 'epa_aqs', label: 'US EPA AQS Monitor Data (2015–2024)' },
-  { id: 'who_aap_2024', label: 'WHO Ambient Air Pollution Database' },
+  { id: 'gbd2019', label: 'GBD 2019 — Global PM2.5 Estimates' },
+  { id: 'acag_v5', label: 'ACAG V5.GL.03 — Satellite-derived PM2.5' },
+  { id: 'who_aap_2024', label: 'WHO Ambient Air Pollution Database 2024' },
+  { id: 'epa_aqs', label: 'US EPA AQS Monitor Data' },
+  { id: 'cams_reanalysis', label: 'CAMS Global Reanalysis (EAC4)' },
+  { id: 'openaq', label: 'OpenAQ Aggregated Monitoring Data' },
 ]
 
 const BENCHMARKS = [

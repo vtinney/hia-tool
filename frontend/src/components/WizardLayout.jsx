@@ -3,7 +3,6 @@ import { useParams, useNavigate, Outlet } from 'react-router-dom'
 import Markdown from 'react-markdown'
 import useAnalysisStore from '../stores/useAnalysisStore'
 import stepContent from '../content/steps/index'
-import ChatWizard, { ChatWizardToggle } from './ChatWizard'
 import ErrorBoundary from './ErrorBoundary'
 
 const STEPS = [
@@ -143,7 +142,7 @@ function SidebarPanel({ currentStep, isOpen, onToggle }) {
   )
 }
 
-function NavigationBar({ currentStep, totalSteps, isStepValid, onBack, onNext, wizardOpen, onWizardToggle }) {
+function NavigationBar({ currentStep, totalSteps, isStepValid, onBack, onNext }) {
   const isFirst = currentStep === 1
   const isLast = currentStep === totalSteps
 
@@ -163,12 +162,9 @@ function NavigationBar({ currentStep, totalSteps, isStepValid, onBack, onNext, w
         Back
       </button>
 
-      <div className="flex items-center gap-8">
-        <span className="text-sm text-gray-400">
-          {currentStep} / {totalSteps}
-        </span>
-        <ChatWizardToggle open={wizardOpen} onToggle={onWizardToggle} />
-      </div>
+      <span className="text-sm text-gray-400">
+        {currentStep} / {totalSteps}
+      </span>
 
       <button
         onClick={onNext}
@@ -207,7 +203,6 @@ export default function WizardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1200 : true
   )
-  const [wizardOpen, setWizardOpen] = useState(false)
 
   const isStepValid = stepValidity[currentStep] ?? false
 
@@ -241,7 +236,7 @@ export default function WizardLayout() {
     if (currentStep < totalSteps) {
       navigate(`/analysis/${currentStep + 1}`)
     } else {
-      navigate('/analysis/results')
+      navigate('/results')
     }
   }
 
@@ -289,12 +284,7 @@ export default function WizardLayout() {
         isStepValid={isStepValid}
         onBack={goBack}
         onNext={goNext}
-        wizardOpen={wizardOpen}
-        onWizardToggle={() => setWizardOpen((prev) => !prev)}
       />
-
-      {/* Chat Wizard — available on every step */}
-      <ChatWizard open={wizardOpen} />
     </div>
   )
 }

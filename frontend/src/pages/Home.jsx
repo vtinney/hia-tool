@@ -1,3 +1,10 @@
+import { Link, useNavigate } from 'react-router-dom'
+import useAnalysisStore from '../stores/useAnalysisStore'
+
+import tplUsNational from '../data/templates/us_national_pm25.json'
+import tplUsTract from '../data/templates/us_tract_pm25_ej.json'
+import tplGlobal from '../data/templates/global_pm25_gbd.json'
+import tplCity from '../data/templates/single_city_pm25_who.json'
 
 // Each pipeline node carries a distinct, muted color.
 const PIPELINE = [
@@ -200,7 +207,50 @@ function CityMarquee() {
   )
 }
 
+const TEMPLATES = [
+  { data: tplUsNational, tag: 'PM₂.₅', color: 'bg-sky-600' },
+  { data: tplUsTract,    tag: 'EJ',    color: 'bg-indigo-600' },
+  { data: tplGlobal,     tag: 'GBD',   color: 'bg-rose-700' },
+  { data: tplCity,       tag: 'WHO',   color: 'bg-emerald-600' },
+]
+
+function TemplateCard({ data, tag, color, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="group relative text-left bg-paper border border-zinc-200/80 rounded-xl p-6 lg:p-7 hover:border-zinc-300 hover:shadow-soft transition-all duration-200"
+    >
+      <div className="flex items-start justify-between mb-4">
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-[0.12em] text-white ${color}`}>
+          {tag}
+        </span>
+        <svg
+          className="w-4 h-4 text-zinc-300 group-hover:text-zinc-500 transition-colors duration-200"
+          viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"
+          strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+        >
+          <path d="M4 2.5L7.5 6 4 9.5" />
+        </svg>
+      </div>
+      <h3 className="text-[16px] font-medium text-ink leading-snug mb-2 tracking-tight">
+        {data.name}
+      </h3>
+      <p className="text-[14px] text-zinc-500 leading-relaxed line-clamp-3">
+        {data.description}
+      </p>
+    </button>
+  )
+}
+
 export default function Home() {
+  const navigate = useNavigate()
+  const loadFromTemplate = useAnalysisStore((s) => s.loadFromTemplate)
+
+  function handleTemplate(tpl) {
+    loadFromTemplate(tpl)
+    navigate('/results')
+  }
+
   return (
     <div className="min-h-[100dvh] bg-paper">
       {/* ── Top bar ───────────────────────────────────────────── */}
@@ -232,10 +282,23 @@ export default function Home() {
               <span className="text-zinc-400"> rendered as deaths and dollars.</span>
             </h1>
             <p className="mt-8 text-[19px] leading-relaxed text-zinc-600 max-w-prose">
-              From study area to attributable deaths, built around
-              epidemiological concentration response functions and
-              population-weighted exposure estimates.
+              Quantify how air pollution harms health in any community.
+              Define a study area, select pollutants and dose-response
+              relationships, and generate publication-ready estimates
+              of attributable deaths and economic costs.
             </p>
+
+            <div className="mt-10 flex flex-wrap gap-4">
+              <Link
+                to="/analysis/1"
+                className="inline-flex items-center gap-2 bg-emerald-800 text-white px-6 py-3 rounded-lg font-mono text-[13px] uppercase tracking-[0.12em] hover:bg-emerald-700 transition-colors duration-200"
+              >
+                Start analysis
+                <svg className="w-4 h-4" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M4 2.5L7.5 6 4 9.5" />
+                </svg>
+              </Link>
+            </div>
 
           </div>
 
@@ -294,6 +357,29 @@ export default function Home() {
             Five moves from concentration to value.
           </h2>
           <PipelineDiagram />
+        </div>
+      </section>
+
+      {/* ── Templates ──────────────────────────────────────────── */}
+      <section className="border-t border-zinc-200/80">
+        <div className="max-w-[1320px] mx-auto px-6 lg:px-10 py-20 lg:py-24">
+          <h2 className="text-[32px] md:text-[40px] font-semibold tracking-tightest leading-[1.02] text-ink mb-4">
+            Start from a template
+          </h2>
+          <p className="text-[17px] text-zinc-500 leading-relaxed mb-12 max-w-prose">
+            Pre-configured analyses you can run immediately or customize for your study.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+            {TEMPLATES.map(({ data, tag, color }) => (
+              <TemplateCard
+                key={data.name}
+                data={data}
+                tag={tag}
+                color={color}
+                onClick={() => handleTemplate(data)}
+              />
+            ))}
+          </div>
         </div>
       </section>
 

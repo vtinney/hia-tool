@@ -15,7 +15,10 @@ const POLLUTANT_LABELS = {
 const CSV_EXPECTED_COLUMNS = ['endpoint', 'age_group', 'rate']
 
 const BUILTIN_DATASETS = [
-  { id: 'cdc_wonder', label: 'CDC WONDER National Mortality Rates (U.S., 2015–2020)' },
+  { id: 'gbd2019_rates', label: 'GBD 2019 — Baseline Incidence Rates' },
+  { id: 'benmap_rates', label: 'BenMAP-CE Default Health Incidence Rates' },
+  { id: 'who_ghe_2020', label: 'WHO Global Health Estimates 2020' },
+  { id: 'cdc_wonder', label: 'CDC WONDER Mortality Data (U.S.)' },
 ]
 
 // ── Tab bar ────────────────────────────────────────────────────────
