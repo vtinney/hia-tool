@@ -191,12 +191,18 @@ function CsvUpload({ fileData, onFile, onClear }) {
 // ── Manual rate entry for a single endpoint ────────────────────────
 
 function EndpointRateRow({ crf, value, onChange }) {
+  // Baseline-rate context — strip CRF-method suffixes like "MR-BRT" from
+  // the source string. The full label (with MR-BRT) is still shown on
+  // Step 5 where the CRF method is the relevant attribute.
+  const baselineSource = crf.source
+    ? crf.source.replace(/\s*MR-BRT\s*/gi, ' ').replace(/\s{2,}/g, ' ').trim()
+    : ''
   return (
     <div className="flex items-start gap-4 p-3 rounded-lg border border-gray-200 bg-gray-50">
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900">{crf.endpoint}</p>
         <p className="text-xs text-gray-500 mt-0.5">
-          Age range: {crf.ageRange} &middot; Source: {crf.source}
+          Age range: {crf.ageRange} &middot; Source: {baselineSource}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
