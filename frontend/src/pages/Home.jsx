@@ -284,7 +284,7 @@ export default function Home() {
             <p className="mt-8 text-[19px] leading-relaxed text-zinc-600 max-w-prose">
               Quantify how air pollution harms health in any community.
               Define a study area, select pollutants and dose-response
-              relationships, and generate publication-ready estimates
+              relationships, and generate estimates
               of attributable deaths and economic costs.
             </p>
 
