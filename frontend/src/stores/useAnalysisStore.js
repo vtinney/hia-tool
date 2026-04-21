@@ -6,19 +6,19 @@ import { persist } from 'zustand/middleware'
 const DEFAULT_STEP1 = {
   studyArea: { type: 'country', id: '', name: '', geometry: null, boundaryUploadId: null },
   pollutant: null,
-  years: null,
   analysisName: '',
   analysisDescription: '',
 }
 
 const DEFAULT_STEP2 = {
-  baseline: { type: 'manual', value: null, datasetId: null, fileData: null, uploadId: null },
+  baseline: { type: 'manual', value: null, datasetId: null, fileData: null, uploadId: null, year: null },
   control: {
     type: 'none',
     value: null,
     benchmarkId: null,
     rollbackPercent: null,
     uploadId: null,
+    year: null,
   },
 }
 
@@ -176,7 +176,7 @@ const useAnalysisStore = create(
     }),
     {
       name: 'hia-analysis',
-      version: 4,
+      version: 5,
       partialize: (state) => ({
         // Persist only the data that matters for resume — skip transient UI state
         currentStep: state.currentStep,
@@ -191,10 +191,11 @@ const useAnalysisStore = create(
         step7: state.step7,
       }),
       migrate: (persisted, version) => {
-        // Future-proof: if the stored version is older, start fresh.
-        // v4 resets stale step6 (defaults: MC iterations 1000 → 0,
-        // pooling 'fixed' → 'separate') and any persisted SO2 selections.
-        if (version < 4) return initialState()
+        // v5: removed step1.years; added step2.baseline.year and
+        // step2.control.year. Migrations drop the stored state so the
+        // user starts with defaults rather than running with a partial
+        // old shape.
+        if (version < 5) return initialState()
         return persisted
       },
     },

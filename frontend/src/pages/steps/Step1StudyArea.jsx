@@ -35,9 +35,6 @@ const POLLUTANTS = [
   },
 ]
 
-const YEAR_MIN = 1990
-const YEAR_MAX = 2025
-
 const US_ANALYSIS_LEVELS = [
   { id: 'state', label: 'State level' },
   { id: 'county', label: 'County level' },
@@ -205,105 +202,11 @@ function StudyAreaMap({ selectedCountry, selectedState }) {
   )
 }
 
-// ── Year picker ─────────────────────────────────────────────────
-
-function YearPicker({ years, onChange }) {
-  const [mode, setMode] = useState(years?.start === years?.end ? 'single' : 'range')
-  const startYear = years?.start ?? ''
-  const endYear = years?.end ?? ''
-
-  const yearOptions = useMemo(() => {
-    const opts = []
-    for (let y = YEAR_MAX; y >= YEAR_MIN; y--) opts.push(y)
-    return opts
-  }, [])
-
-  const handleMode = (m) => {
-    setMode(m)
-    if (m === 'single' && startYear) {
-      onChange({ start: Number(startYear), end: Number(startYear) })
-    }
-  }
-
-  const handleStart = (val) => {
-    const y = val ? Number(val) : null
-    if (!y) { onChange(null); return }
-    if (mode === 'single') {
-      onChange({ start: y, end: y })
-    } else {
-      onChange({ start: y, end: endYear ? Math.max(y, Number(endYear)) : y })
-    }
-  }
-
-  const handleEnd = (val) => {
-    const y = val ? Number(val) : null
-    if (!y || !startYear) return
-    onChange({ start: Number(startYear), end: Math.max(Number(startYear), y) })
-  }
-
-  return (
-    <div>
-      <div className="flex gap-3 mb-2">
-        <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-          <input
-            type="radio"
-            name="yearMode"
-            checked={mode === 'single'}
-            onChange={() => handleMode('single')}
-            className="text-blue-600 focus:ring-blue-500"
-          />
-          Single year
-        </label>
-        <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-          <input
-            type="radio"
-            name="yearMode"
-            checked={mode === 'range'}
-            onChange={() => handleMode('range')}
-            className="text-blue-600 focus:ring-blue-500"
-          />
-          Year range
-        </label>
-      </div>
-
-      <div className="flex gap-3">
-        <select
-          value={startYear}
-          onChange={(e) => handleStart(e.target.value)}
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm
-                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-        >
-          <option value="">{mode === 'single' ? 'Select year' : 'Start year'}</option>
-          {yearOptions.map((y) => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
-
-        {mode === 'range' && (
-          <select
-            value={endYear}
-            onChange={(e) => handleEnd(e.target.value)}
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm
-                       focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="">End year</option>
-            {yearOptions
-              .filter((y) => y >= (startYear || YEAR_MIN))
-              .map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-          </select>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // ── Main step component ─────────────────────────────────────────
 
 export default function Step1StudyArea() {
   const { step1, setStep1, setStepValidity } = useAnalysisStore()
-  const { studyArea, pollutant, years, analysisName, analysisDescription } = step1
+  const { studyArea, pollutant, analysisName, analysisDescription } = step1
 
   // Derived lookup objects for map
   const selectedCountry = useMemo(
@@ -564,15 +467,6 @@ export default function Step1StudyArea() {
                 </label>
               ))}
             </div>
-          </fieldset>
-
-          {/* Analysis years */}
-          <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <legend className="text-sm font-semibold text-gray-700 px-1">Analysis Period</legend>
-            <YearPicker
-              years={years}
-              onChange={(y) => setStep1({ years: y })}
-            />
           </fieldset>
 
           {/* Name & description */}
