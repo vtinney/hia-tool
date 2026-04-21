@@ -331,11 +331,11 @@ export default function Step4HealthData() {
   }, [availableCRFs])
 
   // Local UI state
-  const [activeTab, setActiveTab] = useState(
-    incidenceType === 'file' ? 'upload'
-      : incidenceType === 'dataset' ? 'builtin'
-      : 'manual',
-  )
+  const [activeTab, setActiveTab] = useState(() => {
+    if (incidenceType === 'file' && step4.fileData?.name) return 'upload'
+    if (incidenceType === 'manual' && rates && Object.values(rates).some((v) => v != null && v !== '' && v > 0)) return 'manual'
+    return 'builtin'
+  })
 
   // Initialize rates from defaults when pollutant changes
   const currentRates = useMemo(() => {
@@ -418,9 +418,9 @@ export default function Step4HealthData() {
   // ── Tab definitions ────────────────────────────────────────────
 
   const tabs = [
+    { id: 'builtin', label: 'Built-in Data' },
     { id: 'manual', label: 'Manual Entry' },
     { id: 'upload', label: 'File Upload' },
-    { id: 'builtin', label: 'Built-in Data' },
   ]
 
   // ── Render ─────────────────────────────────────────────────────

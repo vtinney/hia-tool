@@ -451,11 +451,11 @@ export default function Step3Population() {
   const baselineYear = step2?.baseline?.year ?? null
   const effectiveYear = step3.year ?? baselineYear
 
-  const [activeTab, setActiveTab] = useState(
-    populationType === 'file' ? 'upload'
-      : populationType === 'dataset' ? 'builtin'
-      : 'manual',
-  )
+  const [activeTab, setActiveTab] = useState(() => {
+    if (populationType === 'file' && step3.fileData?.name) return 'upload'
+    if (populationType === 'manual' && totalPopulation != null) return 'manual'
+    return 'builtin'
+  })
 
   // ── Validation ─────────────────────────────────────────────────
 
@@ -517,9 +517,9 @@ export default function Step3Population() {
   // ── Tab definitions ────────────────────────────────────────────
 
   const tabs = [
+    { id: 'builtin', label: 'Built-in Data' },
     { id: 'manual', label: 'Manual Entry' },
     { id: 'upload', label: 'File Upload' },
-    { id: 'builtin', label: 'Built-in Data' },
   ]
 
   // ── Render ─────────────────────────────────────────────────────
