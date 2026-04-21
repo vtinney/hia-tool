@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
 import { uploadFile, fetchConcentration, fetchDatasets } from '../../lib/api'
 import { datasetCoversCountry, yearsFor } from '../../lib/datasets'
+import YearField from '../../components/YearField'
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -417,7 +418,7 @@ export default function Step2AirQuality() {
     const hasBaseline =
       (baseline.type === 'manual' && baseline.value != null && baseline.value !== '' && baseline.value >= 0) ||
       (baseline.type === 'dataset' && baseline.datasetId != null && baseline.year != null) ||
-      (baseline.type === 'file' && baseline.fileData?.name && !baseline.fileData?.error)
+      (baseline.type === 'file' && baseline.fileData?.name && !baseline.fileData?.error && baseline.year != null)
     setStepValidity(2, hasBaseline)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseline])
@@ -648,11 +649,25 @@ export default function Step2AirQuality() {
 
           {/* File Upload */}
           {baselineTab === 'upload' && (
-            <FileDropzone
-              fileData={baseline.fileData}
-              onFile={handleBaselineFile}
-              onClear={handleClearBaselineFile}
-            />
+            <div className="space-y-4">
+              <FileDropzone
+                fileData={baseline.fileData}
+                onFile={handleBaselineFile}
+                onClear={handleClearBaselineFile}
+              />
+              {baseline.fileData?.name && !baseline.fileData?.error && (
+                <YearField
+                  id="baseline-upload-year"
+                  label="Year of uploaded data"
+                  value={baseline.year}
+                  baselineYear={null}
+                  required
+                  onChange={(y) =>
+                    setStep2({ baseline: { ...baseline, year: y, type: 'file' } })
+                  }
+                />
+              )}
+            </div>
           )}
 
           {/* Built-in Data */}
@@ -728,11 +743,25 @@ export default function Step2AirQuality() {
 
               {/* File Upload */}
               {controlTab === 'upload' && (
-                <FileDropzone
-                  fileData={control.fileData}
-                  onFile={handleControlFile}
-                  onClear={handleClearControlFile}
-                />
+                <div className="space-y-4">
+                  <FileDropzone
+                    fileData={control.fileData}
+                    onFile={handleControlFile}
+                    onClear={handleClearControlFile}
+                  />
+                  {control.fileData?.name && !control.fileData?.error && (
+                    <YearField
+                      id="control-upload-year"
+                      label="Year of uploaded data"
+                      value={control.year}
+                      baselineYear={baseline.year}
+                      required
+                      onChange={(y) =>
+                        setStep2({ control: { ...control, year: y, type: 'file' } })
+                      }
+                    />
+                  )}
+                </div>
               )}
 
               {/* Built-in Data */}
