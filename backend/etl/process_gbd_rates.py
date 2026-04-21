@@ -45,6 +45,25 @@ AGE_NAME_TO_GROUP: dict[str, str] = {
     "<20 years": "under_20",
 }
 
+# Map IHME ``measure_name`` → short slug. ``Deaths`` lets the router
+# distinguish mortality causes from incidence causes that share the
+# same ``cause`` slug (e.g. asthma is incidence-only; lung cancer has
+# both mortality and incidence in separate files).
+MEASURE_SLUG: dict[str, str] = {
+    "Deaths": "deaths",
+    "Incidence": "incidence",
+    "Prevalence": "prevalence",
+    "YLDs (Years Lived with Disability)": "ylds",
+    "YLLs (Years of Life Lost)": "ylls",
+    "DALYs (Disability-Adjusted Life Years)": "dalys",
+}
+
+SEX_SLUG: dict[str, str] = {
+    "Both": "both",
+    "Male": "male",
+    "Female": "female",
+}
+
 RATE_METRIC_ID = 3
 
 
@@ -72,13 +91,29 @@ def _process_single_csv(csv_path: Path, cause_slug: str) -> pd.DataFrame:
                        csv_path.name, unknown)
         df.loc[unmapped, "age_group"] = "all_ages"
 
-    # Normalize rate: per-100K -> per-person-year
-    df["rate"] = df["val"] / 100_000
+    # Normalize measure / sex to short slugs
+    df["measure"] = (
+        df["measure_name"].map(MEASURE_SLUG).fillna(
+            df["measure_name"].str.lower().str.replace(" ", "_")
+        )
+    )
+    df["sex"] = (
+        df["sex_name"].map(SEX_SLUG).fillna(df["sex_name"].str.lower())
+    )
 
-    # Select and rename columns
-    return df[["location_id", "location_name", "year", "rate", "age_group"]].rename(
-        columns={"location_id": "gbd_location_id"}
-    ).assign(cause=cause_slug)
+    # Normalize rates: IHME publishes per-100K, we store per-person-year.
+    df["rate"] = df["val"] / 100_000
+    df["rate_lower"] = df["lower"] / 100_000
+    df["rate_upper"] = df["upper"] / 100_000
+
+    return (
+        df[[
+            "location_id", "location_name", "year", "age_group",
+            "measure", "sex", "rate", "rate_lower", "rate_upper",
+        ]]
+        .rename(columns={"location_id": "gbd_location_id"})
+        .assign(cause=cause_slug)
+    )
 
 
 def process_gbd_rates(
@@ -138,8 +173,9 @@ def process_gbd_rates(
     # Reorder columns
     df = df[
         ["cause", "gbd_location_id", "location_name", "year",
-         "rate", "age_group", "ne_country_iso3", "ne_country_uid",
-         "ne_state_uid"]
+         "age_group", "measure", "sex",
+         "rate", "rate_lower", "rate_upper",
+         "ne_country_iso3", "ne_country_uid", "ne_state_uid"]
     ]
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
