@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
 import { uploadFile, fetchConcentration, fetchDatasets } from '../../lib/api'
+import { datasetCoversCountry, yearsFor } from '../../lib/datasets'
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -20,15 +21,6 @@ const POLLUTANT_LABELS = {
 
 const ACCEPTED_FILE_TYPES = '.csv,.nc,.tif,.tiff,.geotiff'
 const ACCEPTED_EXTENSIONS = ['csv', 'nc', 'tif', 'tiff', 'geotiff']
-
-const BUILTIN_DATASETS = [
-  { id: 'gbd2019', label: 'GBD 2019 — Global PM2.5 Estimates' },
-  { id: 'acag_v5', label: 'ACAG V5.GL.03 — Satellite-derived PM2.5' },
-  { id: 'who_aap_2024', label: 'WHO Ambient Air Pollution Database 2024' },
-  { id: 'epa_aqs', label: 'US EPA AQS Monitor Data' },
-  { id: 'cams_reanalysis', label: 'CAMS Global Reanalysis (EAC4)' },
-  { id: 'openaq', label: 'OpenAQ Aggregated Monitoring Data' },
-]
 
 const BENCHMARKS = [
   { id: 'who_guideline', label: 'WHO Guideline', value: 5 },
@@ -224,39 +216,64 @@ function DeltaPreview({ baseline, control, unit }) {
 
 // ── Built-in data loader ──────────────────────────────────────────
 
-function BuiltinConcentrationLoader({ pollutant, studyArea, years, selectedDatasetId, onSelect, onDataLoaded }) {
+function BuiltinConcentrationLoader({
+  pollutant,
+  studyArea,
+  selectedDatasetId,
+  selectedYear,
+  onSelect,
+  onYearChange,
+  onDataLoaded,
+}) {
   const [datasets, setDatasets] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [geojsonPreview, setGeojsonPreview] = useState(null)
 
-  const country = studyArea?.id || studyArea?.name?.toLowerCase().replace(/\s+/g, '-') || ''
-  const year = years?.start || years?.end || new Date().getFullYear()
+  const country = studyArea?.id || ''
 
-  // Fetch available datasets on mount
+  // Fetch available datasets on mount and whenever pollutant changes
   useEffect(() => {
     if (!pollutant) return
+    setDatasets(null)
     fetchDatasets({ pollutant, type: 'concentration' })
       .then((res) => setDatasets(res.datasets || []))
       .catch(() => setDatasets([]))
   }, [pollutant])
 
-  // Fetch concentration data when a dataset is selected
+  const filteredOptions = useMemo(() => {
+    if (!datasets) return null
+    return datasets.filter((d) => datasetCoversCountry(d, country))
+  }, [datasets, country])
+
+  const selectedDataset = useMemo(
+    () =>
+      (filteredOptions || []).find(
+        (d) => (d.id || `${d.pollutant}-${d.country}`) === selectedDatasetId,
+      ) || null,
+    [filteredOptions, selectedDatasetId],
+  )
+
+  const availableYears = useMemo(
+    () => (selectedDataset ? yearsFor(selectedDataset, country) : []),
+    [selectedDataset, country],
+  )
+
+  // Fetch concentration data when a dataset + year are selected
   useEffect(() => {
-    if (!selectedDatasetId || !pollutant || !country) return
+    if (!selectedDatasetId || !pollutant || !country || !selectedYear) return
 
     setLoading(true)
     setError(null)
     setGeojsonPreview(null)
 
-    fetchConcentration(pollutant, country, year)
+    fetchConcentration(pollutant, country, selectedYear)
       .then((geojson) => {
         if (!geojson) {
-          setError(`Built-in data not yet available for ${studyArea?.name || country}. Please use manual entry or upload.`)
+          setError(`Built-in data not available for ${studyArea?.name || country} in ${selectedYear}.`)
           return
         }
         setGeojsonPreview(geojson)
-        // Compute population-weighted mean from features
         const features = geojson.features || []
         if (features.length > 0) {
           const concentrations = features
@@ -268,29 +285,83 @@ function BuiltinConcentrationLoader({ pollutant, studyArea, years, selectedDatas
           }
         }
       })
-      .catch((err) => {
-        setError(err.message)
-      })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [selectedDatasetId, pollutant, country, year]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedDatasetId, pollutant, country, selectedYear]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const options = datasets ?? BUILTIN_DATASETS
+  // Loading state for the dataset list itself
+  if (datasets === null) {
+    return (
+      <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        Loading available datasets…
+      </div>
+    )
+  }
+
+  // Empty state when no dataset covers the chosen country
+  if (filteredOptions.length === 0) {
+    return (
+      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+        <p className="font-medium">No built-in concentration data for {studyArea?.name || country}.</p>
+        <p className="mt-1 text-xs">Switch to Manual Entry or File Upload, or choose a different pollutant.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3">
-      <select
-        value={selectedDatasetId || ''}
-        onChange={(e) => onSelect(e.target.value)}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
-                   focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-      >
-        <option value="">Select a dataset…</option>
-        {options.map((d) => (
-          <option key={d.id || `${d.pollutant}-${d.country}`} value={d.id || `${d.pollutant}-${d.country}`}>
-            {d.label || `${d.pollutant_label || d.pollutant} — ${d.country} (${d.years?.join(', ')})`}
-          </option>
-        ))}
-      </select>
+      {/* Dataset picker */}
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Dataset</label>
+        <select
+          value={selectedDatasetId || ''}
+          onChange={(e) => {
+            onSelect(e.target.value)
+            onYearChange(null)
+          }}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
+                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">Select a dataset…</option>
+          {filteredOptions.map((d) => {
+            const id = d.id || `${d.pollutant}-${d.country}`
+            const years = yearsFor(d, country)
+            const yearRange = years.length > 0
+              ? (years[0] === years[years.length - 1]
+                  ? `${years[0]}`
+                  : `${years[0]}–${years[years.length - 1]}`)
+              : '—'
+            const label = d.label || `${d.pollutant_label || d.pollutant} — ${d.country}`
+            return (
+              <option key={id} value={id}>
+                {label} ({yearRange})
+              </option>
+            )
+          })}
+        </select>
+      </div>
+
+      {/* Year picker — only after dataset chosen */}
+      {selectedDataset && (
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Year</label>
+          <select
+            value={selectedYear ?? ''}
+            onChange={(e) => onYearChange(e.target.value ? Number(e.target.value) : null)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
+                       focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="">Select a year…</option>
+            {availableYears.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
@@ -345,7 +416,7 @@ export default function Step2AirQuality() {
   useEffect(() => {
     const hasBaseline =
       (baseline.type === 'manual' && baseline.value != null && baseline.value !== '' && baseline.value >= 0) ||
-      (baseline.type === 'dataset' && baseline.datasetId != null) ||
+      (baseline.type === 'dataset' && baseline.datasetId != null && baseline.year != null) ||
       (baseline.type === 'file' && baseline.fileData?.name && !baseline.fileData?.error)
     setStepValidity(2, hasBaseline)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -589,9 +660,12 @@ export default function Step2AirQuality() {
             <BuiltinConcentrationLoader
               pollutant={pollutant}
               studyArea={step1.studyArea}
-              years={step1.years}
               selectedDatasetId={baseline.datasetId}
+              selectedYear={baseline.year}
               onSelect={handleBaselineDataset}
+              onYearChange={(year) =>
+                setStep2({ baseline: { ...baseline, year, type: 'dataset' } })
+              }
               onDataLoaded={(value, geojson) => {
                 setStep2({
                   baseline: { ...baseline, value, datasetId: baseline.datasetId, type: 'dataset', builtinGeojson: geojson },
@@ -666,9 +740,12 @@ export default function Step2AirQuality() {
                 <BuiltinConcentrationLoader
                   pollutant={pollutant}
                   studyArea={step1.studyArea}
-                  years={step1.years}
                   selectedDatasetId={control.datasetId}
+                  selectedYear={control.year}
                   onSelect={handleControlDataset}
+                  onYearChange={(year) =>
+                    setStep2({ control: { ...control, year, type: 'dataset' } })
+                  }
                   onDataLoaded={(value, geojson) => {
                     setStep2({
                       control: { ...control, value, datasetId: control.datasetId, type: 'dataset', builtinGeojson: geojson },
