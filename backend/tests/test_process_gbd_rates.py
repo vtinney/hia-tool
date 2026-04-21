@@ -147,7 +147,8 @@ class TestOutputSchema:
         df = pd.read_parquet(output_path)
         expected = {
             "cause", "gbd_location_id", "location_name", "year",
-            "rate", "age_group", "ne_country_iso3", "ne_country_uid",
-            "ne_state_uid",
+            "age_group", "measure", "sex",
+            "rate", "rate_lower", "rate_upper",
+            "ne_country_iso3", "ne_country_uid", "ne_state_uid",
         }
         assert set(df.columns) == expected
