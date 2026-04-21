@@ -20,12 +20,85 @@ unit is computed in a single vectorised call.
 from __future__ import annotations
 
 import logging
+import os
 import warnings
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+# ────────────────────────────────────────────────────────────────────
+#  MR-BRT spline lookup
+# ────────────────────────────────────────────────────────────────────
+#
+# Map a CRF ID (as used in ``frontend/src/data/crf-library.json``) to the
+# processed MR-BRT spline that backs it. The on-disk layout is produced
+# by ``backend.etl.process_mr_brt`` — one parquet per (pollutant, endpoint)
+# with columns ``exposure, rr_mean, rr_lower, rr_upper``.
+#
+# A CRF id missing from this map means no spline is wired for it — the
+# engine falls back to log-linear and emits the existing warning.
+_CRF_ID_TO_SPLINE = {
+    "gbd_pm25_ihd":         ("pm25", "ischemic_heart_disease"),
+    "gbd_pm25_stroke":      ("pm25", "stroke"),
+    "gbd_pm25_lc":          ("pm25", "lung_cancer"),
+    "gbd_pm25_copd":        ("pm25", "copd"),
+    "gbd_pm25_lri":         ("pm25", "lower_respiratory_infections"),
+    "gbd_pm25_dm2":         ("pm25", "diabetes"),
+    "gbd_pm25_dementia":    ("pm25", "dementia"),
+    "gbd_ozone_copd_mort":  ("ozone", "copd"),
+    "gbd_no2_asthma_child": ("no2", "asthma"),
+}
+
+_MR_BRT_ROOT = Path(os.getenv("DATA_ROOT", "./data/processed")) / "mr_brt"
+
+
+@lru_cache(maxsize=32)
+def _load_spline_table(pollutant: str, endpoint: str) -> np.ndarray | None:
+    """Load a processed MR-BRT spline as a ``(N, 2)`` [exposure, RR] array.
+
+    Returns ``None`` when the file doesn't exist so callers can fall
+    back gracefully.
+    """
+    path = _MR_BRT_ROOT / pollutant / f"{endpoint}.parquet"
+    if not path.exists():
+        return None
+    df = pd.read_parquet(path)
+    if "exposure" not in df.columns or "rr_mean" not in df.columns:
+        return None
+    df = df.sort_values("exposure")
+    return np.column_stack(
+        [df["exposure"].to_numpy(), df["rr_mean"].to_numpy()]
+    ).astype(np.float64)
+
+
+def _spline_for_crf(crf: dict[str, Any] | None) -> np.ndarray | None:
+    """Look up the spline table for a CRF dict, if one is wired.
+
+    Resolution order:
+    1. Explicit ``spline_table`` on the CRF (caller-provided override).
+    2. CRF ``id`` → entry in ``_CRF_ID_TO_SPLINE``.
+    3. CRF ``(pollutant, endpoint)`` tuple — used as a loose match when
+       only the pair is known.
+    """
+    if not crf:
+        return None
+    existing = crf.get("spline_table")
+    if existing is not None:
+        return np.asarray(existing, dtype=np.float64)
+    pair = _CRF_ID_TO_SPLINE.get(crf.get("id"))
+    if pair is None:
+        pollutant = (crf.get("pollutant") or "").lower()
+        endpoint = (crf.get("endpoint") or "").lower().replace(" ", "_")
+        if pollutant and endpoint:
+            pair = (pollutant, endpoint)
+    if pair is None:
+        return None
+    return _load_spline_table(*pair)
 
 # ────────────────────────────────────────────────────────────────────
 #  Helpers
@@ -432,6 +505,7 @@ def _compute_single_crf(
     c_ctrl: float | np.ndarray,
     y0: float,
     pop: float | np.ndarray,
+    crf: dict[str, Any] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Route a CRF to the correct functional form.
 
@@ -448,17 +522,16 @@ def _compute_single_crf(
         Baseline incidence rate.
     pop : float or np.ndarray
         Exposed population.
-
-    Returns
-    -------
-    cases, paf : np.ndarray
+    crf : dict or None
+        Full CRF record — used for spline lookup on MR-BRT / fusion.
     """
     delta_c = np.asarray(c_base) - np.asarray(c_ctrl)
 
     if form == "log-linear":
         return log_linear(beta, delta_c, y0, pop)
     elif form == "mr-brt":
-        return mr_brt(beta, c_base, c_ctrl, y0, pop)
+        spline = _spline_for_crf(crf)
+        return mr_brt(beta, c_base, c_ctrl, y0, pop, spline_table=spline)
     elif form == "gemm-nlt":
         return gemm(beta, c_base, c_ctrl, y0, pop)
     elif form == "fusion-hybrid":
@@ -538,14 +611,17 @@ def compute_hia(config: dict[str, Any]) -> dict[str, Any]:
         form = crf.get("functionalForm", "log-linear")
         y0 = crf.get("defaultRate", y0_global) or y0_global
 
-        # Track which forms will use fallback
-        if form == "mr-brt" and "mr-brt" not in _seen_fallback_forms:
-            _seen_fallback_forms.add("mr-brt")
-            warnings.append(
-                "MR-BRT spline data not loaded — GBD CRFs are using a "
-                "log-linear approximation. Results may differ from published "
-                "GBD estimates."
-            )
+        # Track which forms will use fallback. For MR-BRT, only warn when
+        # no spline file is available for this specific CRF.
+        if form == "mr-brt":
+            spline_missing = _spline_for_crf(crf) is None
+            if spline_missing and "mr-brt" not in _seen_fallback_forms:
+                _seen_fallback_forms.add("mr-brt")
+                warnings.append(
+                    "MR-BRT spline data not loaded for some GBD CRFs — "
+                    "those are using a log-linear approximation. Results "
+                    "may differ from published GBD estimates."
+                )
         elif form == "fusion-hybrid" and "fusion-hybrid" not in _seen_fallback_forms:
             _seen_fallback_forms.add("fusion-hybrid")
             warnings.append(
@@ -557,7 +633,9 @@ def compute_hia(config: dict[str, Any]) -> dict[str, Any]:
         # Vectorised MC sampling
         betas = rng.normal(loc=crf["beta"], scale=se, size=n_iter)
 
-        cases, paf = _compute_single_crf(form, betas, c_base, c_ctrl, y0, pop)
+        cases, paf = _compute_single_crf(
+            form, betas, c_base, c_ctrl, y0, pop, crf=crf,
+        )
 
         # Rate per 100 000
         pop_arr = np.asarray(pop, dtype=np.float64)

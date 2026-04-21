@@ -204,6 +204,7 @@ def _run_spatial_compute(
                 form, betas,
                 float(c_baseline[zi]), float(c_control[zi]),
                 y0, float(population[zi]),
+                crf=crf,
             )
             zone_cases[:, zi] = cases_zi
             zone_paf[:, zi] = paf_zi
