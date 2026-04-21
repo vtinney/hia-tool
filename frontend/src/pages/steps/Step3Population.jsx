@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
 import { uploadFile, fetchPopulation } from '../../lib/api'
+import YearField from '../../components/YearField'
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -30,13 +31,6 @@ const PRESET_DISTRIBUTIONS = {
     },
   },
 }
-
-const BUILTIN_DATASETS = [
-  { id: 'worldpop_2020', label: 'WorldPop 2020 — Gridded Age/Sex Estimates' },
-  { id: 'gpw_v4', label: 'GPWv4 — Gridded Population of the World' },
-  { id: 'census_acs', label: 'US Census ACS 5-Year Estimates' },
-  { id: 'un_wpp_2022', label: 'UN World Population Prospects 2022' },
-]
 
 const CSV_EXPECTED_COLUMNS = ['spatial_unit_id', 'age_group', 'population']
 
@@ -361,17 +355,15 @@ function CrosswalkTable() {
 
 // ── Built-in population loader ────────────────────────────────────
 
-function BuiltinPopulationLoader({ studyArea, years, selectedDatasetId, onSelect, onDataLoaded }) {
+function BuiltinPopulationLoader({ studyArea, year, onDataLoaded }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [loadedData, setLoadedData] = useState(null)
 
-  const country = studyArea?.id || studyArea?.name?.toLowerCase().replace(/\s+/g, '-') || ''
-  const year = years?.start || years?.end || new Date().getFullYear()
+  const country = studyArea?.id || ''
 
-  // Fetch population data when a dataset is selected
   useEffect(() => {
-    if (!selectedDatasetId || !country) return
+    if (!country || !year) return
 
     setLoading(true)
     setError(null)
@@ -380,15 +372,13 @@ function BuiltinPopulationLoader({ studyArea, years, selectedDatasetId, onSelect
     fetchPopulation(country, year)
       .then((data) => {
         if (!data) {
-          setError(`Built-in data not yet available for ${studyArea?.name || country}. Please use manual entry or upload.`)
+          setError(`No built-in population data for ${studyArea?.name || country} in ${year}.`)
           return
         }
         setLoadedData(data)
         const units = data.units || []
-        // Sum total population across units
         const total = units.reduce((s, u) => s + (u.total || 0), 0)
 
-        // Aggregate age groups if available
         let ageGroups = null
         const firstWithAges = units.find((u) => u.age_groups)
         if (firstWithAges) {
@@ -399,12 +389,10 @@ function BuiltinPopulationLoader({ studyArea, years, selectedDatasetId, onSelect
               ageTotals[key] = (ageTotals[key] || 0) + (val || 0)
             }
           }
-          // Convert absolute counts to percentages
           const totalPop = Object.values(ageTotals).reduce((s, v) => s + v, 0)
           if (totalPop > 0) {
             ageGroups = {}
             for (const [key, val] of Object.entries(ageTotals)) {
-              // Convert age_0_4 format to 0–4 display format
               const label = key.replace(/^age_/, '').replace(/_/g, '–')
               ageGroups[label] = Math.round((val / totalPop) * 1000) / 10
             }
@@ -413,26 +401,20 @@ function BuiltinPopulationLoader({ studyArea, years, selectedDatasetId, onSelect
 
         onDataLoaded(total, ageGroups)
       })
-      .catch((err) => {
-        setError(err.message)
-      })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [selectedDatasetId, country, year]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [country, year]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!year) {
+    return (
+      <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500">
+        Set a year above to load population data.
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3">
-      <select
-        value={selectedDatasetId || ''}
-        onChange={(e) => onSelect(e.target.value)}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
-                   focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-      >
-        <option value="">Select a dataset…</option>
-        {BUILTIN_DATASETS.map((d) => (
-          <option key={d.id} value={d.id}>{d.label}</option>
-        ))}
-      </select>
-
       {loading && (
         <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
           <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -442,13 +424,11 @@ function BuiltinPopulationLoader({ studyArea, years, selectedDatasetId, onSelect
           Loading population data…
         </div>
       )}
-
       {error && (
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
           {error}
         </div>
       )}
-
       {loadedData && !error && (
         <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
           <p className="font-medium">Population data loaded</p>
@@ -465,8 +445,11 @@ function BuiltinPopulationLoader({ studyArea, years, selectedDatasetId, onSelect
 // ── Main component ─────────────────────────────────────────────────
 
 export default function Step3Population() {
-  const { step1, step3, setStep3, setStepValidity } = useAnalysisStore()
+  const { step1, step2, step3, setStep3, setStepValidity } = useAnalysisStore()
   const { populationType, totalPopulation, ageGroups } = step3
+
+  const baselineYear = step2?.baseline?.year ?? null
+  const effectiveYear = step3.year ?? baselineYear
 
   const [activeTab, setActiveTab] = useState(
     populationType === 'file' ? 'upload'
@@ -477,13 +460,14 @@ export default function Step3Population() {
   // ── Validation ─────────────────────────────────────────────────
 
   useEffect(() => {
+    const hasYear = effectiveYear != null
     const valid =
       (populationType === 'manual' && totalPopulation != null && totalPopulation > 0) ||
-      (populationType === 'file' && step3.fileData?.name && !step3.fileData?.error) ||
-      (populationType === 'dataset' && step3.datasetId != null)
+      (populationType === 'file' && step3.fileData?.name && !step3.fileData?.error && hasYear) ||
+      (populationType === 'dataset' && hasYear)
     setStepValidity(3, valid)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [populationType, totalPopulation, step3.fileData, step3.datasetId])
+  }, [populationType, totalPopulation, step3.fileData, effectiveYear])
 
   // ── Handlers ───────────────────────────────────────────────────
 
@@ -530,10 +514,6 @@ export default function Step3Population() {
     setStep3({ fileData: null, uploadId: null })
   }, [setStep3])
 
-  const handleDataset = useCallback((datasetId) => {
-    setStep3({ datasetId: datasetId || null, populationType: 'dataset' })
-  }, [setStep3])
-
   // ── Tab definitions ────────────────────────────────────────────
 
   const tabs = [
@@ -555,6 +535,17 @@ export default function Step3Population() {
         {/* ── Population Input ───────────────────────────────────── */}
         <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
           <legend className="text-sm font-semibold text-gray-700 px-1">Exposed Population</legend>
+
+          <div className="mb-4">
+            <YearField
+              id="step3-year"
+              label="Year"
+              value={effectiveYear}
+              baselineYear={baselineYear}
+              required
+              onChange={(y) => setStep3({ year: y })}
+            />
+          </div>
 
           <TabBar tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
 
@@ -608,14 +599,11 @@ export default function Step3Population() {
           {activeTab === 'builtin' && (
             <BuiltinPopulationLoader
               studyArea={step1.studyArea}
-              years={step1.years}
-              selectedDatasetId={step3.datasetId}
-              onSelect={handleDataset}
+              year={effectiveYear}
               onDataLoaded={(total, ageGroups) => {
                 setStep3({
                   totalPopulation: total,
                   ageGroups: ageGroups || step3.ageGroups,
-                  datasetId: step3.datasetId,
                   populationType: 'dataset',
                 })
               }}
