@@ -92,3 +92,47 @@ describe('pickVintage', () => {
     expect(pickVintage(2030, [2020])).toBe(2020)
   })
 })
+
+import { studyAreaToFilter } from '../demographics'
+
+describe('studyAreaToFilter', () => {
+  it('returns empty filter for nationwide US', () => {
+    const sa = { type: 'country', id: 'united-states', name: 'United States' }
+    expect(studyAreaToFilter(sa)).toEqual({})
+  })
+
+  it('returns state filter for us-state id (e.g. us-48 for Texas)', () => {
+    const sa = { type: 'state', id: 'us-48', name: 'Texas' }
+    expect(studyAreaToFilter(sa)).toEqual({ state: '48' })
+  })
+
+  it('returns state+county filter for us-county id (e.g. us-48-201 for Harris County)', () => {
+    const sa = { type: 'county', id: 'us-48-201', name: 'Harris County, Texas' }
+    expect(studyAreaToFilter(sa)).toEqual({ state: '48', county: '201' })
+  })
+
+  it('returns null for non-US country', () => {
+    const sa = { type: 'country', id: 'mexico', name: 'Mexico' }
+    expect(studyAreaToFilter(sa)).toBeNull()
+  })
+
+  it('returns null for non-admin-boundary types', () => {
+    expect(studyAreaToFilter({ type: 'polygon', id: '', name: '' })).toBeNull()
+    expect(studyAreaToFilter({ type: 'upload', id: '', name: '' })).toBeNull()
+  })
+
+  it('returns null for malformed state id', () => {
+    expect(studyAreaToFilter({ type: 'state', id: 'texas', name: 'Texas' })).toBeNull()
+    expect(studyAreaToFilter({ type: 'state', id: 'us-4', name: '' })).toBeNull()
+  })
+
+  it('returns null for malformed county id', () => {
+    expect(studyAreaToFilter({ type: 'county', id: 'us-48', name: '' })).toBeNull()
+    expect(studyAreaToFilter({ type: 'county', id: 'us-48-20', name: '' })).toBeNull()
+  })
+
+  it('returns null for undefined or null studyArea', () => {
+    expect(studyAreaToFilter(null)).toBeNull()
+    expect(studyAreaToFilter(undefined)).toBeNull()
+  })
+})

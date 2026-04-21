@@ -57,3 +57,40 @@ export function pickVintage(analysisYear, availableVintages) {
   }
   return best
 }
+
+/**
+ * Derive a demographics endpoint filter object from a study area.
+ *
+ * Returns:
+ *   - {} for nationwide US (type='country', id='united-states')
+ *   - {state: 'XX'} for type='state' with id 'us-XX'
+ *   - {state: 'XX', county: 'YYY'} for type='county' with id 'us-XX-YYY'
+ *   - null for non-US or non-admin-boundary types, which should NOT render
+ *     the EJ section.
+ *
+ * FIPS codes are returned as strings (state 2 digits, county 3 digits) to
+ * match the `/api/data/demographics` query param shape.
+ *
+ * @param {{type: string, id: string}|null|undefined} studyArea
+ * @returns {{state?: string, county?: string}|null}
+ */
+export function studyAreaToFilter(studyArea) {
+  if (!studyArea) return null
+  const { type, id } = studyArea
+
+  if (type === 'country' && id === 'united-states') return {}
+
+  if (type === 'state') {
+    const m = /^us-(\d{2})$/.exec(id ?? '')
+    if (!m) return null
+    return { state: m[1] }
+  }
+
+  if (type === 'county') {
+    const m = /^us-(\d{2})-(\d{3})$/.exec(id ?? '')
+    if (!m) return null
+    return { state: m[1], county: m[2] }
+  }
+
+  return null
+}
