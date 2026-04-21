@@ -141,3 +141,30 @@ export async function runSpatialCompute(config) {
 
   return res.json()
 }
+
+/**
+ * Fetch ACS 5-year tract demographics for a country/year.
+ *
+ * @param {string} country - Country slug (e.g. 'us').
+ * @param {number} year - ACS 5-year vintage (end year).
+ * @param {object} [opts]
+ * @param {string} [opts.state] - 2-digit state FIPS filter.
+ * @param {string} [opts.county] - 3-digit county FIPS filter (requires state).
+ * @param {number} [opts.simplify] - Geometry simplification tolerance in degrees.
+ * @returns {Promise<object|null>} GeoJSON FeatureCollection, or null on 404.
+ */
+export async function fetchDemographics(country, year, opts = {}) {
+  const params = new URLSearchParams()
+  if (opts.state) params.set('state', opts.state)
+  if (opts.county) params.set('county', opts.county)
+  if (opts.simplify !== undefined) params.set('simplify', String(opts.simplify))
+  const qs = params.toString()
+  const res = await fetch(
+    `${API_BASE}/data/demographics/${country}/${year}${qs ? `?${qs}` : ''}`,
+  )
+  if (!res.ok) {
+    if (res.status === 404) return null
+    throw new Error(`Failed to fetch demographics: ${res.status}`)
+  }
+  return res.json()
+}
