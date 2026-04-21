@@ -184,6 +184,7 @@ const useAnalysisStore = create(
       name: 'hia-analysis',
       version: 7,
       partialize: (state) => ({
+        // Persist only the data that matters for resume — skip transient UI state
         currentStep: state.currentStep,
         completedSteps: state.completedSteps,
         stepValidity: state.stepValidity,
