@@ -9,6 +9,8 @@
     "beta": 0.00583,
     "betaLow": 0.00396,
     "betaHigh": 0.00769,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "Turner et al. 2016 (ACS CPS-II)",
     "functionalForm": "log-linear",
     "defaultRate": 0.008
@@ -23,6 +25,8 @@
     "beta": 0.01545,
     "betaLow": 0.00952,
     "betaHigh": 0.02135,
+    "cause": "ihd",
+    "endpointType": "mortality",
     "source": "Pope et al. 2004 (ACS CPS-II)",
     "functionalForm": "log-linear",
     "defaultRate": 0.0025
@@ -37,6 +41,8 @@
     "beta": 0.01325,
     "betaLow": 0.00492,
     "betaHigh": 0.02151,
+    "cause": "lung_cancer",
+    "endpointType": "mortality",
     "source": "Turner et al. 2011 (ACS CPS-II)",
     "functionalForm": "log-linear",
     "defaultRate": 0.0006
@@ -51,6 +57,8 @@
     "beta": 0.01062,
     "betaLow": 0.00072,
     "betaHigh": 0.02040,
+    "cause": "copd",
+    "endpointType": "mortality",
     "source": "Pope et al. 2004 (ACS CPS-II)",
     "functionalForm": "log-linear",
     "defaultRate": 0.0005
@@ -65,6 +73,8 @@
     "beta": 0.01089,
     "betaLow": 0.00131,
     "betaHigh": 0.02040,
+    "cause": "stroke",
+    "endpointType": "mortality",
     "source": "Pope et al. 2004 (ACS CPS-II)",
     "functionalForm": "log-linear",
     "defaultRate": 0.0011
@@ -79,6 +89,8 @@
     "beta": 0.00396,
     "betaLow": 0.00131,
     "betaHigh": 0.00660,
+    "cause": "respiratory_mortality",
+    "endpointType": "mortality",
     "source": "Jerrett et al. 2009 (ACS CPS-II)",
     "functionalForm": "log-linear",
     "defaultRate": 0.0009
@@ -93,6 +105,8 @@
     "beta": 0.00198,
     "betaLow": 0.00100,
     "betaHigh": 0.00296,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "Turner et al. 2016",
     "functionalForm": "log-linear",
     "defaultRate": 0.008
@@ -107,6 +121,8 @@
     "beta": 0.00492,
     "betaLow": 0.00198,
     "betaHigh": 0.00783,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "Faustini et al. 2014 (meta-analysis)",
     "functionalForm": "log-linear",
     "defaultRate": 0.008
@@ -121,6 +137,8 @@
     "beta": 0.00283,
     "betaLow": 0.00054,
     "betaHigh": 0.00509,
+    "cause": "respiratory_mortality",
+    "endpointType": "mortality",
     "source": "Faustini et al. 2014",
     "functionalForm": "log-linear",
     "defaultRate": 0.0009
@@ -135,6 +153,8 @@
     "beta": 0.00395,
     "betaLow": 0.00100,
     "betaHigh": 0.00689,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "GBD 2019",
     "functionalForm": "log-linear",
     "defaultRate": 0.008
@@ -149,6 +169,8 @@
     "beta": 0.00620,
     "betaLow": 0.00440,
     "betaHigh": 0.00800,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "GBD 2023 MR-BRT (IHME)",
     "functionalForm": "mr-brt",
     "defaultRate": 0.008
@@ -163,6 +185,8 @@
     "beta": 0.01610,
     "betaLow": 0.01050,
     "betaHigh": 0.02170,
+    "cause": "ihd",
+    "endpointType": "mortality",
     "source": "GBD 2023 MR-BRT (IHME)",
     "functionalForm": "mr-brt",
     "defaultRate": 0.0025
@@ -177,6 +201,8 @@
     "beta": 0.01150,
     "betaLow": 0.00350,
     "betaHigh": 0.01950,
+    "cause": "stroke",
+    "endpointType": "mortality",
     "source": "GBD 2023 MR-BRT (IHME)",
     "functionalForm": "mr-brt",
     "defaultRate": 0.0011
@@ -191,6 +217,8 @@
     "beta": 0.01380,
     "betaLow": 0.00600,
     "betaHigh": 0.02150,
+    "cause": "lung_cancer",
+    "endpointType": "mortality",
     "source": "GBD 2023 MR-BRT (IHME)",
     "functionalForm": "mr-brt",
     "defaultRate": 0.0006
@@ -205,6 +233,8 @@
     "beta": 0.01100,
     "betaLow": 0.00200,
     "betaHigh": 0.02000,
+    "cause": "copd",
+    "endpointType": "mortality",
     "source": "GBD 2023 MR-BRT (IHME)",
     "functionalForm": "mr-brt",
     "defaultRate": 0.0005
@@ -219,6 +249,8 @@
     "beta": 0.00978,
     "betaLow": 0.00437,
     "betaHigh": 0.01514,
+    "cause": "lri",
+    "endpointType": "mortality",
     "source": "GBD 2023 MR-BRT (IHME)",
     "functionalForm": "mr-brt",
     "defaultRate": 0.0004
@@ -233,6 +265,8 @@
     "beta": 0.01098,
     "betaLow": 0.00492,
     "betaHigh": 0.01699,
+    "cause": "diabetes",
+    "endpointType": "mortality",
     "source": "GBD 2023 MR-BRT (IHME)",
     "functionalForm": "mr-brt",
     "defaultRate": 0.0003
@@ -247,6 +281,8 @@
     "beta": 0.00310,
     "betaLow": 0.00080,
     "betaHigh": 0.00540,
+    "cause": "copd",
+    "endpointType": "mortality",
     "source": "GBD 2023 MR-BRT (IHME)",
     "functionalForm": "mr-brt",
     "defaultRate": 0.0005
@@ -261,6 +297,8 @@
     "beta": 0.02600,
     "betaLow": 0.01000,
     "betaHigh": 0.04100,
+    "cause": "asthma",
+    "endpointType": "incidence",
     "source": "GBD 2023 MR-BRT (IHME)",
     "functionalForm": "mr-brt",
     "defaultRate": 0.009
@@ -275,6 +313,8 @@
     "beta": 0.00700,
     "betaLow": 0.00520,
     "betaHigh": 0.00880,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "Burnett et al. 2018 (GEMM)",
     "functionalForm": "gemm-nlt",
     "defaultRate": 0.008
@@ -289,6 +329,8 @@
     "beta": 0.00880,
     "betaLow": 0.00620,
     "betaHigh": 0.01140,
+    "cause": "cardiovascular",
+    "endpointType": "mortality",
     "source": "Burnett et al. 2018 (GEMM)",
     "functionalForm": "gemm-nlt",
     "defaultRate": 0.003
@@ -303,6 +345,8 @@
     "beta": 0.01230,
     "betaLow": 0.00780,
     "betaHigh": 0.01690,
+    "cause": "respiratory_mortality",
+    "endpointType": "mortality",
     "source": "Burnett et al. 2018 (GEMM)",
     "functionalForm": "gemm-nlt",
     "defaultRate": 0.0009
@@ -317,6 +361,8 @@
     "beta": 0.00650,
     "betaLow": 0.00480,
     "betaHigh": 0.00820,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "Weichenthal et al. 2022 (CanCHEC Fusion)",
     "functionalForm": "fusion-hybrid",
     "defaultRate": 0.008
@@ -331,6 +377,8 @@
     "beta": 0.00920,
     "betaLow": 0.00650,
     "betaHigh": 0.01190,
+    "cause": "cardiovascular",
+    "endpointType": "mortality",
     "source": "Weichenthal et al. 2022 (CanCHEC Fusion)",
     "functionalForm": "fusion-hybrid",
     "defaultRate": 0.003
@@ -345,6 +393,8 @@
     "beta": 0.01400,
     "betaLow": 0.00530,
     "betaHigh": 0.02260,
+    "cause": "lung_cancer",
+    "endpointType": "mortality",
     "source": "Weichenthal et al. 2022 (CanCHEC Fusion)",
     "functionalForm": "fusion-hybrid",
     "defaultRate": 0.0006
@@ -359,6 +409,8 @@
     "beta": 0.00626,
     "betaLow": 0.00402,
     "betaHigh": 0.00849,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "WHO HRAPIE 2013",
     "functionalForm": "log-linear",
     "defaultRate": 0.008
@@ -373,6 +425,8 @@
     "beta": 0.00190,
     "betaLow": 0.00080,
     "betaHigh": 0.00300,
+    "cause": "respiratory_hosp",
+    "endpointType": "hospitalization",
     "source": "WHO HRAPIE 2013",
     "functionalForm": "log-linear",
     "defaultRate": 0.012
@@ -387,6 +441,8 @@
     "beta": 0.00091,
     "betaLow": 0.00017,
     "betaHigh": 0.00166,
+    "cause": "cardiac_hosp",
+    "endpointType": "hospitalization",
     "source": "WHO HRAPIE 2013",
     "functionalForm": "log-linear",
     "defaultRate": 0.008
@@ -401,6 +457,8 @@
     "beta": 0.00290,
     "betaLow": 0.00100,
     "betaHigh": 0.00430,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "WHO HRAPIE 2013",
     "functionalForm": "log-linear",
     "defaultRate": 0.008
@@ -415,6 +473,8 @@
     "beta": 0.00250,
     "betaLow": 0.00080,
     "betaHigh": 0.00420,
+    "cause": "respiratory_hosp",
+    "endpointType": "hospitalization",
     "source": "WHO HRAPIE 2013",
     "functionalForm": "log-linear",
     "defaultRate": 0.012
@@ -429,6 +489,8 @@
     "beta": 0.00200,
     "betaLow": 0.00050,
     "betaHigh": 0.00350,
+    "cause": "asthma_ed",
+    "endpointType": "ed_visit",
     "source": "WHO HRAPIE 2013",
     "functionalForm": "log-linear",
     "defaultRate": 0.005
@@ -443,6 +505,8 @@
     "beta": 0.00068,
     "betaLow": 0.00059,
     "betaHigh": 0.00077,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "Liu et al. 2019 (NEJM)",
     "functionalForm": "log-linear",
     "defaultRate": 0.008,
@@ -458,6 +522,8 @@
     "beta": 0.00073,
     "betaLow": 0.00060,
     "betaHigh": 0.00086,
+    "cause": "cardiovascular",
+    "endpointType": "mortality",
     "source": "Liu et al. 2019 (NEJM)",
     "functionalForm": "log-linear",
     "defaultRate": 0.003,
@@ -473,6 +539,8 @@
     "beta": 0.00075,
     "betaLow": 0.00056,
     "betaHigh": 0.00094,
+    "cause": "respiratory_mortality",
+    "endpointType": "mortality",
     "source": "Liu et al. 2019 (NEJM)",
     "functionalForm": "log-linear",
     "defaultRate": 0.001,
@@ -488,6 +556,8 @@
     "beta": 0.00052,
     "betaLow": 0.00027,
     "betaHigh": 0.00077,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "Bell et al. 2004 (JAMA)",
     "functionalForm": "log-linear",
     "defaultRate": 0.008,
@@ -503,6 +573,8 @@
     "beta": 0.00120,
     "betaLow": 0.00056,
     "betaHigh": 0.00184,
+    "cause": "respiratory_mortality",
+    "endpointType": "mortality",
     "source": "Bell et al. 2004 (JAMA)",
     "functionalForm": "log-linear",
     "defaultRate": 0.001,
@@ -518,6 +590,8 @@
     "beta": 0.00123,
     "betaLow": 0.00045,
     "betaHigh": 0.00201,
+    "cause": "all_cause",
+    "endpointType": "mortality",
     "source": "WHO HRAPIE 2013 (short-term)",
     "functionalForm": "log-linear",
     "defaultRate": 0.008,
@@ -533,6 +607,8 @@
     "beta": 0.00091,
     "betaLow": 0.00017,
     "betaHigh": 0.00166,
+    "cause": "cardiovascular_hosp",
+    "endpointType": "hospitalization",
     "source": "WHO HRAPIE 2013 (short-term)",
     "functionalForm": "log-linear",
     "defaultRate": 0.006,
@@ -548,6 +624,8 @@
     "beta": 0.00190,
     "betaLow": 0.00082,
     "betaHigh": 0.00298,
+    "cause": "respiratory_hosp",
+    "endpointType": "hospitalization",
     "source": "WHO HRAPIE 2013 (short-term)",
     "functionalForm": "log-linear",
     "defaultRate": 0.004,
