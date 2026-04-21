@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
 import { fetchIncidence } from '../../lib/api'
 import crfLibrary from '../../data/crf-library.json'
+import YearField from '../../components/YearField'
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -13,13 +14,6 @@ const POLLUTANT_LABELS = {
 }
 
 const CSV_EXPECTED_COLUMNS = ['endpoint', 'age_group', 'rate']
-
-const BUILTIN_DATASETS = [
-  { id: 'gbd2019_rates', label: 'GBD 2019 — Baseline Incidence Rates' },
-  { id: 'benmap_rates', label: 'BenMAP-CE Default Health Incidence Rates' },
-  { id: 'who_ghe_2020', label: 'WHO Global Health Estimates 2020' },
-  { id: 'cdc_wonder', label: 'CDC WONDER Mortality Data (U.S.)' },
-]
 
 // ── Tab bar ────────────────────────────────────────────────────────
 
@@ -225,28 +219,23 @@ function EndpointRateRow({ crf, value, onChange }) {
 
 // ── Built-in incidence loader ─────────────────────────────────────
 
-function BuiltinIncidenceLoader({ studyArea, years, uniqueEndpoints, selectedDatasetId, onSelect, onDataLoaded }) {
+function BuiltinIncidenceLoader({ studyArea, year, uniqueEndpoints, onDataLoaded }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [loadedCount, setLoadedCount] = useState(0)
 
-  const country = studyArea?.id || studyArea?.name?.toLowerCase().replace(/\s+/g, '-') || ''
-  const year = years?.start || years?.end || new Date().getFullYear()
+  const country = studyArea?.id || ''
 
-  // Fetch incidence data when a dataset is selected
   useEffect(() => {
-    if (!selectedDatasetId || !country) return
+    if (!country || !year) return
 
     setLoading(true)
     setError(null)
     setLoadedCount(0)
 
-    // Try fetching incidence for each unique endpoint's cause
     const causes = [...new Set(uniqueEndpoints.filter((ep) => ep.endpoint).map((ep) =>
       ep.endpoint.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
     ))]
-
-    // Try a general "all" cause first, then individual causes
     const causesToTry = ['all', ...causes]
 
     Promise.all(
@@ -255,20 +244,15 @@ function BuiltinIncidenceLoader({ studyArea, years, uniqueEndpoints, selectedDat
       ),
     )
       .then((results) => {
-        // Merge all non-null results
         const allUnits = results.filter(Boolean).flatMap((r) => r.units || [])
-
         if (allUnits.length === 0) {
-          setError(`Built-in data not yet available for ${studyArea?.name || country}. Please use manual entry or upload.`)
+          setError(`No built-in incidence data for ${studyArea?.name || country} in ${year}.`)
           return
         }
-
-        // Map incidence rates to CRF endpoint IDs
         const ratesMap = {}
         let matched = 0
         for (const ep of uniqueEndpoints) {
           const epLower = (ep.endpoint || '').toLowerCase()
-          // Find a matching unit by endpoint/cause name
           const match = allUnits.find((u) => {
             const cause = (u.cause || '').toLowerCase()
             return epLower.includes(cause) || cause.includes(epLower.split(' ')[0])
@@ -278,32 +262,24 @@ function BuiltinIncidenceLoader({ studyArea, years, uniqueEndpoints, selectedDat
             matched++
           }
         }
-
         setLoadedCount(matched)
-        if (matched > 0) {
-          onDataLoaded(ratesMap)
-        } else {
-          setError(`Built-in data not yet available for ${studyArea?.name || country}. Please use manual entry or upload.`)
-        }
+        if (matched > 0) onDataLoaded(ratesMap)
+        else setError(`No built-in incidence data matched endpoints for ${studyArea?.name || country} in ${year}.`)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [selectedDatasetId, country, year]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [country, year]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!year) {
+    return (
+      <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500">
+        Set a year above to load incidence data.
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3">
-      <select
-        value={selectedDatasetId || ''}
-        onChange={(e) => onSelect(e.target.value)}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
-                   focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-      >
-        <option value="">Select a dataset…</option>
-        {BUILTIN_DATASETS.map((d) => (
-          <option key={d.id} value={d.id}>{d.label}</option>
-        ))}
-      </select>
-
       {loading && (
         <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
           <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -313,13 +289,9 @@ function BuiltinIncidenceLoader({ studyArea, years, uniqueEndpoints, selectedDat
           Loading incidence data…
         </div>
       )}
-
       {error && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-          {error}
-        </div>
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">{error}</div>
       )}
-
       {loadedCount > 0 && !error && !loading && (
         <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
           <p className="font-medium">Incidence data loaded</p>
@@ -335,7 +307,9 @@ function BuiltinIncidenceLoader({ studyArea, years, uniqueEndpoints, selectedDat
 // ── Main component ─────────────────────────────────────────────────
 
 export default function Step4HealthData() {
-  const { step1, step4, setStep4, setStepValidity } = useAnalysisStore()
+  const { step1, step2, step4, setStep4, setStepValidity } = useAnalysisStore()
+  const baselineYear = step2?.baseline?.year ?? null
+  const effectiveYear = step4.year ?? baselineYear
   const { incidenceType, rates } = step4
   const pollutant = step1.pollutant
 
@@ -391,19 +365,18 @@ export default function Step4HealthData() {
       setStepValidity(4, false)
       return
     }
-
+    const hasYear = effectiveYear != null
     let valid = false
     if (incidenceType === 'manual') {
-      // At least one rate must be filled
       valid = currentRates && Object.values(currentRates).some((v) => v != null && v !== '' && v > 0)
     } else if (incidenceType === 'file') {
-      valid = step4.fileData?.name && !step4.fileData?.error
+      valid = step4.fileData?.name && !step4.fileData?.error && hasYear
     } else if (incidenceType === 'dataset') {
-      valid = step4.datasetId != null
+      valid = hasYear
     }
     setStepValidity(4, valid)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incidenceType, currentRates, step4.fileData, step4.datasetId, pollutant])
+  }, [incidenceType, currentRates, step4.fileData, effectiveYear, pollutant])
 
   // ── Handlers ───────────────────────────────────────────────────
 
@@ -440,10 +413,6 @@ export default function Step4HealthData() {
 
   const handleClearFile = useCallback(() => {
     setStep4({ fileData: null })
-  }, [setStep4])
-
-  const handleDataset = useCallback((datasetId) => {
-    setStep4({ datasetId: datasetId || null, incidenceType: 'dataset' })
   }, [setStep4])
 
   // ── Tab definitions ────────────────────────────────────────────
@@ -495,6 +464,17 @@ export default function Step4HealthData() {
         {/* ── Incidence Rate Input ───────────────────────────────── */}
         <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
           <legend className="text-sm font-semibold text-gray-700 px-1">Baseline Incidence Rates</legend>
+
+          <div className="mb-4">
+            <YearField
+              id="step4-year"
+              label="Year"
+              value={effectiveYear}
+              baselineYear={baselineYear}
+              required
+              onChange={(y) => setStep4({ year: y })}
+            />
+          </div>
 
           <TabBar tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
 
@@ -557,10 +537,8 @@ export default function Step4HealthData() {
           {activeTab === 'builtin' && (
             <BuiltinIncidenceLoader
               studyArea={step1.studyArea}
-              years={step1.years}
+              year={effectiveYear}
               uniqueEndpoints={uniqueEndpoints}
-              selectedDatasetId={step4.datasetId}
-              onSelect={handleDataset}
               onDataLoaded={(ratesMap) => {
                 setStep4({ rates: { ...currentRates, ...ratesMap }, incidenceType: 'dataset' })
               }}
