@@ -105,6 +105,29 @@ describe('EJContextSection', () => {
     await waitFor(() => expect(screen.getByText(/2022 ACS/i)).toBeInTheDocument())
   })
 
+  it('excludes tracts without HIA results from aggregate stats', async () => {
+    // Demographics returns 3 tracts but per-tract HIA results only covers 2.
+    // Aggregate must weight only over the 2 that the engine computed (01, 02),
+    // NOT include the extra tract '99' that has demographics but no HIA result.
+    fetchSpy.mockReturnValueOnce(okJson(mockGeojson([
+      tract('01', 1000, 0.5, 0.3),
+      tract('02', 3000, 0.9, 0.4),
+      tract('99', 5000, 0.1, 0.05),  // has demographics but no HIA result
+    ])))
+    render(
+      <EJContextSection
+        studyArea={studyArea}
+        analysisYear={2022}
+        perTractResults={perTractResults}  // only covers 01 and 02
+        availableVintages={[2020, 2021, 2022]}
+      />,
+    )
+    await waitFor(() => expect(screen.getByTestId('choropleth')).toBeInTheDocument())
+    // Should still be 0.8 (weighted over 01 and 02 only), NOT diluted by tract 99.
+    // If '99' were included: (1000*0.5 + 3000*0.9 + 5000*0.1)/9000 = 0.411 — wrong.
+    expect(screen.getByTestId('pct-minority-value').textContent).toMatch(/80\.0%/)
+  })
+
   it('toggles the map field when user clicks the toggle', async () => {
     fetchSpy.mockReturnValueOnce(okJson(mockGeojson([
       tract('01', 1000, 0.5, 0.3),

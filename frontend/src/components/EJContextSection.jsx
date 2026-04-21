@@ -56,32 +56,32 @@ export default function EJContextSection({
 
   const retry = useCallback(() => setFetchNonce((n) => n + 1), [])
 
-  // Join demographics features to per-tract HIA results by tract FIPS,
-  // then compute population-weighted aggregates on the joined set.
-  const joinedTracts = useMemo(() => {
+  // Aggregate stats weight only over tracts that the HIA engine actually
+  // computed (spec D4 "Join integrity"): tracts with demographics but no
+  // HIA result are shown on the choropleth but excluded from the headline
+  // numbers. This prevents state/county sub-analyses from silently
+  // over-counting when the engine returns a subset of tracts.
+  const aggregationTracts = useMemo(() => {
     if (!geojson) return []
     const byFips = new Map(
       (perTractResults ?? []).map((r) => [String(r.tract_fips), r]),
     )
-    return geojson.features.map((f) => {
-      const hia = byFips.get(String(f.properties?.geoid))
-      return {
-        geoid: f.properties?.geoid,
+    return geojson.features
+      .filter((f) => byFips.has(String(f.properties?.geoid)))
+      .map((f) => ({
         total_pop: f.properties?.total_pop,
         pct_minority: f.properties?.pct_minority,
         pct_below_200_pov: f.properties?.pct_below_200_pov,
-        hia,
-      }
-    })
+      }))
   }, [geojson, perTractResults])
 
   const pctMinority = useMemo(
-    () => populationWeightedMean(joinedTracts, 'pct_minority'),
-    [joinedTracts],
+    () => populationWeightedMean(aggregationTracts, 'pct_minority'),
+    [aggregationTracts],
   )
   const pctBelow200Pov = useMemo(
-    () => populationWeightedMean(joinedTracts, 'pct_below_200_pov'),
-    [joinedTracts],
+    () => populationWeightedMean(aggregationTracts, 'pct_below_200_pov'),
+    [aggregationTracts],
   )
 
   if (!hasTractResults) {

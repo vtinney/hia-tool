@@ -53,7 +53,7 @@ export default function TractChoroplethMap({ geojson, field, accessToken, bbox }
           'fill-color': [
             'case',
             ['!=', ['typeof', ['get', field]], 'number'],
-            '#eeeeee', // no-data hatch color (flat fallback)
+            '#eeeeee', // no-data flat fill
             ['interpolate', ['linear'], ['get', field], ...PCT_RAMP],
           ],
           'fill-opacity': 0.75,

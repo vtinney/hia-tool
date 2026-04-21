@@ -32,6 +32,11 @@ export function populationWeightedMean(tracts, field) {
  * 2020+ use the post-decennial redraw (~85k tracts). Silent cross-boundary
  * fallback would mismatch tract FIPS and distort downstream joins.
  *
+ * Tie-breaking: when two same-side vintages are equidistant from the target
+ * year, the earliest-encountered vintage in `availableVintages` wins (strict
+ * `<` on distance, so the first match stays). Deterministic given a stable
+ * input order.
+ *
  * @param {number} analysisYear
  * @param {number[]} availableVintages
  * @returns {number|null}

@@ -600,6 +600,9 @@ export default function Results() {
   const detailRows = results?.detail ?? []
 
   const perTractResults = results?.per_tract_results ?? null
+  // TODO: remove fallback once the backend reliably returns demographics_vintages
+  // in the analysis payload. Hardcoded list reflects the 10 vintages built on
+  // disk as of 2026-04-21.
   const availableVintages = results?.demographics_vintages ?? [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
   const analysisYear = step2?.baseline?.year ?? null
   const ejGatePasses =
