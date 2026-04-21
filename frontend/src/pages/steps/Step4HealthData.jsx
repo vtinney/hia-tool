@@ -474,6 +474,11 @@ export default function Step4HealthData() {
               required
               onChange={(y) => setStep4({ year: y })}
             />
+            {incidenceType === 'file' && (
+              <p className="mt-1 text-xs text-gray-500">
+                Applies to the uploaded rate file.
+              </p>
+            )}
           </div>
 
           <TabBar tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
