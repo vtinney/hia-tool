@@ -550,48 +550,6 @@ export default function Step4HealthData() {
             />
           )}
         </fieldset>
-
-        {/* ── Available Endpoints Reference ──────────────────────── */}
-        <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <legend className="text-sm font-semibold text-gray-700 px-1">
-            CRF Endpoint Reference — {pollutantLabel}
-          </legend>
-          <p className="text-xs text-gray-500 mb-3">
-            Health endpoints from the CRF library for the selected pollutant.
-            Full CRF configuration (beta coefficients, pooling) happens in Step 5.
-          </p>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">Endpoint</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">Age Range</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">Source</th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Default Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {availableCRFs.map((crf, i) => (
-                  <tr key={crf.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-3 py-1.5 text-gray-900 border-b border-gray-100 font-medium">
-                      {crf.endpoint}
-                    </td>
-                    <td className="px-3 py-1.5 text-gray-600 border-b border-gray-100 font-mono">
-                      {crf.ageRange}
-                    </td>
-                    <td className="px-3 py-1.5 text-gray-500 border-b border-gray-100">
-                      {crf.source}
-                    </td>
-                    <td className="px-3 py-1.5 text-gray-700 border-b border-gray-100 text-right font-mono">
-                      {crf.defaultRate != null ? crf.defaultRate.toFixed(4) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </fieldset>
       </div>
     </>
   )
