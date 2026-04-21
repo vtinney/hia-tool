@@ -545,6 +545,11 @@ export default function Step3Population() {
               required
               onChange={(y) => setStep3({ year: y })}
             />
+            {populationType === 'file' && (
+              <p className="mt-1 text-xs text-gray-500">
+                Applies to the uploaded file.
+              </p>
+            )}
           </div>
 
           <TabBar tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
