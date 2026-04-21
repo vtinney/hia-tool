@@ -445,7 +445,7 @@ const CSV_COLUMNS = [
   { key: 'economicValue',        header: 'Economic Value' },
 ]
 
-function ExportTab({ results, analysisName, hasValuation, summaryRef, tableRef, step1, step6, step7, exportConfig, onOpenTemplateModal }) {
+function ExportTab({ results, analysisName, hasValuation, summaryRef, tableRef, step1, step2, step6, step7, exportConfig, onOpenTemplateModal }) {
   const [pdfBusy, setPdfBusy] = useState(false)
   const slug = slugify(analysisName)
   const rows = results?.detail ?? []
@@ -492,7 +492,7 @@ function ExportTab({ results, analysisName, hasValuation, summaryRef, tableRef, 
       const params = [
         ['Study Area', step1?.studyArea?.name || '—'],
         ['Pollutant', step1?.pollutant || '—'],
-        ['Years', step1?.years ? (step1.years.start === step1.years.end ? String(step1.years.start) : `${step1.years.start}–${step1.years.end}`) : '—'],
+        ['Year', step2?.baseline?.year ?? '—'],
         ['Pooling Method', step6?.poolingMethod || '—'],
         ['Uncertainty Method', results?.meta?.uncertaintyMethod === 'monte-carlo'
           ? `Monte Carlo (${step6?.monteCarloIterations ?? 0} iterations)`
@@ -581,7 +581,7 @@ const TABS = [
 
 // ── Main Page ──────────────────────────────────────────────
 export default function Results() {
-  const { results, step1, step6, step7, exportConfig } = useAnalysisStore()
+  const { results, step1, step2, step6, step7, exportConfig } = useAnalysisStore()
   const [activeTab, setActiveTab] = useState('table')
   const [templateModal, setTemplateModal] = useState(false)
   const [savingTemplate, setSavingTemplate] = useState(false)
@@ -745,6 +745,7 @@ export default function Results() {
                     summaryRef={summaryRef}
                     tableRef={tableRef}
                     step1={step1}
+                    step2={step2}
                     step6={step6}
                     step7={step7}
                     exportConfig={exportConfig}
