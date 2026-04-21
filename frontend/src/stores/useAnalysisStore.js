@@ -89,6 +89,9 @@ function initialState() {
     step6: { ...DEFAULT_STEP6 },
     step7: { ...DEFAULT_STEP7 },
 
+    // EJ framing (set by template; gates Results-page EJ section)
+    ejFraming: false,
+
     // Results from the backend
     results: null,
   }
@@ -163,6 +166,7 @@ const useAnalysisStore = create(
 
         if (config.completedSteps) next.completedSteps = config.completedSteps
         if (config.stepValidity) next.stepValidity = { ...defaultStepValidity(), ...config.stepValidity }
+        next.ejFraming = config.ejFraming === true
 
         set(next)
       },
@@ -178,9 +182,8 @@ const useAnalysisStore = create(
     }),
     {
       name: 'hia-analysis',
-      version: 6,
+      version: 7,
       partialize: (state) => ({
-        // Persist only the data that matters for resume — skip transient UI state
         currentStep: state.currentStep,
         completedSteps: state.completedSteps,
         stepValidity: state.stepValidity,
@@ -191,11 +194,12 @@ const useAnalysisStore = create(
         step5: state.step5,
         step6: state.step6,
         step7: state.step7,
+        ejFraming: state.ejFraming,
       }),
       migrate: (persisted, version) => {
-        // v5 and older had a different step shape. v6 added year to
-        // step3 and step4. Always reset — simpler than partial upgrade.
-        if (version < 6) return initialState()
+        // v6 and older: hard reset is simpler than partial upgrade.
+        // v7 added ejFraming.
+        if (version < 7) return initialState()
         return persisted
       },
     },
