@@ -34,6 +34,7 @@ const DEFAULT_STEP4 = {
   incidenceType: 'manual',
   rates: null,
   year: null,
+  selectedEndpoints: [],
 }
 
 const DEFAULT_STEP5 = {
@@ -178,7 +179,7 @@ const useAnalysisStore = create(
     }),
     {
       name: 'hia-analysis',
-      version: 6,
+      version: 7,
       partialize: (state) => ({
         // Persist only the data that matters for resume — skip transient UI state
         currentStep: state.currentStep,
@@ -194,8 +195,9 @@ const useAnalysisStore = create(
       }),
       migrate: (persisted, version) => {
         // v5 and older had a different step shape. v6 added year to
-        // step3 and step4. Always reset — simpler than partial upgrade.
-        if (version < 6) return initialState()
+        // step3 and step4. v7 added step4.selectedEndpoints. Always
+        // reset — simpler than partial upgrade.
+        if (version < 7) return initialState()
         return persisted
       },
     },
