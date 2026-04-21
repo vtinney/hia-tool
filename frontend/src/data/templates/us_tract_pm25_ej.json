@@ -1,6 +1,7 @@
 {
   "name": "U.S. Census Tract PM₂.₅ (Environmental Justice)",
   "description": "Tract-level spatial analysis for environmental justice screening. Requires gridded PM₂.₅ and population raster uploads. Uses Di 2017 CRFs.",
+  "ejFraming": true,
   "step1": {
     "studyArea": { "type": "country", "id": "united-states", "name": "United States" },
     "pollutant": "pm25",

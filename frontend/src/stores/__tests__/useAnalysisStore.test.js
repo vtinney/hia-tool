@@ -31,4 +31,14 @@ describe('useAnalysisStore — ejFraming', () => {
     useAnalysisStore.getState().reset()
     expect(useAnalysisStore.getState().ejFraming).toBe(false)
   })
+
+  it('the us_tract_pm25_ej template carries ejFraming=true', async () => {
+    const tpl = await import('../../data/templates/us_tract_pm25_ej.json')
+    expect(tpl.default.ejFraming).toBe(true)
+  })
+
+  it('the us_national_pm25 template does NOT carry ejFraming', async () => {
+    const tpl = await import('../../data/templates/us_national_pm25.json')
+    expect(tpl.default.ejFraming).toBeUndefined()
+  })
 })
