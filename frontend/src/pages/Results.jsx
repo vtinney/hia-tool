@@ -5,6 +5,8 @@ import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import useAnalysisStore from '../stores/useAnalysisStore'
 import ResultsTable from '../components/ResultsTable'
+import EJContextSection from '../components/EJContextSection'
+import { studyAreaToFilter } from '../lib/demographics'
 
 // ── Formatting helpers ─────────────────────────────────────────
 function fmtNumber(n, decimals = 0) {
@@ -581,7 +583,7 @@ const TABS = [
 
 // ── Main Page ──────────────────────────────────────────────
 export default function Results() {
-  const { results, step1, step2, step6, step7, exportConfig } = useAnalysisStore()
+  const { results, step1, step2, step6, step7, exportConfig, ejFraming } = useAnalysisStore()
   const [activeTab, setActiveTab] = useState('table')
   const [templateModal, setTemplateModal] = useState(false)
   const [savingTemplate, setSavingTemplate] = useState(false)
@@ -596,6 +598,15 @@ export default function Results() {
   const hasValuation = step7?.runValuation && summary.economicValue != null
   const analysisName = results?.meta?.analysisName || step1?.analysisName || ''
   const detailRows = results?.detail ?? []
+
+  const perTractResults = results?.per_tract_results ?? null
+  const availableVintages = results?.demographics_vintages ?? [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+  const analysisYear = step2?.baseline?.year ?? null
+  const ejGatePasses =
+    ejFraming === true &&
+    studyAreaToFilter(step1?.studyArea) !== null &&
+    Array.isArray(perTractResults) &&
+    perTractResults.length > 0
 
   const handleSaveTemplate = useCallback(async ({ name, description }) => {
     setSavingTemplate(true)
@@ -754,6 +765,15 @@ export default function Results() {
                 )}
               </div>
             </div>
+
+            {ejGatePasses && (
+              <EJContextSection
+                studyArea={step1.studyArea}
+                analysisYear={analysisYear}
+                perTractResults={perTractResults}
+                availableVintages={availableVintages}
+              />
+            )}
           </>
         )}
       </div>
