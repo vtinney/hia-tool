@@ -4,9 +4,8 @@ Living checklist of known gaps that need follow-up work. Tracks items that were 
 
 ## CRF / engine
 
-- [ ] **Wire Fusion marginal-risk tables into the backend.** `backend/services/hia_engine.py:538` dispatches `fusion(beta, c_base, c_ctrl, y0, pop)` without an `mr_table`, so every fusion-hybrid CRF currently falls back to the log-linear placeholder. The three fusion CRFs in `frontend/src/data/crf-library.json` are labelled Fusion but don't compute as Fusion until this is fixed.
-  - Parameter source: https://github.com/karnvohra/HealthBurden/tree/main (Vohra et al. HealthBurden repo). Specifically need the CSV file with the non-accidental-death parameters plus the accompanying R code so the integration matches the published method.
-  - Target: an ETL that produces `data/processed/fusion/{pollutant}/{endpoint}.parquet` with columns `[concentration, marginal_risk]`, plus a lookup (mirror of `_CRF_ID_TO_SPLINE`) wired through `fusion(...)` in the dispatcher.
+- [x] ~~**Wire Fusion marginal-risk tables into the backend.**~~ Done 2026-04-21 in commits adding `backend/etl/process_fusion.py` and the spline-lookup branch in `fusion()`. `fusion_pm25_acm` now interpolates RR from the Weichenthal et al. (2022) hybrid table (eSCHIF below 9.8 μg/m³, Fusion above). Source parquet under `data/processed/fusion/pm25/all_cause_mortality.parquet`.
+- [ ] **Publish Fusion parameters for CVD and lung-cancer endpoints.** The Vohra HealthBurden repo only ships non-accidental-deaths parameters, so `fusion_pm25_cvd` and `fusion_pm25_lc` still fall back to log-linear. Once endpoint-specific CSVs are available, drop them into `data/raw/fusion/` and extend `backend/etl/process_fusion.py` to produce `data/processed/fusion/pm25/cardiovascular_mortality.parquet` and `.../lung_cancer.parquet`, then add entries to `_CRF_ID_TO_FUSION` in `backend/services/hia_engine.py`.
 
 - [ ] **Confirm the GBD 2023 beta for the all-age LRI CRF.** `crf-library.json` entry `gbd_pm25_lri` had `ageRange: "0–4"`; the label was flipped to "All ages" on 2026-04-21 per product direction, but the beta (`0.00978`, CI `0.00437–0.01514`) may still be the under-5 value from IHME. Cross-check against IHME's all-age LRI exposure-response file and update beta/betaLow/betaHigh if the all-age curve differs.
 

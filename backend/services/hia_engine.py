@@ -7,10 +7,15 @@ NumPy for vectorised Monte Carlo sampling and batch arithmetic.
 Supported functional forms
 --------------------------
 1. **Log-linear** (EPA / HRAPIE)
-2. **MR-BRT spline** (GBD 2023) — placeholder with log-linear fallback
+2. **MR-BRT spline** (GBD 2023) — interpolated from IHME's tabulated
+   RR curves under ``data/processed/mr_brt/``; falls back to log-linear
+   when the spline file for a given CRF isn't on disk.
 3. **GEMM SCHIF** (Burnett et al. 2018)
-4. **Fusion hybrid** (Weichenthal et al. 2022) — placeholder with
-   trapezoidal integration scaffold
+4. **Fusion-CanCHEC hybrid** (Weichenthal et al. 2022) — interpolated
+   from the eSCHIF/Fusion hybrid RR table under
+   ``data/processed/fusion/`` (produced by
+   ``backend.etl.process_fusion``); falls back to log-linear when the
+   table for a given CRF isn't on disk.
 
 For gridded / spatially-resolved analyses the public functions accept
 NumPy arrays of concentrations and populations so that every spatial
@@ -55,16 +60,25 @@ _CRF_ID_TO_SPLINE = {
 }
 
 _MR_BRT_ROOT = Path(os.getenv("DATA_ROOT", "./data/processed")) / "mr_brt"
+_FUSION_ROOT = Path(os.getenv("DATA_ROOT", "./data/processed")) / "fusion"
+
+# Map a CRF ID to the tabulated Fusion-CanCHEC hybrid under ``_FUSION_ROOT``.
+# Only all-cause/non-accidental mortality has published Fusion parameters
+# today (Weichenthal et al. 2022 via the Vohra HealthBurden repo); CVD
+# and lung-cancer Fusion CRFs continue to fall back to log-linear until
+# source data lands.
+_CRF_ID_TO_FUSION = {
+    "fusion_pm25_acm": ("pm25", "all_cause_mortality"),
+}
 
 
-@lru_cache(maxsize=32)
-def _load_spline_table(pollutant: str, endpoint: str) -> np.ndarray | None:
-    """Load a processed MR-BRT spline as a ``(N, 2)`` [exposure, RR] array.
+def _load_tabulated_rr(root: Path, pollutant: str, endpoint: str) -> np.ndarray | None:
+    """Read a [exposure, rr_mean] table from ``root/pollutant/endpoint.parquet``.
 
-    Returns ``None`` when the file doesn't exist so callers can fall
-    back gracefully.
+    Returns ``None`` when the file doesn't exist or lacks the expected
+    columns so callers can fall back gracefully.
     """
-    path = _MR_BRT_ROOT / pollutant / f"{endpoint}.parquet"
+    path = root / pollutant / f"{endpoint}.parquet"
     if not path.exists():
         return None
     df = pd.read_parquet(path)
@@ -76,8 +90,20 @@ def _load_spline_table(pollutant: str, endpoint: str) -> np.ndarray | None:
     ).astype(np.float64)
 
 
+@lru_cache(maxsize=32)
+def _load_spline_table(pollutant: str, endpoint: str) -> np.ndarray | None:
+    """Load a processed MR-BRT spline as a ``(N, 2)`` [exposure, RR] array."""
+    return _load_tabulated_rr(_MR_BRT_ROOT, pollutant, endpoint)
+
+
+@lru_cache(maxsize=32)
+def _load_fusion_table(pollutant: str, endpoint: str) -> np.ndarray | None:
+    """Load a processed Fusion-CanCHEC table as a ``(N, 2)`` [exposure, RR] array."""
+    return _load_tabulated_rr(_FUSION_ROOT, pollutant, endpoint)
+
+
 def _spline_for_crf(crf: dict[str, Any] | None) -> np.ndarray | None:
-    """Look up the spline table for a CRF dict, if one is wired.
+    """Look up the MR-BRT spline table for a CRF dict, if one is wired.
 
     Resolution order:
     1. Explicit ``spline_table`` on the CRF (caller-provided override).
@@ -99,6 +125,28 @@ def _spline_for_crf(crf: dict[str, Any] | None) -> np.ndarray | None:
     if pair is None:
         return None
     return _load_spline_table(*pair)
+
+
+def _fusion_table_for_crf(crf: dict[str, Any] | None) -> np.ndarray | None:
+    """Look up the Fusion-CanCHEC hybrid table for a CRF dict, if one is wired.
+
+    Resolution order mirrors ``_spline_for_crf`` but consults
+    ``_CRF_ID_TO_FUSION`` and ``_FUSION_ROOT``.
+    """
+    if not crf:
+        return None
+    existing = crf.get("fusion_table")
+    if existing is not None:
+        return np.asarray(existing, dtype=np.float64)
+    pair = _CRF_ID_TO_FUSION.get(crf.get("id"))
+    if pair is None:
+        pollutant = (crf.get("pollutant") or "").lower()
+        endpoint = (crf.get("endpoint") or "").lower().replace(" ", "_")
+        if pollutant and endpoint:
+            pair = (pollutant, endpoint)
+    if pair is None:
+        return None
+    return _load_fusion_table(*pair)
 
 # ────────────────────────────────────────────────────────────────────
 #  Helpers
@@ -380,51 +428,10 @@ def gemm(
 
 
 # ────────────────────────────────────────────────────────────────────
-#  4. FUSION — trapezoidal integration
+#  4. FUSION-CANCHEC HYBRID
 # ────────────────────────────────────────────────────────────────────
 
 _fusion_warned = False
-
-
-def _trapezoidal_integrate(
-    table: np.ndarray, a: float, b: float
-) -> float:
-    """Trapezoidal numerical integration of a tabulated function.
-
-    Parameters
-    ----------
-    table : np.ndarray
-        Shape (N, 2) — sorted [x, y] pairs.
-    a, b : float
-        Integration bounds.
-
-    Returns
-    -------
-    float
-        Approximate ∫_a^b f(x) dx.
-    """
-    if a >= b or len(table) < 2:
-        return 0.0
-
-    xs = table[:, 0]
-    ys = table[:, 1]
-    x_min, x_max = xs[0], xs[-1]
-    lo = max(a, x_min)
-    hi = min(b, x_max)
-    if lo >= hi:
-        return 0.0
-
-    # Build integration points: lo, interior knots in (lo, hi), hi
-    mask = (xs > lo) & (xs < hi)
-    interior_x = xs[mask]
-    interior_y = ys[mask]
-
-    all_x = np.concatenate(([lo], interior_x, [hi]))
-    all_y = np.concatenate(
-        ([np.interp(lo, xs, ys)], interior_y, [np.interp(hi, xs, ys)])
-    )
-
-    return float(np.trapz(all_y, all_x))
 
 
 def fusion(
@@ -433,30 +440,33 @@ def fusion(
     c_ctrl: float | np.ndarray,
     y0: float,
     pop: float | np.ndarray,
-    mr_table: np.ndarray | None = None,
+    spline_table: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Fusion hybrid concentration-response function.
+    """Fusion-CanCHEC hybrid concentration-response function.
 
-    Integrates a tabulated marginal risk function MR(c)::
+    When a tabulated RR table is provided (output of
+    ``backend.etl.process_fusion``, which stitches the eSCHIF CanCHEC
+    curve below 9.8 μg/m³ onto the Fusion integral above 9.8 μg/m³)::
 
-        Excess risk = ∫_{c_ctrl}^{c_base} MR(c) dc
-        PAF         = 1 − exp(−excess_risk)
+        PAF = (RR(C_base) − RR(C_ctrl)) / RR(C_base)
 
-    When no MR table is available, a synthetic table is built from the
-    log-linear beta (MR(c) ≈ β for all c).
+    Otherwise falls back to log-linear with a one-time warning — the
+    table is preferred because the hybrid curve is flat near the TMREL
+    and steepens substantially above, so a flat β · ΔC approximation
+    systematically under- or over-estimates depending on the regime.
 
     Parameters
     ----------
     beta : np.ndarray
-        Sampled log-RR values.
+        Sampled log-RR values (used for fallback only).
     c_base, c_ctrl : float or np.ndarray
         Baseline and control concentrations.
     y0 : float
         Baseline incidence rate.
     pop : float or np.ndarray
         Exposed population.
-    mr_table : np.ndarray or None
-        Shape (N, 2) — [concentration, marginal_risk].
+    spline_table : np.ndarray or None
+        Shape (N, 2) — [concentration, RR]. ``None`` triggers fallback.
 
     Returns
     -------
@@ -464,33 +474,24 @@ def fusion(
     """
     global _fusion_warned
 
-    c_base_f = float(np.asarray(c_base).flat[0])
-    c_ctrl_f = float(np.asarray(c_ctrl).flat[0])
-
-    if mr_table is not None and len(mr_table) >= 2:
-        excess_risk = _trapezoidal_integrate(mr_table, c_ctrl_f, c_base_f)
-        paf = 1.0 - np.exp(-excess_risk)
-        paf_arr = np.full_like(beta, paf)
-        cases = paf_arr * y0 * pop
-        return cases, paf_arr
+    if spline_table is not None and len(spline_table) >= 2:
+        rr_base = _interpolate_rr(spline_table, c_base)
+        rr_ctrl = _interpolate_rr(spline_table, c_ctrl)
+        paf = np.where(rr_base > 0, (rr_base - rr_ctrl) / rr_base, 0.0)
+        # Broadcast paf to match beta shape for MC consistency
+        paf = np.broadcast_to(paf, beta.shape).copy()
+        cases = paf * y0 * pop
+        return cases, paf
 
     if not _fusion_warned:
         logger.warning(
-            "Fusion marginal-risk table not loaded — using log-linear "
-            "approximation. Results will differ from Fusion estimates."
+            "Fusion table not loaded — using log-linear approximation. "
+            "Results will differ from Fusion-CanCHEC estimates."
         )
         _fusion_warned = True
 
-    # Synthetic MR table: MR(c) ≈ sampled beta for each iteration
-    lo = min(c_ctrl_f, c_base_f)
-    hi = max(c_ctrl_f, c_base_f)
-    n_iter = len(beta)
-
-    # For each MC iteration, excess_risk ≈ beta_i × ΔC
-    excess_risk = beta * (hi - lo)
-    paf = 1.0 - np.exp(-excess_risk)
-    cases = paf * y0 * pop
-    return cases, paf
+    delta_c = np.asarray(c_base) - np.asarray(c_ctrl)
+    return log_linear(beta, delta_c, y0, pop)
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -535,7 +536,8 @@ def _compute_single_crf(
     elif form == "gemm-nlt":
         return gemm(beta, c_base, c_ctrl, y0, pop)
     elif form == "fusion-hybrid":
-        return fusion(beta, c_base, c_ctrl, y0, pop)
+        table = _fusion_table_for_crf(crf)
+        return fusion(beta, c_base, c_ctrl, y0, pop, spline_table=table)
     else:
         logger.warning(
             'Unknown functional form "%s", falling back to log-linear.', form
@@ -622,13 +624,15 @@ def compute_hia(config: dict[str, Any]) -> dict[str, Any]:
                     "those are using a log-linear approximation. Results "
                     "may differ from published GBD estimates."
                 )
-        elif form == "fusion-hybrid" and "fusion-hybrid" not in _seen_fallback_forms:
-            _seen_fallback_forms.add("fusion-hybrid")
-            warnings.append(
-                "Fusion marginal-risk table not loaded — Fusion CRFs are "
-                "using a log-linear approximation. Results may differ from "
-                "published Fusion estimates."
-            )
+        elif form == "fusion-hybrid":
+            fusion_missing = _fusion_table_for_crf(crf) is None
+            if fusion_missing and "fusion-hybrid" not in _seen_fallback_forms:
+                _seen_fallback_forms.add("fusion-hybrid")
+                warnings.append(
+                    "Fusion table not loaded for some Fusion CRFs — those are "
+                    "using a log-linear approximation. Results may differ from "
+                    "published Fusion-CanCHEC estimates."
+                )
 
         # Vectorised MC sampling
         betas = rng.normal(loc=crf["beta"], scale=se, size=n_iter)

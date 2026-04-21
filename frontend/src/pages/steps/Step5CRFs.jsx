@@ -562,9 +562,13 @@ export default function Step5CRFs() {
               z = max(0, C − 2.4). Also concentration-specific.
             </li>
             <li>
-              <span className="font-medium text-gray-700">Fusion</span> — currently approximated with a
-              log-linear fallback pending the tabulated marginal-risk data. See
-              <span className="font-mono"> docs/outstanding_work.md</span> for the wiring plan.
+              <span className="font-medium text-gray-700">Fusion-CanCHEC</span> — log-RR is
+              read from the Weichenthal et al. (2022) hybrid table (eSCHIF below
+              9.8 μg/m³, Fusion above), 1,200 knots over 0–120 μg/m³, then
+              PAF = (RR(c_base) − RR(c_ctrl)) / RR(c_base). All-cause mortality is
+              wired; CVD and lung-cancer Fusion CRFs fall back to log-linear until
+              endpoint-specific parameters are published (see
+              <span className="font-mono"> docs/outstanding_work.md</span>).
             </li>
           </ul>
         </div>
