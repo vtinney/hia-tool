@@ -3,7 +3,7 @@ import pytest
 from pydantic import ValidationError
 
 from backend.routers.compute import (
-    SpatialComputeRequest, SpatialComputeResponse, ProvenanceModel,
+    SpatialComputeRequest, SpatialComputeResponseV2, ProvenanceModel,
     CauseRollup, EstimateCI, CRFInput,
 )
 # Use TypeAdapter for discriminated-union validation since SpatialComputeRequest
