@@ -15,7 +15,6 @@ Your pollutant choice determines which concentration-response functions (CRFs) a
 - **PM2.5** has the most extensive CRF library — all five frameworks (EPA, GBD, GEMM, Fusion, HRAPIE) provide estimates.
 - **Ozone** has well-established short-term CRFs and emerging chronic CRFs from the EPA and GBD.
 - **NO₂** has growing epidemiological evidence but fewer validated long-term CRFs.
-- **SO₂** has primarily short-term exposure CRFs.
 
 ### Year selection
 

@@ -11,7 +11,6 @@ const POLLUTANT_LABELS = {
   pm25: 'PM\u2082.\u2085',
   ozone: 'Ozone',
   no2: 'NO\u2082',
-  so2: 'SO\u2082',
 }
 
 const FRAMEWORK_LABELS = {

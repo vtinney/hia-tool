@@ -9,7 +9,6 @@ import YearField from '../../components/YearField'
 const UNIT_MAP = {
   pm25: 'μg/m³',
   no2: 'μg/m³',
-  so2: 'μg/m³',
   ozone: 'ppb',
 }
 
@@ -17,7 +16,6 @@ const POLLUTANT_LABELS = {
   pm25: 'PM2.5',
   ozone: 'Ozone',
   no2: 'NO₂',
-  so2: 'SO₂',
 }
 
 const ACCEPTED_FILE_TYPES = '.csv,.nc,.tif,.tiff,.geotiff'

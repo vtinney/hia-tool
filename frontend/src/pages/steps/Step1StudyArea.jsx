@@ -27,12 +27,6 @@ const POLLUTANTS = [
     metric: 'Annual average',
     tip: 'Nitrogen dioxide annual mean in ppb. Strongly correlated with traffic-related air pollution.',
   },
-  {
-    id: 'so2',
-    label: 'SO₂',
-    metric: 'Annual average',
-    tip: 'Sulfur dioxide annual mean in ppb. Primarily from industrial sources and power generation.',
-  },
 ]
 
 const US_ANALYSIS_LEVELS = [

@@ -7,7 +7,7 @@ import crfLibrary from '../data/crf-library.json'
 
 // ── Constants ──────────────────────────────────────────────────────
 
-const POLLUTANT_LABELS = { pm25: 'PM2.5', ozone: 'Ozone', no2: 'NO₂', so2: 'SO₂' }
+const POLLUTANT_LABELS = { pm25: 'PM2.5', ozone: 'Ozone', no2: 'NO₂' }
 
 const STEP_TITLES = {
   1: 'Study Area & Pollutant',

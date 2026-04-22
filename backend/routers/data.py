@@ -586,7 +586,7 @@ def _scan_datasets() -> list[dict[str, Any]]:
         return datasets
 
     # Concentration datasets: {pollutant}/{country}/{year}.parquet
-    pollutant_names = {"pm25": "PM2.5", "ozone": "Ozone", "no2": "NO2", "so2": "SO2"}
+    pollutant_names = {"pm25": "PM2.5", "ozone": "Ozone", "no2": "NO2"}
     for pollutant_dir in sorted(DATA_ROOT.iterdir()):
         if not pollutant_dir.is_dir():
             continue

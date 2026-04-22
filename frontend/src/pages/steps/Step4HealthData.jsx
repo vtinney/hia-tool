@@ -10,7 +10,6 @@ const POLLUTANT_LABELS = {
   pm25: 'PM2.5',
   ozone: 'Ozone',
   no2: 'NO₂',
-  so2: 'SO₂',
 }
 
 const CSV_EXPECTED_COLUMNS = ['endpoint', 'age_group', 'rate']

@@ -144,22 +144,6 @@
     "defaultRate": 0.0009
   },
   {
-    "id": "epa_so2_acm_adult",
-    "framework": "epa",
-    "pollutant": "so2",
-    "endpoint": "All-cause mortality",
-    "ageRange": "25–99",
-    "metric": "Annual average",
-    "beta": 0.00395,
-    "betaLow": 0.00100,
-    "betaHigh": 0.00689,
-    "cause": "all_cause",
-    "endpointType": "mortality",
-    "source": "GBD 2019",
-    "functionalForm": "log-linear",
-    "defaultRate": 0.008
-  },
-  {
     "id": "gbd_pm25_acm_adult",
     "framework": "gbd",
     "pollutant": "pm25",
@@ -462,38 +446,6 @@
     "source": "WHO HRAPIE 2013",
     "functionalForm": "log-linear",
     "defaultRate": 0.008
-  },
-  {
-    "id": "hrapie_so2_resp_hosp",
-    "framework": "hrapie",
-    "pollutant": "so2",
-    "endpoint": "Respiratory hospitalization",
-    "ageRange": "0–99",
-    "metric": "Annual average",
-    "beta": 0.00250,
-    "betaLow": 0.00080,
-    "betaHigh": 0.00420,
-    "cause": "respiratory_hosp",
-    "endpointType": "hospitalization",
-    "source": "WHO HRAPIE 2013",
-    "functionalForm": "log-linear",
-    "defaultRate": 0.012
-  },
-  {
-    "id": "hrapie_so2_asthma_ed",
-    "framework": "hrapie",
-    "pollutant": "so2",
-    "endpoint": "Asthma ED visits",
-    "ageRange": "0–99",
-    "metric": "Annual average",
-    "beta": 0.00200,
-    "betaLow": 0.00050,
-    "betaHigh": 0.00350,
-    "cause": "asthma_ed",
-    "endpointType": "ed_visit",
-    "source": "WHO HRAPIE 2013",
-    "functionalForm": "log-linear",
-    "defaultRate": 0.005
   },
   {
     "id": "st_pm25_acm_liu2019",
