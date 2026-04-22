@@ -5,6 +5,9 @@ import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import useAnalysisStore from '../stores/useAnalysisStore'
 import ResultsTable from '../components/ResultsTable'
+import CompareAnotherYearCard from '../components/CompareAnotherYearCard'
+import AdditionalRunSummary from '../components/AdditionalRunSummary'
+import { runAnalysisForYear } from '../lib/api'
 
 // ── Formatting helpers ─────────────────────────────────────────
 function fmtNumber(n, decimals = 0) {
@@ -581,11 +584,16 @@ const TABS = [
 
 // ── Main Page ──────────────────────────────────────────────
 export default function Results() {
-  const { results, step1, step2, step6, step7, exportConfig } = useAnalysisStore()
+  const {
+    results, step1, step2, step6, step7, exportConfig,
+    additionalRuns, appendAdditionalRun,
+  } = useAnalysisStore()
   const [activeTab, setActiveTab] = useState('table')
   const [templateModal, setTemplateModal] = useState(false)
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [templateSaved, setTemplateSaved] = useState(false)
+  const [running, setRunning] = useState(false)
+  const [runError, setRunError] = useState(null)
 
   const summaryRef = useRef(null)
   const tableRef = useRef(null)
@@ -596,6 +604,50 @@ export default function Results() {
   const hasValuation = step7?.runValuation && summary.economicValue != null
   const analysisName = results?.meta?.analysisName || step1?.analysisName || ''
   const detailRows = results?.detail ?? []
+
+  // Years already consumed (primary + stacked additional runs) — excluded
+  // from the "Compare another year" picker to prevent duplicate runs.
+  const primaryYear = step2?.baseline?.year ?? results?.meta?.year ?? null
+  const usedYears = useMemo(
+    () => [
+      ...(primaryYear != null ? [primaryYear] : []),
+      ...additionalRuns.map((r) => r.year),
+    ],
+    [primaryYear, additionalRuns],
+  )
+
+  // Broad 1990..current-year fallback. A follow-up can narrow this to
+  // the years the primary run's datasets actually cover by querying
+  // /api/data/datasets.
+  const allowedYears = useMemo(() => {
+    const years = []
+    const maxYear = new Date().getFullYear()
+    for (let y = maxYear; y >= 1990; y--) years.push(y)
+    return years
+  }, [])
+
+  const handleRunAnotherYear = useCallback(async (year) => {
+    setRunning(true)
+    setRunError(null)
+    try {
+      const cfg = exportConfig()
+      const res = await runAnalysisForYear(cfg, year)
+      appendAdditionalRun({
+        runId: `run-${Date.now()}`,
+        year,
+        results: res,
+      })
+    } catch (err) {
+      setRunError(err.message || 'Run failed')
+    } finally {
+      setRunning(false)
+    }
+  }, [exportConfig, appendAdditionalRun])
+
+  const handleRemoveRun = useCallback((runId) => {
+    const kept = additionalRuns.filter((r) => r.runId !== runId)
+    useAnalysisStore.setState({ additionalRuns: kept })
+  }, [additionalRuns])
 
   const handleSaveTemplate = useCallback(async ({ name, description }) => {
     setSavingTemplate(true)
@@ -753,6 +805,38 @@ export default function Results() {
                   />
                 )}
               </div>
+            </div>
+
+            {/* ── Multi-year comparison ──────────────────────── */}
+            <div className="mt-12 space-y-5">
+              {additionalRuns.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-widest text-gray-500">
+                    Additional years
+                  </p>
+                  {additionalRuns.map((run) => (
+                    <AdditionalRunSummary
+                      key={run.runId}
+                      run={run}
+                      onRemove={handleRemoveRun}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <CompareAnotherYearCard
+                allowedYears={allowedYears}
+                excludeYears={usedYears}
+                additionalRunCount={additionalRuns.length}
+                onRun={handleRunAnotherYear}
+                running={running}
+              />
+
+              {runError && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                  {runError}
+                </div>
+              )}
             </div>
           </>
         )}
