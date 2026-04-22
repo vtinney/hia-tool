@@ -27,6 +27,7 @@ from backend.services.resolver import (
     Provenance,
     YearGapTooLarge,
 )
+from backend.services.results_cache import save_result
 from backend.services.rollups import build_cause_rollups, split_mortality_totals
 
 logger = logging.getLogger(__name__)
@@ -37,11 +38,6 @@ STORAGE_PATH = Path(os.getenv("STORAGE_PATH", "./data"))
 UPLOAD_DIR = STORAGE_PATH / "uploads"
 
 _executor = ProcessPoolExecutor(max_workers=2)
-
-
-# Temporary stub — replaced in Task 12 by backend/services/results_cache.save_result
-def save_result(result_id, response):
-    pass
 
 
 # ── Request / response models ──────────────────────────────────────
