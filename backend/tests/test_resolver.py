@@ -86,3 +86,53 @@ def test_load_reporting_polygons_state_aggregates_everything(tmp_path, monkeypat
     assert sorted(polys["zone_ids"]) == ["06", "36"]
     state_06_idx = polys["zone_ids"].index("06")
     assert polys["population"][state_06_idx] == 8200  # 3500+4200+500
+
+
+from backend.services.resolver import resolve_concentration
+
+
+def _fake_epa_aqs_state(tmp_path: Path) -> Path:
+    df = pd.DataFrame({
+        "admin_id": ["US-06", "US-36"],
+        "mean_pm25": [11.4, 9.2],
+    })
+    p = tmp_path / "processed" / "epa_aqs" / "pm25" / "ne_states"
+    p.mkdir(parents=True)
+    path = p / "2022.parquet"
+    df.to_parquet(path)
+    return path
+
+
+def test_resolve_concentration_state_broadcasts_to_tracts(tmp_path, monkeypatch):
+    _fake_acs_parquet(tmp_path)
+    _fake_epa_aqs_state(tmp_path)
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))
+    polys = load_reporting_polygons("us", 2022, "tract", state_filter="06")
+    c, prov, warnings = resolve_concentration(
+        pollutant="pm25", country="us", year=2022,
+        analysis_level="tract", polygons=polys,
+    )
+    # All CA tracts get the same CA state value
+    assert len(c) == 3
+    assert (c == 11.4).all()
+    assert prov["grain"] == "state"
+    assert prov["source"] == "epa_aqs"
+    assert prov["broadcast_to"] == "tract"
+    assert any("broadcast" in w.lower() for w in warnings)
+
+
+def test_resolve_concentration_state_level_direct_use(tmp_path, monkeypatch):
+    _fake_acs_parquet(tmp_path)
+    _fake_epa_aqs_state(tmp_path)
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))
+    polys = load_reporting_polygons("us", 2022, "state")
+    c, prov, warnings = resolve_concentration(
+        pollutant="pm25", country="us", year=2022,
+        analysis_level="state", polygons=polys,
+    )
+    assert len(c) == 2
+    # State 06 → 11.4, state 36 → 9.2
+    idx_06 = polys["zone_ids"].index("06")
+    assert c[idx_06] == 11.4
+    assert prov.get("broadcast_to") is None
+    assert warnings == []

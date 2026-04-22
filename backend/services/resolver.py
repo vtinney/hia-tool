@@ -150,3 +150,125 @@ def load_reporting_polygons(
         "geometries": [mapping(country_geom)],
         "population": np.array([gdf["total_pop"].sum()], dtype=float),
     }
+
+
+def _epa_aqs_state_path(pollutant: str, year: int) -> Path:
+    return (
+        _data_root() / "epa_aqs" / pollutant / "ne_states" / f"{year}.parquet"
+    )
+
+
+def _epa_aqs_country_path(pollutant: str, year: int) -> Path:
+    return (
+        _data_root() / "epa_aqs" / pollutant / "ne_countries" / f"{year}.parquet"
+    )
+
+
+def _who_aap_path(year: int) -> Path:
+    return _data_root() / "who_aap" / "ne_countries" / f"{year}.parquet"
+
+
+def _concentration_column(df: pd.DataFrame, pollutant: str) -> str:
+    """Find the concentration column for a pollutant."""
+    candidates = [f"mean_{pollutant}", "mean", "concentration", "value"]
+    for c in candidates:
+        if c in df.columns:
+            return c
+    raise KeyError(f"No concentration column found in {list(df.columns)}")
+
+
+def resolve_concentration(
+    pollutant: str,
+    country: str,
+    year: int,
+    analysis_level: str,
+    polygons: dict[str, Any],
+) -> tuple[np.ndarray, dict[str, Any], list[str]]:
+    """Return per-polygon concentration values, provenance, and warnings.
+
+    Resolution order:
+    1. EPA AQS state-level parquet (US only): direct use if analysis_level == 'state',
+       broadcast to tracts/counties via state_ids otherwise.
+    2. EPA AQS country-level parquet (US only): broadcast scalar to all polygons.
+    3. WHO AAP country-level parquet: broadcast scalar to all polygons.
+
+    Raises FileNotFoundError if no source matches.
+    """
+    n_zones = len(polygons["zone_ids"])
+    warnings: list[str] = []
+
+    # EPA AQS state-level (US)
+    state_path = _epa_aqs_state_path(pollutant, year)
+    if country == "us" and state_path.exists():
+        df = pd.read_parquet(state_path)
+        df = df[df["admin_id"].str.startswith("US-", na=False)]
+        df["state_fips"] = df["admin_id"].str.replace("US-", "", regex=False)
+        col = _concentration_column(df, pollutant)
+        lookup = dict(zip(df["state_fips"], df[col]))
+
+        if analysis_level == "state":
+            c = np.array(
+                [lookup.get(sid, np.nan) for sid in polygons["zone_ids"]],
+                dtype=float,
+            )
+            prov = {"grain": "state", "source": "epa_aqs"}
+            return c, prov, warnings
+
+        # Broadcast state value to each tract/county via state_ids
+        state_ids = polygons.get("state_ids", [None] * n_zones)
+        c = np.array(
+            [lookup.get(sid, np.nan) for sid in state_ids], dtype=float,
+        )
+        prov = {
+            "grain": "state", "source": "epa_aqs", "broadcast_to": analysis_level,
+        }
+        warnings.append(
+            f"Concentration (state) broadcast to {analysis_level} reporting unit — "
+            f"per-{analysis_level} C is uniform within a state"
+        )
+        return c, prov, warnings
+
+    # EPA AQS country-level (US)
+    country_path = _epa_aqs_country_path(pollutant, year)
+    if country == "us" and country_path.exists():
+        df = pd.read_parquet(country_path)
+        df = df[df["admin_id"] == "USA"]
+        if len(df) == 0:
+            raise FileNotFoundError(f"No US row in {country_path}")
+        col = _concentration_column(df, pollutant)
+        scalar = float(df[col].iloc[0])
+        c = np.full(n_zones, scalar, dtype=float)
+        prov = {
+            "grain": "country", "source": "epa_aqs", "broadcast_to": analysis_level,
+        }
+        warnings.append(
+            f"Concentration (country) broadcast to {analysis_level} — "
+            f"all polygons share the same C"
+        )
+        return c, prov, warnings
+
+    # WHO AAP country-level (PM2.5 only)
+    who_path = _who_aap_path(year)
+    if pollutant == "pm25" and who_path.exists():
+        df = pd.read_parquet(who_path)
+        iso3_by_slug = {"us": "USA", "mexico": "MEX", "mex": "MEX"}
+        iso3 = iso3_by_slug.get(country, country.upper() if len(country) == 3 else None)
+        if iso3 is None:
+            raise FileNotFoundError(f"No ISO3 mapping for country={country}")
+        df = df[df["admin_id"] == iso3]
+        if len(df) == 0:
+            raise FileNotFoundError(f"No {iso3} row in {who_path}")
+        col = _concentration_column(df, pollutant)
+        scalar = float(df[col].iloc[0])
+        c = np.full(n_zones, scalar, dtype=float)
+        prov = {
+            "grain": "country", "source": "who_aap", "broadcast_to": analysis_level,
+        }
+        warnings.append(
+            f"Concentration (WHO AAP country-level) broadcast to {analysis_level}"
+        )
+        return c, prov, warnings
+
+    raise FileNotFoundError(
+        f"No concentration data for {pollutant}/{country}/{year} at any grain"
+    )
