@@ -25,9 +25,9 @@
     "How do I interpret the beta coefficient?"
   ],
   "6": [
-    "Should I use fixed or random effects pooling?",
-    "How many Monte Carlo iterations do I need?",
-    "What does the uncertainty interval mean?"
+    "What does the uncertainty interval mean?",
+    "How is the 95% CI computed for my results?",
+    "What should I double-check before I run the analysis?"
   ],
   "7": [
     "What is the Value of a Statistical Life (VSL)?",

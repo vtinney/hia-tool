@@ -97,7 +97,7 @@ function HeroNumber({ totalDeaths, isSpatial, zoneCount, uncertaintyMethod }) {
         <div className="flex items-baseline justify-between mb-6">
           <p className="eyebrow">Headline result</p>
           <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-400">
-            Pooling: none
+            Per-CRF results
           </p>
         </div>
         <p className="font-sans font-medium text-ink leading-tight tracking-tightest text-[40px] md:text-[48px] max-w-prose">
@@ -105,9 +105,9 @@ function HeroNumber({ totalDeaths, isSpatial, zoneCount, uncertaintyMethod }) {
           <span className="block text-zinc-400">No pooled total computed.</span>
         </p>
         <p className="mt-5 text-[14px] text-zinc-500 max-w-prose">
-          Pooling was set to <span className="font-mono text-ink">none</span>, so each CRF
-          stands on its own below. Switch to <span className="font-mono text-ink">Run separately</span> on
-          the Run step to sum mortality endpoints.
+          Each selected CRF stands on its own below. Totals are not summed
+          across endpoints to avoid double-counting overlapping causes of
+          death.
         </p>
       </div>
     )
@@ -129,12 +129,7 @@ function HeroNumber({ totalDeaths, isSpatial, zoneCount, uncertaintyMethod }) {
       <div className="flex items-baseline justify-between mb-6">
         <p className="eyebrow">Headline result</p>
         <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-400">
-          Attributable deaths · 95% CI
-          {uncertaintyMethod && (
-            <span className="ml-2 text-zinc-300">
-              · {uncertaintyMethod === 'analytical' ? 'analytical' : 'monte carlo'}
-            </span>
-          )}
+          Attributable deaths · 95% CI · analytical
         </p>
       </div>
 
@@ -496,10 +491,7 @@ function ExportTab({ results, analysisName, hasValuation, summaryRef, tableRef, 
         ['Study Area', step1?.studyArea?.name || '—'],
         ['Pollutant', step1?.pollutant || '—'],
         ['Year', step2?.baseline?.year ?? '—'],
-        ['Pooling Method', step6?.poolingMethod || '—'],
-        ['Uncertainty Method', results?.meta?.uncertaintyMethod === 'monte-carlo'
-          ? `Monte Carlo (${step6?.monteCarloIterations ?? 0} iterations)`
-          : 'Analytical 95% CI'],
+        ['Uncertainty Method', 'Analytical 95% CI'],
       ]
       if (hasValuation) {
         params.push(

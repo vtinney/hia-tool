@@ -27,9 +27,9 @@
     "What is the difference between linear and non-linear CRFs?"
   ],
   "6": [
-    "What does pooling across CRFs mean?",
-    "How many Monte Carlo iterations should I use?",
-    "What is the difference between fixed and random effects?"
+    "How is the 95% confidence interval calculated?",
+    "Why do different CRFs give different results?",
+    "What should I check before I run the analysis?"
   ],
   "7": [
     "What is the Value of a Statistical Life?",

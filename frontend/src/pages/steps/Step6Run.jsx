@@ -21,14 +21,6 @@ const FRAMEWORK_LABELS = {
   hrapie: 'HRAPIE',
 }
 
-const POOLING_OPTIONS = [
-  { value: 'separate', label: 'Run separately (default)' },
-  { value: 'fixed', label: 'Fixed effects pooling' },
-  { value: 'random', label: 'Random effects pooling' },
-]
-
-const MC_OPTIONS = [100, 500, 1000, 5000]
-
 const STEP_ROUTES = {
   'Study Area': 1,
   'Air Quality': 2,
@@ -131,7 +123,7 @@ export default function Step6Run() {
   const navigate = useNavigate()
   const {
     step1, step2, step3, step4, step5, step6,
-    setStep6, setStepValidity, setResults, exportConfig,
+    setStepValidity, setResults, exportConfig,
   } = useAnalysisStore()
 
   const [running, setRunning] = useState(false)
@@ -186,14 +178,6 @@ export default function Step6Run() {
 
   // ── Handlers ────────────────────────────────────────────────────
 
-  const handlePoolingChange = useCallback((value) => {
-    setStep6({ poolingMethod: value })
-  }, [setStep6])
-
-  const handleMCChange = useCallback((e) => {
-    setStep6({ monteCarloIterations: Number(e.target.value) })
-  }, [setStep6])
-
   const handleSaveTemplate = useCallback(async ({ name, description }) => {
     setSavingTemplate(true)
     try {
@@ -242,7 +226,12 @@ export default function Step6Run() {
             functionalForm: crf.functionalForm,
             defaultRate: crf.defaultRate,
           })),
-          monteCarloIterations: step6.monteCarloIterations,
+          // MC UI is hidden but the backend still accepts the field (ge=100).
+          // Pass the store value when >0; otherwise omit so the backend
+          // uses its own default (1000).
+          ...(step6.monteCarloIterations >= 100
+            ? { monteCarloIterations: step6.monteCarloIterations }
+            : {}),
         }
         const results = await runSpatialCompute(spatialConfig)
         setResults(results)
@@ -292,7 +281,7 @@ export default function Step6Run() {
           detail,
         })
       }
-      navigate('/analysis/results')
+      navigate('/results')
     } catch (err) {
       setError(err.message || 'Analysis failed. Please check your inputs.')
     } finally {
@@ -362,48 +351,6 @@ export default function Step6Run() {
             </div>
           )}
         </SummarySection>
-      </div>
-
-      {/* Analysis options */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
-        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Analysis Options</h3>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Pooling method */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Pooling Method</label>
-            <div className="space-y-2">
-              {POOLING_OPTIONS.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="poolingMethod"
-                    value={opt.value}
-                    checked={step6.poolingMethod === opt.value}
-                    onChange={() => handlePoolingChange(opt.value)}
-                    className="text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">{opt.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Monte Carlo iterations */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Monte Carlo Iterations</label>
-            <select
-              value={step6.monteCarloIterations}
-              onChange={handleMCChange}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-            >
-              {MC_OPTIONS.map((n) => (
-                <option key={n} value={n}>{n.toLocaleString()}</option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-400 mt-1">Higher values increase precision but take longer</p>
-          </div>
-        </div>
       </div>
 
       {/* Error display */}

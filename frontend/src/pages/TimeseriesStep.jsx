@@ -361,22 +361,14 @@ function Step5({ store }) {
 // ── Step 6: Options ────────────────────────────────────────────────
 
 function Step6({ store }) {
-  const { step6, setStep6, setStepValidity } = store
+  const { setStepValidity } = store
 
   useEffect(() => { setStepValidity(6, true) }, [setStepValidity])
 
   return (
-    <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-      <legend className="text-sm font-semibold text-gray-700 px-1">Monte Carlo Iterations</legend>
-      <select
-        value={step6.monteCarloIterations}
-        onChange={(e) => setStep6({ monteCarloIterations: Number(e.target.value) })}
-        className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-      >
-        {[100, 500, 1000, 5000].map((n) => <option key={n} value={n}>{n.toLocaleString()}</option>)}
-      </select>
-      <p className="text-xs text-gray-400 mt-1">Higher values increase precision but take longer.</p>
-    </fieldset>
+    <div className="p-5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600">
+      No additional options for the time-series pathway. Continue to Step 7 to run the analysis.
+    </div>
   )
 }
 
@@ -431,7 +423,6 @@ function Step7({ store, navigate }) {
         <Row label="Population" value={step3.totalPopulation?.toLocaleString()} />
         <Row label="Incidence rate" value={step4.baselineIncidence} />
         <Row label="CRFs" value={`${step5.selectedCRFs.length} selected`} />
-        <Row label="MC iterations" value={step6.monteCarloIterations.toLocaleString()} />
       </fieldset>
 
       {error && (
