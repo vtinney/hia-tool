@@ -9,9 +9,10 @@ import time
 import uuid
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Annotated, Literal, Union
+from typing import Annotated, Any, Literal, Union
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 from pydantic import Field as PydField
 from sqlalchemy import select
@@ -19,6 +20,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.database import get_db
 from backend.models.file_upload import FileUpload
+from backend.services.download_serializers import (
+    result_to_csv_long,
+    result_to_geojson_wide,
+)
 from backend.services.hia_engine import compute_hia, _summarise_spatial
 from backend.services.resolver import (
     prepare_builtin_inputs,
@@ -27,7 +32,7 @@ from backend.services.resolver import (
     Provenance,
     YearGapTooLarge,
 )
-from backend.services.results_cache import save_result
+from backend.services.results_cache import ResultNotFound, load_result, save_result
 from backend.services.rollups import build_cause_rollups, split_mortality_totals
 
 logger = logging.getLogger(__name__)
@@ -437,3 +442,44 @@ def _run_spatial_compute_v2(
         })
 
     return {"zones": zones, "aggregate_crf_results": crf_results_agg}
+
+
+# ── Download endpoints ─────────────────────────────────────────────
+
+
+@router.get("/compute/results/{result_id}/download")
+async def download_result(
+    result_id: str,
+    format: str = "csv",
+) -> Any:
+    """CSV (long) or GeoJSON (wide) download of a cached result."""
+    try:
+        result = load_result(result_id)
+    except ResultNotFound:
+        raise HTTPException(
+            status_code=410,
+            detail="Result expired, please re-run the analysis.",
+        )
+
+    if format == "csv":
+        crf_metadata: dict[str, dict[str, str]] = {}
+        for roll in result.get("causeRollups", []):
+            for cid in roll["crfIds"]:
+                crf_metadata[cid] = {
+                    "cause": roll["cause"],
+                    "endpointType": "",
+                }
+        body = result_to_csv_long(result, crf_metadata)
+        return PlainTextResponse(
+            content=body, media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="hia-{result_id[:8]}.csv"'},
+        )
+
+    if format == "geojson":
+        body = result_to_geojson_wide(result)
+        return JSONResponse(
+            content=body, media_type="application/geo+json",
+            headers={"Content-Disposition": f'attachment; filename="hia-{result_id[:8]}.geojson"'},
+        )
+
+    raise HTTPException(status_code=400, detail=f"Unknown format: {format}")
