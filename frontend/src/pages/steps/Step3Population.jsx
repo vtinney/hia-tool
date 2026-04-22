@@ -1,36 +1,9 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
 import { uploadFile, fetchPopulation } from '../../lib/api'
 import YearField from '../../components/YearField'
 
 // ── Constants ──────────────────────────────────────────────────────
-
-const AGE_BINS = [
-  '0–4', '5–9', '10–14', '15–19', '20–24', '25–29', '30–34',
-  '35–39', '40–44', '45–49', '50–54', '55–59', '60–64',
-  '65–69', '70–74', '75–79', '80+',
-]
-
-const PRESET_DISTRIBUTIONS = {
-  us_national: {
-    label: 'U.S. National',
-    values: {
-      '0–4': 5.9, '5–9': 6.1, '10–14': 6.3, '15–19': 6.3, '20–24': 6.5,
-      '25–29': 7.0, '30–34': 6.8, '35–39': 6.5, '40–44': 6.1, '45–49': 6.0,
-      '50–54': 6.2, '55–59': 6.5, '60–64': 6.3, '65–69': 5.5, '70–74': 4.5,
-      '75–79': 3.2, '80+': 4.3,
-    },
-  },
-  global_average: {
-    label: 'Global Average',
-    values: {
-      '0–4': 8.7, '5–9': 8.5, '10–14': 8.2, '15–19': 8.0, '20–24': 7.8,
-      '25–29': 7.4, '30–34': 7.0, '35–39': 6.5, '40–44': 5.9, '45–49': 5.4,
-      '50–54': 4.8, '55–59': 4.2, '60–64': 3.6, '65–69': 3.0, '70–74': 2.3,
-      '75–79': 1.6, '80+': 1.5,
-    },
-  },
-}
 
 const CSV_EXPECTED_COLUMNS = ['spatial_unit_id', 'age_group', 'population']
 
@@ -232,127 +205,6 @@ function CsvUpload({ fileData, onFile, onClear }) {
   )
 }
 
-// ── Age distribution editor ────────────────────────────────────────
-
-function AgeDistributionEditor({ ageGroups, onChange }) {
-  const [presetId, setPresetId] = useState(null)
-
-  const values = ageGroups || Object.fromEntries(AGE_BINS.map((b) => [b, 0]))
-  const total = useMemo(
-    () => Object.values(values).reduce((s, v) => s + (Number(v) || 0), 0),
-    [values],
-  )
-  const isBalanced = Math.abs(total - 100) < 0.5
-
-  const handlePreset = (id) => {
-    setPresetId(id)
-    if (PRESET_DISTRIBUTIONS[id]) {
-      onChange({ ...PRESET_DISTRIBUTIONS[id].values })
-    }
-  }
-
-  const handleBinChange = (bin, val) => {
-    setPresetId(null)
-    onChange({ ...values, [bin]: val === '' ? 0 : Number(val) })
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-gray-600">Preset:</span>
-        {Object.entries(PRESET_DISTRIBUTIONS).map(([id, dist]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => handlePreset(id)}
-            className={`px-3 py-1 text-sm rounded-lg border transition-colors
-              ${presetId === id
-                ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
-                : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50'}`}
-          >
-            {dist.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2">
-        {AGE_BINS.map((bin) => (
-          <div key={bin} className="flex items-center gap-2">
-            <label className="text-xs text-gray-600 w-12 shrink-0">{bin}</label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              value={values[bin] ?? 0}
-              onChange={(e) => handleBinChange(bin, e.target.value)}
-              className="w-full rounded border border-gray-300 px-2 py-1 text-xs text-right
-                         focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-            <span className="text-xs text-gray-400">%</span>
-          </div>
-        ))}
-      </div>
-
-      <div className={`text-xs font-medium ${isBalanced ? 'text-green-600' : 'text-amber-600'}`}>
-        Total: {total.toFixed(1)}%
-        {!isBalanced && ' — should sum to 100%'}
-      </div>
-    </div>
-  )
-}
-
-// ── Crosswalk table ────────────────────────────────────────────────
-
-function CrosswalkTable() {
-  return (
-    <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-      <legend className="text-sm font-semibold text-gray-700 px-1">
-        Age-Bin Crosswalk
-      </legend>
-      <p className="text-xs text-gray-500 mb-3">
-        Population 5-year bins will be mapped to concentration-response function (CRF) age ranges in Step 5.
-        This table shows the standard bins used for alignment.
-      </p>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">
-                Population Age Bin
-              </th>
-              <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">
-                CRF Age Range
-              </th>
-              <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {AGE_BINS.map((bin, i) => (
-              <tr key={bin} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                <td className="px-3 py-1.5 text-gray-700 border-b border-gray-100 font-mono">
-                  {bin}
-                </td>
-                <td className="px-3 py-1.5 text-gray-400 border-b border-gray-100 italic">
-                  Configured in Step 5
-                </td>
-                <td className="px-3 py-1.5 border-b border-gray-100">
-                  <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
-                    Pending
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </fieldset>
-  )
-}
-
 // ── Built-in population loader ────────────────────────────────────
 
 function BuiltinPopulationLoader({ studyArea, year, onDataLoaded }) {
@@ -446,7 +298,7 @@ function BuiltinPopulationLoader({ studyArea, year, onDataLoaded }) {
 
 export default function Step3Population() {
   const { step1, step2, step3, setStep3, setStepValidity } = useAnalysisStore()
-  const { populationType, totalPopulation, ageGroups } = step3
+  const { populationType, totalPopulation } = step3
 
   const baselineYear = step2?.baseline?.year ?? null
   const effectiveYear = step3.year ?? baselineYear
@@ -480,10 +332,6 @@ export default function Step3Population() {
   const handleTotalPopulation = useCallback((val) => {
     const num = val === '' ? null : Number(val)
     setStep3({ totalPopulation: num })
-  }, [setStep3])
-
-  const handleAgeGroups = useCallback((groups) => {
-    setStep3({ ageGroups: groups })
   }, [setStep3])
 
   const handleFile = useCallback(async (fileData, rawFile) => {
@@ -556,38 +404,31 @@ export default function Step3Population() {
 
           {/* Manual Entry */}
           {activeTab === 'manual' && (
-            <div className="space-y-5">
-              <div>
-                <label htmlFor="total-pop" className="block text-sm text-gray-600 mb-1">
-                  Total exposed population
-                </label>
-                <input
-                  id="total-pop"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={totalPopulation ?? ''}
-                  onChange={(e) => handleTotalPopulation(e.target.value)}
-                  placeholder="e.g. 2700000"
-                  className={`w-full max-w-xs rounded-lg border px-3 py-2 text-sm focus:ring-1
-                    ${totalPopulation != null && totalPopulation <= 0
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
-                />
-                {totalPopulation != null && totalPopulation <= 0 && (
-                  <p className="text-xs text-red-600 mt-1">Population must be greater than zero.</p>
-                )}
-                {totalPopulation != null && totalPopulation > 0 && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    {Number(totalPopulation).toLocaleString()} people
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Age Distribution (%)</p>
-                <AgeDistributionEditor ageGroups={ageGroups} onChange={handleAgeGroups} />
-              </div>
+            <div>
+              <label htmlFor="total-pop" className="block text-sm text-gray-600 mb-1">
+                Total exposed population
+              </label>
+              <input
+                id="total-pop"
+                type="number"
+                min="0"
+                step="1"
+                value={totalPopulation ?? ''}
+                onChange={(e) => handleTotalPopulation(e.target.value)}
+                placeholder="e.g. 2700000"
+                className={`w-full max-w-xs rounded-lg border px-3 py-2 text-sm focus:ring-1
+                  ${totalPopulation != null && totalPopulation <= 0
+                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
+              />
+              {totalPopulation != null && totalPopulation <= 0 && (
+                <p className="text-xs text-red-600 mt-1">Population must be greater than zero.</p>
+              )}
+              {totalPopulation != null && totalPopulation > 0 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  {Number(totalPopulation).toLocaleString()} people
+                </p>
+              )}
             </div>
           )}
 
@@ -615,9 +456,6 @@ export default function Step3Population() {
             />
           )}
         </fieldset>
-
-        {/* ── Crosswalk Table ────────────────────────────────────── */}
-        <CrosswalkTable />
       </div>
     </>
   )
