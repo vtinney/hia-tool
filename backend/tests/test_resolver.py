@@ -251,3 +251,40 @@ def test_prepare_builtin_inputs_emits_year_gap_warning(tmp_path, monkeypatch):
         analysis_level="state", control_mode="benchmark", control_value=5.0,
     )
     assert any("population year" in w.lower() for w in result.warnings)
+
+
+from backend.services.resolver import prepare_custom_boundary_inputs
+
+
+def test_prepare_custom_boundary_inputs_country_broadcast(tmp_path, monkeypatch):
+    _fake_acs_parquet(tmp_path)
+
+    # WHO AAP country-level PM2.5
+    who_dir = tmp_path / "processed" / "who_aap" / "ne_countries"
+    who_dir.mkdir(parents=True)
+    pd.DataFrame({
+        "admin_id": ["USA"], "mean_pm25": [7.5],
+    }).to_parquet(who_dir / "2022.parquet")
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))
+
+    # User-uploaded boundary — two tiny polygons
+    import geopandas as gpd
+    from shapely.geometry import box
+    gdf = gpd.GeoDataFrame({
+        "id": ["zone-a", "zone-b"],
+        "name": ["Zone A", "Zone B"],
+        "geometry": [box(-122.5, 37.7, -122.3, 37.9), box(-74.1, 40.6, -73.9, 40.8)],
+    }, crs="EPSG:4326")
+    boundary_path = tmp_path / "boundary.geojson"
+    gdf.to_file(boundary_path, driver="GeoJSON")
+
+    result = prepare_custom_boundary_inputs(
+        pollutant="pm25", country="us", year=2022,
+        boundary_path=str(boundary_path),
+        control_mode="scalar", control_value=5.0,
+    )
+    assert len(result.zone_ids) == 2
+    assert (result.c_baseline == 7.5).all()  # WHO country scalar broadcast
+    assert (result.c_control == 5.0).all()
+    assert result.provenance.concentration["source"] == "who_aap"
+    assert result.provenance.population["grain"] == "country_scalar"

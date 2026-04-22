@@ -199,7 +199,7 @@ def resolve_concentration(
 
     # EPA AQS state-level (US)
     state_path = _epa_aqs_state_path(pollutant, year)
-    if country == "us" and state_path.exists():
+    if country == "us" and state_path.exists() and analysis_level != "custom":
         df = pd.read_parquet(state_path)
         df = df[df["admin_id"].str.startswith("US-", na=False)]
         df["state_fips"] = df["admin_id"].str.replace("US-", "", regex=False)
@@ -391,6 +391,97 @@ def prepare_builtin_inputs(
             concentration=c_prov,
             population=pop_prov,
             incidence=inc_prov,
+        ),
+        warnings=warnings,
+    )
+
+
+from backend.services.geo_processor import (
+    read_boundaries, _detect_id_column, _detect_name_column,
+)
+
+
+def prepare_custom_boundary_inputs(
+    pollutant: str,
+    country: str,
+    year: int,
+    boundary_path: str,
+    control_mode: str,
+    control_value: float | None = None,
+    rollback_percent: float | None = None,
+) -> ResolvedInputs:
+    """Resolver for user-uploaded boundary + built-in C/pop.
+
+    Today, population for non-US custom boundaries falls back to
+    WHO AAP country-level scalar broadcast. US custom boundaries use
+    the same fallback until we add zonal-stats of ACS tracts — the
+    follow-up for that is noted in the spec.
+    """
+    gdf = read_boundaries(boundary_path)
+    n_zones = len(gdf)
+    id_col = _detect_id_column(gdf)
+    name_col = _detect_name_column(gdf)
+
+    zone_ids = (
+        gdf[id_col].astype(str).tolist()
+        if id_col != "index" else [str(i) for i in range(n_zones)]
+    )
+    zone_names = (
+        gdf[name_col].astype(str).tolist() if name_col else [None] * n_zones
+    )
+    geometries = [mapping(g) if g else None for g in gdf.geometry]
+
+    # Build a synthetic polygons dict so resolve_concentration works
+    # unchanged. state_ids is unknown for custom boundaries.
+    polygons = {
+        "zone_ids": zone_ids,
+        "zone_names": zone_names,
+        "parent_ids": [None] * n_zones,
+        "state_ids": [None] * n_zones,
+        "geometries": geometries,
+        "population": np.zeros(n_zones, dtype=float),
+    }
+
+    # resolve_concentration only broadcasts country-level scalars for
+    # custom boundaries (state-level broadcast needs state_ids).
+    # We drop back to country-level resolution by clearing state_ids.
+    c_base, c_prov, c_warnings = resolve_concentration(
+        pollutant=pollutant, country=country, year=year,
+        analysis_level="custom", polygons=polygons,
+    )
+    c_ctrl = resolve_control(
+        c_base=c_base, control_mode=control_mode,
+        control_value=control_value, rollback_percent=rollback_percent,
+    )
+
+    # Population fallback for custom boundaries: country-level scalar,
+    # split evenly across polygons. Flagged explicitly.
+    pop_total_path = _data_root() / "population" / country / f"{year}.parquet"
+    pop_per_zone = np.zeros(n_zones, dtype=float)
+    pop_prov = {"grain": "country_scalar", "source": "fallback_even_split"}
+    warnings = list(c_warnings)
+    warnings.append(
+        "Population fallback: country-level total split evenly across "
+        "custom polygons. Upload a population raster for per-polygon accuracy."
+    )
+
+    if pop_total_path.exists():
+        df = pd.read_parquet(pop_total_path)
+        total = float(df["total"].sum()) if "total" in df.columns else 0.0
+        pop_per_zone = np.full(n_zones, total / max(n_zones, 1))
+
+    return ResolvedInputs(
+        zone_ids=zone_ids,
+        zone_names=zone_names,
+        parent_ids=[None] * n_zones,
+        geometries=geometries,
+        c_baseline=c_base,
+        c_control=c_ctrl,
+        population=pop_per_zone,
+        provenance=Provenance(
+            concentration=c_prov,
+            population=pop_prov,
+            incidence={"grain": "crf_default", "source": "crf_library"},
         ),
         warnings=warnings,
     )
