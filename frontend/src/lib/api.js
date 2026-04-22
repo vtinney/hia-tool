@@ -141,3 +141,30 @@ export async function runSpatialCompute(config) {
 
   return res.json()
 }
+
+/**
+ * Return a deep copy of an analysis config with every year field replaced
+ * by `year`. Control.year is only updated when the source config had a
+ * non-null value (preserves the "no control scenario" case where the user
+ * never picked a control year to begin with). Does not mutate the input.
+ */
+export function cloneConfigWithYear(config, year) {
+  const cloned = JSON.parse(JSON.stringify(config))
+  if (cloned.step2?.baseline) cloned.step2.baseline.year = year
+  if (cloned.step2?.control && cloned.step2.control.year != null) {
+    cloned.step2.control.year = year
+  }
+  if (cloned.step3) cloned.step3.year = year
+  if (cloned.step4) cloned.step4.year = year
+  return cloned
+}
+
+/**
+ * Run the analysis backend with the current config re-keyed to a new year.
+ * Returns the raw compute response (same shape as the primary run so the
+ * caller can re-use the existing results-summary components).
+ */
+export async function runAnalysisForYear(config, year) {
+  const req = cloneConfigWithYear(config, year)
+  return runSpatialCompute(req)
+}
