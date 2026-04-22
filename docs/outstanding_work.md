@@ -9,7 +9,12 @@ Living checklist of known gaps that need follow-up work. Tracks items that were 
 
 - [ ] **Confirm the GBD 2023 beta for the all-age LRI CRF.** `crf-library.json` entry `gbd_pm25_lri` had `ageRange: "0–4"`; the label was flipped to "All ages" on 2026-04-21 per product direction, but the beta (`0.00978`, CI `0.00437–0.01514`) may still be the under-5 value from IHME. Cross-check against IHME's all-age LRI exposure-response file and update beta/betaLow/betaHigh if the all-age curve differs.
 
-## Multi-year results (Plan 3 not started)
+## Multi-year results
 
-- [ ] Plan file: `docs/superpowers/plans/2026-04-21-plan3-post-results-multi-year.md`.
-  Implementation deferred while spatial-resolution work happens in parallel. Before resuming, re-check that the "clone analysis config, change year, run again" assumption still holds against any compute-path changes from the spatial work.
+- [x] ~~**Plan 3 — post-results "Compare another year" flow.**~~ Shipped 2026-04-22 on `feature/polygon-results`. Store bumped to v8 with `additionalRuns`; `frontend/src/lib/api.js` exports `cloneConfigWithYear` and `runAnalysisForYear`; `Results.jsx` renders `CompareAnotherYearCard` below the tabs and stacks `AdditionalRunSummary` cards above it. Cap at 10 total runs; confirmation modal fires after the second additional run.
+
+### Follow-ups suggested by Plan 3 Non-goals
+
+- [ ] **Narrow the "Compare another year" picker to dataset-supported years.** The picker currently offers 1990..current year. It should query `/api/data/datasets` (filtered to the primary run's pollutant + country) and only surface years the backing dataset actually covers — mirrors the Step 2 year-after-dataset constraint.
+- [ ] **Trend chart visualization across stacked year runs.** Current display is side-by-side cards; a follow-up can add a sparkline/trend chart tab surfacing the year-over-year mortality and CI envelope.
+- [ ] **Include additional runs in PDF / CSV exports.** Export currently writes only the primary run. A follow-up can append a "Multi-year comparison" table / page summarising each additional run's year + totalDeaths.
