@@ -82,32 +82,43 @@ function useCountUp(target, duration = 1100) {
 }
 
 // ── Hero: massive number + CI bar ──────────────────────────
-function HeroNumber({ totalDeaths, isSpatial, zoneCount, uncertaintyMethod }) {
-  // When pooling is 'none', the engine returns totalDeaths === null.
-  // We render a distinct state instead of a misleading zero.
+function HeroNumber({ totalDeaths, detailRows = [], isSpatial, zoneCount }) {
+  // When the pooled total isn't available (the default now that the
+  // pooling UI is removed), fall back to the highest-impact CRF so the
+  // hero is still a real number, not a placeholder sentence.
   const isPooled = totalDeaths != null
-  const mean = isPooled ? totalDeaths.mean : 0
-  const lower = isPooled ? totalDeaths.lower95 : 0
-  const upper = isPooled ? totalDeaths.upper95 : 0
-  const animatedMean = useCountUp(mean)
+  const headlineCRF = useMemo(() => {
+    if (isPooled || !detailRows?.length) return null
+    return [...detailRows].sort(
+      (a, b) => (Number(b.attributableCases) || 0) - (Number(a.attributableCases) || 0),
+    )[0]
+  }, [isPooled, detailRows])
 
-  if (!isPooled) {
+  const mean = isPooled
+    ? totalDeaths.mean
+    : (headlineCRF ? Number(headlineCRF.attributableCases) || 0 : 0)
+  const lower = isPooled
+    ? totalDeaths.lower95
+    : (headlineCRF?.lower95 ?? null)
+  const upper = isPooled
+    ? totalDeaths.upper95
+    : (headlineCRF?.upper95 ?? null)
+  const animatedMean = useCountUp(mean)
+  const hasNumber = isPooled || headlineCRF != null
+  const showCI = lower != null && upper != null && Number.isFinite(lower) && Number.isFinite(upper)
+
+  // Empty state: no detail rows at all (run failed or hasn't completed).
+  if (!hasNumber) {
     return (
       <div className="surface p-8 lg:p-10">
         <div className="flex items-baseline justify-between mb-6">
           <p className="eyebrow">Headline result</p>
           <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-400">
-            Per-CRF results
+            No results
           </p>
         </div>
-        <p className="font-sans font-medium text-ink leading-tight tracking-tightest text-[40px] md:text-[48px] max-w-prose">
-          Per-CRF results only.
-          <span className="block text-zinc-400">No pooled total computed.</span>
-        </p>
-        <p className="mt-5 text-[14px] text-zinc-500 max-w-prose">
-          Each selected CRF stands on its own below. Totals are not summed
-          across endpoints to avoid double-counting overlapping causes of
-          death.
+        <p className="text-[14px] text-zinc-500 max-w-prose">
+          No CRF returned a numeric result for this run.
         </p>
       </div>
     )
@@ -129,7 +140,9 @@ function HeroNumber({ totalDeaths, isSpatial, zoneCount, uncertaintyMethod }) {
       <div className="flex items-baseline justify-between mb-6">
         <p className="eyebrow">Headline result</p>
         <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-400">
-          Attributable deaths · 95% CI · analytical
+          {isPooled
+            ? 'Attributable deaths · 95% CI · analytical'
+            : 'Per-CRF · top endpoint · 95% CI · analytical'}
         </p>
       </div>
 
@@ -140,63 +153,79 @@ function HeroNumber({ totalDeaths, isSpatial, zoneCount, uncertaintyMethod }) {
             {fmtNumber(Math.round(animatedMean))}
           </p>
           <p className="mt-3 text-[14px] text-zinc-500">
-            attributable deaths
+            attributable cases
+            {!isPooled && headlineCRF && (
+              <>
+                <span className="text-zinc-400"> · </span>
+                <span className="font-medium text-zinc-700">{headlineCRF.endpoint}</span>
+                {headlineCRF.crfStudy && (
+                  <span className="text-zinc-400"> ({headlineCRF.crfStudy})</span>
+                )}
+              </>
+            )}
             {isSpatial && zoneCount ? (
               <span className="text-zinc-400"> · across {zoneCount.toLocaleString()} zones</span>
             ) : null}
           </p>
+          {!isPooled && detailRows.length > 1 && (
+            <p className="mt-1 text-[12px] text-zinc-400">
+              {detailRows.length} CRFs analyzed — see breakdown below
+            </p>
+          )}
         </div>
 
-        {/* CI bracket bar */}
-        <div className="lg:flex-1 lg:pb-3">
-          <div className="relative h-12">
-            {/* baseline */}
-            <div className="absolute inset-x-0 top-1/2 -translate-y-px h-px bg-zinc-200" />
+        {/* CI bracket bar — only when bounds are present */}
+        {showCI && (
+          <div className="lg:flex-1 lg:pb-3">
+            <div className="relative h-12">
+              {/* baseline */}
+              <div className="absolute inset-x-0 top-1/2 -translate-y-px h-px bg-zinc-200" />
 
-            {/* CI band */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 h-2 rounded-full hia-bar-grow"
-              style={{
-                left: `${lowerPct}%`,
-                width: `${widthPct}%`,
-                background:
-                  'linear-gradient(90deg, rgba(21,88,82,0.18), rgba(21,88,82,0.42), rgba(21,88,82,0.18))',
-                boxShadow: 'inset 0 0 0 1px rgba(21,88,82,0.25)',
-              }}
-            />
+              {/* CI band */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 h-2 rounded-full hia-bar-grow"
+                style={{
+                  left: `${lowerPct}%`,
+                  width: `${widthPct}%`,
+                  background:
+                    'linear-gradient(90deg, rgba(21,88,82,0.18), rgba(21,88,82,0.42), rgba(21,88,82,0.18))',
+                  boxShadow: 'inset 0 0 0 1px rgba(21,88,82,0.25)',
+                }}
+              />
 
-            {/* Lower bracket */}
-            <div className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: `${lowerPct}%` }}>
-              <div className="h-5 w-px bg-accent-700" />
+              {/* Lower bracket */}
+              <div className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: `${lowerPct}%` }}>
+                <div className="h-5 w-px bg-accent-700" />
+              </div>
+
+              {/* Upper bracket */}
+              <div className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: `${upperPct}%` }}>
+                <div className="h-5 w-px bg-accent-700" />
+              </div>
+
+              {/* Mean marker */}
+              <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2" style={{ left: `${meanPct}%` }}>
+                <div className="h-7 w-[3px] bg-ink rounded-full" />
+              </div>
             </div>
 
-            {/* Upper bracket */}
-            <div className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: `${upperPct}%` }}>
-              <div className="h-5 w-px bg-accent-700" />
-            </div>
-
-            {/* Mean marker */}
-            <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2" style={{ left: `${meanPct}%` }}>
-              <div className="h-7 w-[3px] bg-ink rounded-full" />
+            {/* CI labels */}
+            <div className="mt-3 flex items-baseline justify-between font-mono text-[11px] tabular-nums">
+              <div>
+                <span className="text-zinc-400 uppercase tracking-[0.12em] mr-2 text-[9.5px]">Lower</span>
+                <span className="text-zinc-600">{fmtNumber(lower)}</span>
+              </div>
+              <div className="text-center">
+                <span className="text-zinc-400 uppercase tracking-[0.12em] mr-2 text-[9.5px]">Point estimate</span>
+                <span className="text-ink">{fmtNumber(mean)}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-zinc-400 uppercase tracking-[0.12em] mr-2 text-[9.5px]">Upper</span>
+                <span className="text-zinc-600">{fmtNumber(upper)}</span>
+              </div>
             </div>
           </div>
-
-          {/* CI labels */}
-          <div className="mt-3 flex items-baseline justify-between font-mono text-[11px] tabular-nums">
-            <div>
-              <span className="text-zinc-400 uppercase tracking-[0.12em] mr-2 text-[9.5px]">Lower</span>
-              <span className="text-zinc-600">{fmtNumber(lower)}</span>
-            </div>
-            <div className="text-center">
-              <span className="text-zinc-400 uppercase tracking-[0.12em] mr-2 text-[9.5px]">Point estimate</span>
-              <span className="text-ink">{fmtNumber(mean)}</span>
-            </div>
-            <div className="text-right">
-              <span className="text-zinc-400 uppercase tracking-[0.12em] mr-2 text-[9.5px]">Upper</span>
-              <span className="text-zinc-600">{fmtNumber(upper)}</span>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )
@@ -221,14 +250,17 @@ function SecondaryStat({ label, value, sub }) {
 // detail table below for analysts who need them.)
 function EndpointBreakdown({ rows = [] }) {
   const data = useMemo(() => {
-    // Group by endpoint, sum across CRFs / spatial units
-    const grouped = {}
+    // One bar per endpoint, using the first row seen for that endpoint.
+    // When a user selects multiple CRFs for the same endpoint (e.g.
+    // Turner + GBD for all-cause mortality), summing would double-count
+    // the same attributable burden.
+    const seen = new Map()
     for (const r of rows) {
       const k = r.endpoint || 'Unknown'
-      if (!grouped[k]) grouped[k] = { endpoint: k, mean: 0 }
-      grouped[k].mean += Number(r.attributableCases) || 0
+      if (seen.has(k)) continue
+      seen.set(k, { endpoint: k, mean: Number(r.attributableCases) || 0 })
     }
-    return Object.values(grouped)
+    return Array.from(seen.values())
       .filter((d) => d.mean > 0)
       .sort((a, b) => b.mean - a.mean)
       .slice(0, 8)
@@ -680,8 +712,11 @@ export default function Results() {
                 Template saved
               </span>
             )}
-            <Link to="/" className="btn-ghost">
+            <Link to="/analysis/6" className="btn-ghost">
               <ChevronLeft className="w-3.5 h-3.5" />
+              Back to wizard
+            </Link>
+            <Link to="/" className="btn-ghost">
               Home
             </Link>
             <Link to="/" className="btn-primary">
@@ -712,9 +747,9 @@ export default function Results() {
             <div ref={summaryRef} className="space-y-6 mb-12">
               <HeroNumber
                 totalDeaths={totalDeaths}
+                detailRows={detailRows}
                 isSpatial={isSpatial}
                 zoneCount={results?.zones?.length}
-                uncertaintyMethod={results?.meta?.uncertaintyMethod}
               />
 
               <div className={`grid gap-x-10 gap-y-8 ${hasValuation ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
