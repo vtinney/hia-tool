@@ -7,9 +7,11 @@ import logging
 import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
+from typing import Annotated, Literal, Union
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from pydantic import Field as PydField
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,7 +76,11 @@ class ComputeResponse(BaseModel):
 # ── Spatial models ─────────────────────────────────────────────────
 
 
-class SpatialComputeRequest(BaseModel):
+# NOTE: Legacy request model kept temporarily so the existing
+# /api/compute/spatial handler still type-checks. Task 10 will delete
+# this class and replace the handler with the new discriminated-union
+# `SpatialComputeRequest` defined further below.
+class SpatialComputeRequestLegacy(BaseModel):
     concentrationFileId: int
     controlFileId: int | None = None
     controlConcentration: float | None = None
@@ -88,6 +94,7 @@ class SpatialComputeRequest(BaseModel):
 class ZoneResult(BaseModel):
     zoneId: str
     zoneName: str | None = None
+    parentId: str | None = None  # NEW
     geometry: dict | None = None
     baselineConcentration: float
     controlConcentration: float
@@ -99,6 +106,96 @@ class SpatialComputeResponse(BaseModel):
     zones: list[ZoneResult]
     aggregate: ComputeResponse
     totalDeaths: EstimateCI
+
+
+# ── New discriminated-union request models ────────────────────────
+
+class CRFInputV2(BaseModel):
+    """Extension of CRFInput that carries cause / endpointType."""
+    id: str
+    source: str = ""
+    endpoint: str = ""
+    beta: float
+    betaLow: float
+    betaHigh: float
+    functionalForm: str = "log-linear"
+    defaultRate: float | None = None
+    cause: str = "all_cause"          # enum validated client-side
+    endpointType: str = "mortality"   # mortality | hospitalization | ed_visit | incidence | prevalence
+
+
+class BuiltinMode(BaseModel):
+    mode: Literal["builtin"]
+    pollutant: str
+    country: str
+    year: int
+    analysisLevel: Literal["country", "state", "county", "tract"]
+    stateFilter: str | None = None
+    countyFilter: str | None = None
+    controlMode: Literal["scalar", "builtin", "rollback", "benchmark"]
+    controlConcentration: float | None = None
+    controlRollbackPercent: float | None = None
+    selectedCRFs: list[CRFInputV2]
+    monteCarloIterations: int = Field(default=1000, ge=100, le=50_000)
+
+
+class UploadedMode(BaseModel):
+    mode: Literal["uploaded"]
+    concentrationFileId: int
+    controlFileId: int | None = None
+    controlConcentration: float | None = None
+    populationFileId: int
+    boundaryFileId: int
+    selectedCRFs: list[CRFInputV2]
+    monteCarloIterations: int = Field(default=1000, ge=100, le=50_000)
+
+
+class CustomBoundaryBuiltinMode(BaseModel):
+    mode: Literal["builtin_custom_boundary"]
+    pollutant: str
+    country: str
+    year: int
+    boundaryFileId: int
+    controlMode: Literal["scalar", "builtin", "rollback", "benchmark"]
+    controlConcentration: float | None = None
+    controlRollbackPercent: float | None = None
+    selectedCRFs: list[CRFInputV2]
+    monteCarloIterations: int = Field(default=1000, ge=100, le=50_000)
+
+
+SpatialComputeRequest = Annotated[
+    Union[BuiltinMode, UploadedMode, CustomBoundaryBuiltinMode],
+    PydField(discriminator="mode"),
+]
+
+
+# ── New response models ──────────────────────────────────────────
+
+class ProvenanceModel(BaseModel):
+    concentration: dict
+    population: dict
+    incidence: dict
+
+
+class CauseRollup(BaseModel):
+    cause: str
+    endpointLabel: str
+    attributableCases: EstimateCI
+    attributableRate: EstimateCI
+    crfIds: list[str]
+
+
+class SpatialComputeResponseV2(BaseModel):
+    """Extended spatial response with provenance, rollups, and separate totals."""
+    resultId: str
+    zones: list[ZoneResult]
+    aggregate: ComputeResponse
+    causeRollups: list[CauseRollup]
+    totalDeaths: EstimateCI
+    allCauseDeaths: EstimateCI | None = None
+    provenance: ProvenanceModel
+    warnings: list[str] = Field(default_factory=list)
+    processingTimeSeconds: float = 0.0
 
 
 # ── Scalar endpoint ────────────────────────────────────────────────
@@ -272,7 +369,7 @@ def _run_spatial_compute(
 
 @router.post("/compute/spatial", response_model=SpatialComputeResponse)
 async def run_spatial_compute(
-    req: SpatialComputeRequest,
+    req: SpatialComputeRequestLegacy,
     db: AsyncSession = Depends(get_db),
 ) -> SpatialComputeResponse:
     """Run spatially-resolved HIA computation.
