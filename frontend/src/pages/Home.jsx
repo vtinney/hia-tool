@@ -248,7 +248,10 @@ export default function Home() {
 
   function handleTemplate(tpl) {
     loadFromTemplate(tpl)
-    navigate('/results')
+    // Templates pre-fill wizard state but don't run the analysis — send
+    // the user into the wizard so they can review, fill in any steps the
+    // template leaves incomplete (often step 2-4), and run from step 6.
+    navigate('/analysis/1')
   }
 
   return (
