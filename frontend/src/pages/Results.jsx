@@ -152,23 +152,26 @@ function HeroNumber({ totalDeaths, detailRows = [], isSpatial, zoneCount }) {
           <p className="font-mono font-medium text-ink leading-[0.85] tracking-tightest tabular-nums text-[88px] md:text-[112px] lg:text-[128px]">
             {fmtNumber(Math.round(animatedMean))}
           </p>
-          <p className="mt-7 text-[15px] leading-relaxed text-zinc-600">
-            attributable cases
+          <div className="mt-7 space-y-1">
+            <p className="text-[15px] text-zinc-600">attributable cases</p>
             {!isPooled && headlineCRF && (
               <>
-                <span className="text-zinc-400"> · </span>
-                <span className="font-medium text-zinc-800">{headlineCRF.endpoint}</span>
+                <p className="text-[15px] font-medium text-zinc-800">
+                  {headlineCRF.endpoint}
+                </p>
                 {headlineCRF.crfStudy && (
-                  <span className="text-zinc-500"> ({headlineCRF.crfStudy})</span>
+                  <p className="text-[13px] text-zinc-500">{headlineCRF.crfStudy}</p>
                 )}
               </>
             )}
             {isSpatial && zoneCount ? (
-              <span className="text-zinc-400"> · across {zoneCount.toLocaleString()} zones</span>
+              <p className="text-[13px] text-zinc-400">
+                across {zoneCount.toLocaleString()} zones
+              </p>
             ) : null}
-          </p>
+          </div>
           {!isPooled && detailRows.length > 1 && (
-            <p className="mt-2 text-[12px] text-zinc-400">
+            <p className="mt-3 text-[12px] text-zinc-400">
               {detailRows.length} CRFs analyzed — see breakdown below
             </p>
           )}
