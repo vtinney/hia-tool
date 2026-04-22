@@ -152,14 +152,14 @@ function HeroNumber({ totalDeaths, detailRows = [], isSpatial, zoneCount }) {
           <p className="font-mono font-medium text-ink leading-[0.85] tracking-tightest tabular-nums text-[88px] md:text-[112px] lg:text-[128px]">
             {fmtNumber(Math.round(animatedMean))}
           </p>
-          <p className="mt-3 text-[14px] text-zinc-500">
+          <p className="mt-7 text-[15px] leading-relaxed text-zinc-600">
             attributable cases
             {!isPooled && headlineCRF && (
               <>
                 <span className="text-zinc-400"> · </span>
-                <span className="font-medium text-zinc-700">{headlineCRF.endpoint}</span>
+                <span className="font-medium text-zinc-800">{headlineCRF.endpoint}</span>
                 {headlineCRF.crfStudy && (
-                  <span className="text-zinc-400"> ({headlineCRF.crfStudy})</span>
+                  <span className="text-zinc-500"> ({headlineCRF.crfStudy})</span>
                 )}
               </>
             )}
@@ -168,7 +168,7 @@ function HeroNumber({ totalDeaths, detailRows = [], isSpatial, zoneCount }) {
             ) : null}
           </p>
           {!isPooled && detailRows.length > 1 && (
-            <p className="mt-1 text-[12px] text-zinc-400">
+            <p className="mt-2 text-[12px] text-zinc-400">
               {detailRows.length} CRFs analyzed — see breakdown below
             </p>
           )}
@@ -714,7 +714,7 @@ export default function Results() {
             )}
             <Link to="/analysis/6" className="btn-ghost">
               <ChevronLeft className="w-3.5 h-3.5" />
-              Back to wizard
+              Back to analysis inputs
             </Link>
             <Link to="/" className="btn-ghost">
               Home
