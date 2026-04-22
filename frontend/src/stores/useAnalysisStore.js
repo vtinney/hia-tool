@@ -34,6 +34,7 @@ const DEFAULT_STEP4 = {
   incidenceType: 'manual',
   rates: null,
   year: null,
+  selectedEndpoints: [],
 }
 
 const DEFAULT_STEP5 = {
@@ -182,7 +183,7 @@ const useAnalysisStore = create(
     }),
     {
       name: 'hia-analysis',
-      version: 7,
+      version: 8,
       partialize: (state) => ({
         // Persist only the data that matters for resume — skip transient UI state
         currentStep: state.currentStep,
@@ -198,9 +199,13 @@ const useAnalysisStore = create(
         ejFraming: state.ejFraming,
       }),
       migrate: (persisted, version) => {
-        // v6 and older: hard reset is simpler than partial upgrade.
-        // v7 added ejFraming.
-        if (version < 7) return initialState()
+        // v5 and older had a different step shape. v6 added year to
+        // step3 and step4. v7 added step4.selectedEndpoints (master) and
+        // ejFraming (feature/ej-template-results) — both landed at v7 in
+        // parallel branches, so v8 is the first version that has both
+        // fields. Hard reset for anything older is simpler than a
+        // partial upgrade.
+        if (version < 8) return initialState()
         return persisted
       },
     },

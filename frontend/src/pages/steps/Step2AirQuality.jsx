@@ -402,15 +402,22 @@ export default function Step2AirQuality() {
   const unit = UNIT_MAP[pollutant] || 'μg/m³'
   const pollutantLabel = POLLUTANT_LABELS[pollutant] || 'Pollutant'
 
-  // Local UI state
-  const [baselineTab, setBaselineTab] = useState(baseline.type || 'manual')
+  // Local UI state. Tabs default to "builtin" for new runs; if the
+  // user had previously picked a different source and has data for it,
+  // restore that tab so navigation across steps doesn't strand them.
+  const [baselineTab, setBaselineTab] = useState(() => {
+    if (baseline.type === 'file' && baseline.fileData?.name) return 'upload'
+    if (baseline.type === 'manual' && baseline.value != null) return 'manual'
+    return 'builtin'
+  })
   const [controlOpen, setControlOpen] = useState(control.type !== 'none')
-  const [controlTab, setControlTab] = useState(
-    control.type === 'none' ? 'manual'
-      : control.rollbackPercent != null ? 'rollback'
-      : control.benchmarkId != null ? 'benchmark'
-      : control.type || 'manual',
-  )
+  const [controlTab, setControlTab] = useState(() => {
+    if (control.rollbackPercent != null) return 'rollback'
+    if (control.benchmarkId != null) return 'benchmark'
+    if (control.type === 'file' && control.fileData?.name) return 'upload'
+    if (control.type === 'manual' && control.value != null) return 'manual'
+    return 'builtin'
+  })
 
   // ── Validation ─────────────────────────────────────────────────
 
@@ -586,15 +593,15 @@ export default function Step2AirQuality() {
   // ── Tab definitions ────────────────────────────────────────────
 
   const baselineTabs = [
+    { id: 'builtin', label: 'Built-in Data' },
     { id: 'manual', label: 'Manual Entry' },
     { id: 'upload', label: 'File Upload' },
-    { id: 'builtin', label: 'Built-in Data' },
   ]
 
   const controlTabs = [
+    { id: 'builtin', label: 'Built-in Data' },
     { id: 'manual', label: 'Manual Entry' },
     { id: 'upload', label: 'File Upload' },
-    { id: 'builtin', label: 'Built-in Data' },
     { id: 'rollback', label: 'Rollback' },
     { id: 'benchmark', label: 'Benchmark' },
   ]

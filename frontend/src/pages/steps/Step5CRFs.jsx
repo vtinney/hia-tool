@@ -412,7 +412,7 @@ function CustomCRFForm({ onAdd }) {
 // ── Main component ─────────────────────────────────────────────────
 
 export default function Step5CRFs() {
-  const { step1, step5, setStep5, setStepValidity } = useAnalysisStore()
+  const { step1, step4, step5, setStep5, setStepValidity } = useAnalysisStore()
   const pollutant = step1.pollutant
   const pollutantLabel = POLLUTANT_LABELS[pollutant] || 'Pollutant'
 
@@ -420,19 +420,26 @@ export default function Step5CRFs() {
   const customCRFs = step5.customCRFs || []
   const selectedSet = useMemo(() => new Set(selectedCRFs), [selectedCRFs])
 
+  const selectedEndpoints = step4?.selectedEndpoints || []
+  const selectedEndpointsSet = useMemo(
+    () => new Set(selectedEndpoints),
+    [selectedEndpoints],
+  )
+
   const [activeFramework, setActiveFramework] = useState('epa')
 
-  // Filter CRFs by pollutant, grouped by framework
+  // Filter CRFs by pollutant and by the endpoints the user picked in
+  // Step 4, grouped by framework.
   const crfsByFramework = useMemo(() => {
     const grouped = {}
     FRAMEWORKS.forEach((fw) => { grouped[fw.id] = [] })
     crfLibrary
-      .filter((c) => c.pollutant === pollutant)
+      .filter((c) => c.pollutant === pollutant && selectedEndpointsSet.has(c.endpoint))
       .forEach((c) => {
         if (grouped[c.framework]) grouped[c.framework].push(c)
       })
     return grouped
-  }, [pollutant])
+  }, [pollutant, selectedEndpointsSet])
 
   // Count CRFs per framework (for tab badges)
   const crfCounts = useMemo(() => {
@@ -441,10 +448,12 @@ export default function Step5CRFs() {
     return counts
   }, [crfsByFramework])
 
-  // All CRFs for current pollutant (flat)
+  // All CRFs for current pollutant + selected endpoints (flat)
   const allPollutantCrfs = useMemo(
-    () => crfLibrary.filter((c) => c.pollutant === pollutant),
-    [pollutant],
+    () => crfLibrary.filter(
+      (c) => c.pollutant === pollutant && selectedEndpointsSet.has(c.endpoint),
+    ),
+    [pollutant, selectedEndpointsSet],
   )
 
   // ── Validation ─────────────────────────────────────────────────
@@ -509,6 +518,21 @@ export default function Step5CRFs() {
   const allCurrentSelected = currentFrameworkCrfs.length > 0 &&
     currentFrameworkCrfs.every((c) => selectedSet.has(c.id))
 
+  if (selectedEndpoints.length === 0) {
+    return (
+      <>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Concentration-Response Functions</h1>
+        <div className="mt-6 p-6 bg-amber-50 border border-amber-200 rounded-xl text-center">
+          <p className="text-amber-700">
+            No health endpoints have been selected yet. Go back to Step 4 and pick
+            which outcomes you want to analyze — only those endpoints' CRFs will
+            appear here.
+          </p>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Concentration-Response Functions</h1>
@@ -519,6 +543,32 @@ export default function Step5CRFs() {
       </p>
 
       <div className="space-y-6">
+        {/* ── How CRFs are evaluated ─────────────────────────────── */}
+        <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-600 space-y-2 leading-relaxed">
+          <p className="font-medium text-gray-800">How each CRF is evaluated at run time</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <span className="font-medium text-gray-700">Log-linear (EPA / HRAPIE)</span> — PAF = 1 − exp(−β · ΔC).
+              Flat in β, linear in ΔC. Same slope at every concentration.
+            </li>
+            <li>
+              <span className="font-medium text-gray-700">MR-BRT spline (GBD 2023)</span> — RR is interpolated
+              at both c_baseline and c_control from IHME's tabulated spline
+              (~2,500 knots, 0–2,500 μg/m³). PAF = (RR(c_base) − RR(c_ctrl)) / RR(c_base).
+              The slope flattens at high exposures — concentration-specific.
+            </li>
+            <li>
+              <span className="font-medium text-gray-700">GEMM</span> — closed-form HR(z) = exp(θ · z / (1 + exp(−(z−μ)/τ))) with
+              z = max(0, C − 2.4). Also concentration-specific.
+            </li>
+            <li>
+              <span className="font-medium text-gray-700">Fusion</span> — currently approximated with a
+              log-linear fallback pending the tabulated marginal-risk data. See
+              <span className="font-mono"> docs/outstanding_work.md</span> for the wiring plan.
+            </li>
+          </ul>
+        </div>
+
         {/* ── Framework tabs + CRF table ─────────────────────────── */}
         <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
           <legend className="text-sm font-semibold text-gray-700 px-1">CRF Library</legend>

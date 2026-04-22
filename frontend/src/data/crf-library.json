@@ -214,7 +214,7 @@
     "framework": "gbd",
     "pollutant": "pm25",
     "endpoint": "Lower respiratory infection",
-    "ageRange": "0–4",
+    "ageRange": "All ages",
     "metric": "Annual average",
     "beta": 0.00978,
     "betaLow": 0.00437,

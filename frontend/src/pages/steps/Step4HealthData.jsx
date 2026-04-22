@@ -191,12 +191,18 @@ function CsvUpload({ fileData, onFile, onClear }) {
 // ── Manual rate entry for a single endpoint ────────────────────────
 
 function EndpointRateRow({ crf, value, onChange }) {
+  // Baseline-rate context — strip CRF-method suffixes like "MR-BRT" from
+  // the source string. The full label (with MR-BRT) is still shown on
+  // Step 5 where the CRF method is the relevant attribute.
+  const baselineSource = crf.source
+    ? crf.source.replace(/\s*MR-BRT\s*/gi, ' ').replace(/\s{2,}/g, ' ').trim()
+    : ''
   return (
     <div className="flex items-start gap-4 p-3 rounded-lg border border-gray-200 bg-gray-50">
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900">{crf.endpoint}</p>
         <p className="text-xs text-gray-500 mt-0.5">
-          Age range: {crf.ageRange} &middot; Source: {crf.source}
+          Age range: {crf.ageRange} &middot; Source: {baselineSource}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -330,31 +336,38 @@ export default function Step4HealthData() {
     })
   }, [availableCRFs])
 
-  // Local UI state
-  const [activeTab, setActiveTab] = useState(
-    incidenceType === 'file' ? 'upload'
-      : incidenceType === 'dataset' ? 'builtin'
-      : 'manual',
+  const selectedEndpoints = step4.selectedEndpoints || []
+  const selectedEndpointsSet = useMemo(
+    () => new Set(selectedEndpoints),
+    [selectedEndpoints],
+  )
+  const visibleEndpoints = useMemo(
+    () => uniqueEndpoints.filter((ep) => selectedEndpointsSet.has(ep.endpoint)),
+    [uniqueEndpoints, selectedEndpointsSet],
   )
 
-  // Initialize rates from defaults when pollutant changes
+  // Local UI state
+  const [activeTab, setActiveTab] = useState(() => {
+    if (incidenceType === 'file' && step4.fileData?.name) return 'upload'
+    if (incidenceType === 'manual' && rates && Object.values(rates).some((v) => v != null && v !== '' && v > 0)) return 'manual'
+    return 'builtin'
+  })
+
+  // Rates come from the store; when a row has no entry yet, fall back to
+  // the CRF's defaultRate so the input shows a sensible placeholder.
   const currentRates = useMemo(() => {
     if (rates && typeof rates === 'object' && !Array.isArray(rates)) return rates
-    const defaults = {}
-    uniqueEndpoints.forEach((crf) => {
-      defaults[crf.id] = crf.defaultRate ?? null
-    })
-    return defaults
-  }, [rates, uniqueEndpoints])
+    return {}
+  }, [rates])
 
-  // Sync default rates into store on pollutant change
+  // Clear stale selected endpoints when pollutant changes (different
+  // pollutants expose different endpoint sets).
   useEffect(() => {
-    if (incidenceType === 'manual' && (!rates || typeof rates !== 'object')) {
-      const defaults = {}
-      uniqueEndpoints.forEach((crf) => {
-        defaults[crf.id] = crf.defaultRate ?? null
-      })
-      setStep4({ rates: defaults })
+    if (!pollutant) return
+    const validEndpointNames = new Set(uniqueEndpoints.map((ep) => ep.endpoint))
+    const filtered = selectedEndpoints.filter((name) => validEndpointNames.has(name))
+    if (filtered.length !== selectedEndpoints.length) {
+      setStep4({ selectedEndpoints: filtered })
     }
   }, [pollutant]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -365,10 +378,19 @@ export default function Step4HealthData() {
       setStepValidity(4, false)
       return
     }
+    if (visibleEndpoints.length === 0) {
+      setStepValidity(4, false)
+      return
+    }
     const hasYear = effectiveYear != null
     let valid = false
     if (incidenceType === 'manual') {
-      valid = currentRates && Object.values(currentRates).some((v) => v != null && v !== '' && v > 0)
+      // Every selected endpoint needs a positive rate (either in
+      // currentRates or via its defaultRate fallback).
+      valid = visibleEndpoints.every((ep) => {
+        const r = currentRates[ep.id] ?? ep.defaultRate
+        return r != null && r !== '' && r > 0
+      })
     } else if (incidenceType === 'file') {
       valid = step4.fileData?.name && !step4.fileData?.error && hasYear
     } else if (incidenceType === 'dataset') {
@@ -376,7 +398,7 @@ export default function Step4HealthData() {
     }
     setStepValidity(4, valid)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incidenceType, currentRates, step4.fileData, effectiveYear, pollutant])
+  }, [incidenceType, currentRates, step4.fileData, effectiveYear, pollutant, visibleEndpoints])
 
   // ── Handlers ───────────────────────────────────────────────────
 
@@ -392,20 +414,33 @@ export default function Step4HealthData() {
   }, [currentRates, setStep4])
 
   const handlePrefillDefaults = useCallback(() => {
-    const defaults = {}
-    uniqueEndpoints.forEach((crf) => {
+    const defaults = { ...currentRates }
+    visibleEndpoints.forEach((crf) => {
       defaults[crf.id] = crf.defaultRate ?? null
     })
     setStep4({ rates: defaults })
-  }, [uniqueEndpoints, setStep4])
+  }, [visibleEndpoints, currentRates, setStep4])
 
   const handleClearRates = useCallback(() => {
-    const cleared = {}
-    uniqueEndpoints.forEach((crf) => {
+    const cleared = { ...currentRates }
+    visibleEndpoints.forEach((crf) => {
       cleared[crf.id] = null
     })
     setStep4({ rates: cleared })
-  }, [uniqueEndpoints, setStep4])
+  }, [visibleEndpoints, currentRates, setStep4])
+
+  const handleToggleEndpoint = useCallback((endpointName) => {
+    const next = selectedEndpointsSet.has(endpointName)
+      ? selectedEndpoints.filter((n) => n !== endpointName)
+      : [...selectedEndpoints, endpointName]
+    setStep4({ selectedEndpoints: next })
+  }, [selectedEndpoints, selectedEndpointsSet, setStep4])
+
+  const handleSelectAllEndpoints = useCallback(() => {
+    const all = uniqueEndpoints.map((ep) => ep.endpoint)
+    const allSelected = all.every((n) => selectedEndpointsSet.has(n))
+    setStep4({ selectedEndpoints: allSelected ? [] : all })
+  }, [uniqueEndpoints, selectedEndpointsSet, setStep4])
 
   const handleFile = useCallback((fileData) => {
     setStep4({ fileData, incidenceType: 'file' })
@@ -418,9 +453,9 @@ export default function Step4HealthData() {
   // ── Tab definitions ────────────────────────────────────────────
 
   const tabs = [
+    { id: 'builtin', label: 'Built-in Data' },
     { id: 'manual', label: 'Manual Entry' },
     { id: 'upload', label: 'File Upload' },
-    { id: 'builtin', label: 'Built-in Data' },
   ]
 
   // ── Render ─────────────────────────────────────────────────────
@@ -448,18 +483,70 @@ export default function Step4HealthData() {
       </p>
 
       <div className="space-y-6">
-        {/* ── Endpoint Summary ───────────────────────────────────── */}
-        <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <svg className="w-5 h-5 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-sm text-blue-700">
-            <span className="font-medium">{uniqueEndpoints.length} health endpoint{uniqueEndpoints.length !== 1 ? 's' : ''}</span>{' '}
-            available for {pollutantLabel} from the CRF library. Rates entered here will be paired
-            with concentration-response functions in Step 5.
+        {/* ── Endpoint selection ─────────────────────────────────── */}
+        <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <legend className="text-sm font-semibold text-gray-700 px-1">
+            Health Endpoints
+          </legend>
+          <p className="text-xs text-gray-500 mb-3">
+            Pick which outcomes you want to analyze for{' '}
+            <span className="font-medium text-gray-700">{pollutantLabel}</span>.
+            Only selected endpoints will appear as baseline-rate inputs below and as
+            CRF options in Step 5.
           </p>
-        </div>
+
+          {uniqueEndpoints.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              No endpoints found for {pollutantLabel} in the CRF library.
+            </p>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-3">
+                <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={
+                      uniqueEndpoints.length > 0 &&
+                      uniqueEndpoints.every((ep) => selectedEndpointsSet.has(ep.endpoint))
+                    }
+                    onChange={handleSelectAllEndpoints}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  Select all
+                </label>
+                <span className="text-xs text-gray-400">
+                  {selectedEndpoints.length}/{uniqueEndpoints.length} selected
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {uniqueEndpoints.map((ep) => {
+                  const checked = selectedEndpointsSet.has(ep.endpoint)
+                  return (
+                    <label
+                      key={ep.endpoint}
+                      className={`flex items-start gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors
+                        ${checked
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => handleToggleEndpoint(ep.endpoint)}
+                        className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900">{ep.endpoint}</p>
+                        <p className="text-xs text-gray-500">Age range: {ep.ageRange}</p>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </fieldset>
 
         {/* ── Incidence Rate Input ───────────────────────────────── */}
         <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
@@ -510,21 +597,21 @@ export default function Step4HealthData() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                {uniqueEndpoints.map((crf) => (
-                  <EndpointRateRow
-                    key={crf.id}
-                    crf={crf}
-                    value={currentRates[crf.id]}
-                    onChange={(val) => handleRateChange(crf.id, val)}
-                  />
-                ))}
-              </div>
-
-              {uniqueEndpoints.length === 0 && (
+              {visibleEndpoints.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-4">
-                  No endpoints found for {pollutantLabel} in the CRF library.
+                  Select at least one endpoint above to enter its baseline rate.
                 </p>
+              ) : (
+                <div className="space-y-2">
+                  {visibleEndpoints.map((crf) => (
+                    <EndpointRateRow
+                      key={crf.id}
+                      crf={crf}
+                      value={currentRates[crf.id] ?? crf.defaultRate}
+                      onChange={(val) => handleRateChange(crf.id, val)}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -540,57 +627,21 @@ export default function Step4HealthData() {
 
           {/* Built-in Data */}
           {activeTab === 'builtin' && (
-            <BuiltinIncidenceLoader
-              studyArea={step1.studyArea}
-              year={effectiveYear}
-              uniqueEndpoints={uniqueEndpoints}
-              onDataLoaded={(ratesMap) => {
-                setStep4({ rates: { ...currentRates, ...ratesMap }, incidenceType: 'dataset' })
-              }}
-            />
+            visibleEndpoints.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">
+                Select at least one endpoint above to load incidence data.
+              </p>
+            ) : (
+              <BuiltinIncidenceLoader
+                studyArea={step1.studyArea}
+                year={effectiveYear}
+                uniqueEndpoints={visibleEndpoints}
+                onDataLoaded={(ratesMap) => {
+                  setStep4({ rates: { ...currentRates, ...ratesMap }, incidenceType: 'dataset' })
+                }}
+              />
+            )
           )}
-        </fieldset>
-
-        {/* ── Available Endpoints Reference ──────────────────────── */}
-        <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <legend className="text-sm font-semibold text-gray-700 px-1">
-            CRF Endpoint Reference — {pollutantLabel}
-          </legend>
-          <p className="text-xs text-gray-500 mb-3">
-            Health endpoints from the CRF library for the selected pollutant.
-            Full CRF configuration (beta coefficients, pooling) happens in Step 5.
-          </p>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">Endpoint</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">Age Range</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">Source</th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Default Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {availableCRFs.map((crf, i) => (
-                  <tr key={crf.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-3 py-1.5 text-gray-900 border-b border-gray-100 font-medium">
-                      {crf.endpoint}
-                    </td>
-                    <td className="px-3 py-1.5 text-gray-600 border-b border-gray-100 font-mono">
-                      {crf.ageRange}
-                    </td>
-                    <td className="px-3 py-1.5 text-gray-500 border-b border-gray-100">
-                      {crf.source}
-                    </td>
-                    <td className="px-3 py-1.5 text-gray-700 border-b border-gray-100 text-right font-mono">
-                      {crf.defaultRate != null ? crf.defaultRate.toFixed(4) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </fieldset>
       </div>
     </>
