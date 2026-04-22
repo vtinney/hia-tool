@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate, Outlet } from 'react-router-dom'
+import { useParams, useNavigate, Outlet, Link } from 'react-router-dom'
 import Markdown from 'react-markdown'
 import useAnalysisStore from '../stores/useAnalysisStore'
 import stepContent from '../content/steps/index'
@@ -25,8 +25,8 @@ const SIDEBAR_TABS = [
 
 function ProgressBar({ currentStep, completedSteps, onStepClick }) {
   return (
-    <nav className="bg-white border-b border-gray-200 px-4 py-3 overflow-x-auto">
-      <ol className="flex items-center min-w-max gap-1">
+    <nav className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-4">
+      <ol className="flex items-center min-w-max gap-1 flex-1 overflow-x-auto">
         {STEPS.map(({ num, label }, idx) => {
           const isActive = num === currentStep
           const isCompleted = completedSteps.includes(num)
@@ -75,6 +75,13 @@ function ProgressBar({ currentStep, completedSteps, onStepClick }) {
           )
         })}
       </ol>
+      <Link
+        to="/"
+        className="shrink-0 px-3 py-1.5 rounded-lg border border-gray-300 text-sm font-medium
+                   text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition-colors whitespace-nowrap"
+      >
+        New analysis
+      </Link>
     </nav>
   )
 }
