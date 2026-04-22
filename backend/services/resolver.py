@@ -305,6 +305,41 @@ def resolve_control(
     raise ValueError(f"Unknown control_mode: {control_mode}")
 
 
+class YearGapTooLarge(Exception):
+    """Raised when requested year is > 2 years from the nearest ACS file."""
+
+
+MAX_ACS_YEAR_GAP = 2
+
+
+def _available_acs_years(country: str) -> list[int]:
+    """Return sorted years for which we have a demographics/{country}/{y}.parquet."""
+    dirpath = _data_root() / "demographics" / country
+    if not dirpath.exists():
+        return []
+    return sorted(
+        int(p.stem) for p in dirpath.iterdir()
+        if p.suffix == ".parquet" and p.stem.isdigit()
+    )
+
+
+def _resolve_acs_year(country: str, requested_year: int) -> tuple[int, int]:
+    """Find the closest available ACS year. Returns (year, |gap|).
+
+    Raises ``YearGapTooLarge`` when no year within MAX_ACS_YEAR_GAP exists.
+    """
+    years = _available_acs_years(country)
+    if not years:
+        raise FileNotFoundError(f"No ACS demographics for country={country}")
+    nearest = min(years, key=lambda y: abs(y - requested_year))
+    gap = abs(nearest - requested_year)
+    if gap > MAX_ACS_YEAR_GAP:
+        raise YearGapTooLarge(
+            f"Nearest ACS year {nearest} is {gap} years from requested {requested_year}"
+        )
+    return nearest, gap
+
+
 def prepare_builtin_inputs(
     pollutant: str,
     country: str,
@@ -316,13 +351,11 @@ def prepare_builtin_inputs(
     control_value: float | None = None,
     rollback_percent: float | None = None,
 ) -> ResolvedInputs:
-    """Top-level orchestrator for built-in data requests.
+    # Resolve ACS year first — may differ from requested concentration year
+    acs_year, year_gap = _resolve_acs_year(country, year)
 
-    Loads reporting polygons, resolves concentration and control,
-    returns ``ResolvedInputs`` with provenance and warnings.
-    """
     polygons = load_reporting_polygons(
-        country=country, year=year, analysis_level=analysis_level,
+        country=country, year=acs_year, analysis_level=analysis_level,
         state_filter=state_filter, county_filter=county_filter,
     )
 
@@ -336,13 +369,15 @@ def prepare_builtin_inputs(
         control_value=control_value, rollback_percent=rollback_percent,
     )
 
-    # Population grain is determined by analysis_level — we always pull
-    # ACS tract and dissolve, so population grain IS analysis_level.
-    pop_prov = {"grain": analysis_level, "source": "acs"}
-
-    # Incidence provenance is filled in at compute time when CRF rates
-    # are known. Placeholder is overwritten by the router.
+    pop_prov = {"grain": analysis_level, "source": "acs", "year": acs_year}
     inc_prov = {"grain": "crf_default", "source": "crf_library"}
+
+    warnings = list(c_warnings)
+    if year_gap > 0:
+        warnings.append(
+            f"Population year {acs_year} used for concentration year {year} "
+            f"(gap of {year_gap} year{'s' if year_gap != 1 else ''})"
+        )
 
     return ResolvedInputs(
         zone_ids=polygons["zone_ids"],
@@ -357,5 +392,5 @@ def prepare_builtin_inputs(
             population=pop_prov,
             incidence=inc_prov,
         ),
-        warnings=c_warnings,
+        warnings=warnings,
     )

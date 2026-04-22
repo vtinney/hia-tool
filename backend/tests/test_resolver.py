@@ -207,3 +207,47 @@ def test_prepare_builtin_inputs_rollback_control(tmp_path, monkeypatch):
     )
     # For each state, control = baseline * 0.8
     np.testing.assert_allclose(result.c_control, result.c_baseline * 0.8)
+
+
+from backend.services.resolver import _resolve_acs_year, YearGapTooLarge
+
+
+def test_resolve_acs_year_exact_match(tmp_path, monkeypatch):
+    _fake_acs_parquet(tmp_path)
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))
+    year, gap = _resolve_acs_year("us", 2022)
+    assert year == 2022
+    assert gap == 0
+
+
+def test_resolve_acs_year_nearest_within_2(tmp_path, monkeypatch):
+    _fake_acs_parquet(tmp_path)  # writes 2022.parquet
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))
+    year, gap = _resolve_acs_year("us", 2023)  # no 2023 file; use 2022
+    assert year == 2022
+    assert gap == 1
+
+
+def test_resolve_acs_year_gap_too_large(tmp_path, monkeypatch):
+    _fake_acs_parquet(tmp_path)  # only 2022
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))
+    with pytest.raises(YearGapTooLarge):
+        _resolve_acs_year("us", 2026)  # gap = 4 > 2
+
+
+def test_prepare_builtin_inputs_emits_year_gap_warning(tmp_path, monkeypatch):
+    _fake_acs_parquet(tmp_path)
+    _fake_epa_aqs_state(tmp_path)
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))
+
+    # Concentration parquet for 2023 — but demographics only has 2022
+    aqs_dir = tmp_path / "processed" / "epa_aqs" / "pm25" / "ne_states"
+    pd.DataFrame({"admin_id": ["US-06"], "mean_pm25": [10.0]}).to_parquet(
+        aqs_dir / "2023.parquet"
+    )
+
+    result = prepare_builtin_inputs(
+        pollutant="pm25", country="us", year=2023,
+        analysis_level="state", control_mode="benchmark", control_value=5.0,
+    )
+    assert any("population year" in w.lower() for w in result.warnings)
