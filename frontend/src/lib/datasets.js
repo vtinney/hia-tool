@@ -1,22 +1,42 @@
-const ISO3_TO_SLUG = {
-  USA: ['us', 'usa'],
-  MEX: ['mexico', 'mex'],
+// Each row is a single canonical country: every form that should match
+// it (ISO3, ISO2, lowercase slug, hyphenated display name) is listed.
+// Lowercased internally — case doesn't matter at call sites.
+const COUNTRY_ALIASES = [
+  ['USA', 'us', 'usa', 'united-states', 'united_states', 'united states'],
+  ['MEX', 'mx', 'mex', 'mexico'],
+  ['BRA', 'br', 'bra', 'brazil'],
+  ['CAN', 'ca', 'can', 'canada'],
+  ['IND', 'in', 'ind', 'india'],
+  ['CHN', 'cn', 'chn', 'china'],
+  ['GBR', 'gb', 'gbr', 'uk', 'united-kingdom', 'united_kingdom', 'united kingdom'],
+]
+
+// any-form (lowercased) → Set of equivalent identifiers (uppercased).
+const EQUIVALENTS = new Map()
+for (const group of COUNTRY_ALIASES) {
+  const set = new Set(group.map((s) => String(s).toUpperCase()))
+  for (const id of group) EQUIVALENTS.set(String(id).toLowerCase(), set)
 }
 
-export function datasetCoversCountry(dataset, countryIso3) {
-  if (!dataset?.countries_covered?.length || !countryIso3) return false
-  const iso = countryIso3.toUpperCase()
-  const aliases = ISO3_TO_SLUG[iso] || []
+function equivalentsFor(countryId) {
+  if (!countryId) return null
+  const key = String(countryId).toLowerCase()
+  return EQUIVALENTS.get(key) || new Set([String(countryId).toUpperCase()])
+}
+
+export function datasetCoversCountry(dataset, countryId) {
+  if (!dataset?.countries_covered?.length || !countryId) return false
+  const equivalents = equivalentsFor(countryId)
   for (const entry of dataset.countries_covered) {
     const upper = String(entry).toUpperCase()
-    if (upper === iso) return true
-    if (iso === 'USA' && upper.startsWith('US-')) return true
-    if (aliases.includes(String(entry).toLowerCase())) return true
+    if (equivalents.has(upper)) return true
+    // US sub-state codes ("US-CA", "US-NY", ...) belong to the US group.
+    if (equivalents.has('USA') && upper.startsWith('US-')) return true
   }
   return false
 }
 
-export function yearsFor(dataset, countryIso3) {
-  if (!datasetCoversCountry(dataset, countryIso3)) return []
+export function yearsFor(dataset, countryId) {
+  if (!datasetCoversCountry(dataset, countryId)) return []
   return [...(dataset.years || [])]
 }

@@ -2,7 +2,7 @@
   "name": "Mexico NO₂ Analysis",
   "description": "National NO₂ health impact assessment for Mexico using EPA NO₂ CRFs. Requires manual or uploaded concentration data.",
   "step1": {
-    "studyArea": { "type": "country", "id": "mexico", "name": "Mexico" },
+    "studyArea": { "type": "country", "id": "MEX", "name": "Mexico" },
     "pollutant": "no2",
     "years": { "start": 2020, "end": 2020 },
     "analysisName": "Mexico NO₂ Health Impact Assessment"

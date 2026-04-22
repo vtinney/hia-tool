@@ -2,7 +2,7 @@
   "name": "Brazil Amazon PM2.5 (Biomass Burning)",
   "description": "PM2.5 health impact analysis for the Brazilian Amazon region, focused on biomass burning exposure. Uses GEMM for high-concentration extrapolation.",
   "step1": {
-    "studyArea": { "type": "country", "id": "brazil", "name": "Brazil" },
+    "studyArea": { "type": "country", "id": "BRA", "name": "Brazil" },
     "pollutant": "pm25",
     "years": { "start": 2022, "end": 2022 },
     "analysisName": "Brazil Amazon PM2.5 — Biomass Burning"

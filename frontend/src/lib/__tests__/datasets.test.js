@@ -24,6 +24,29 @@ describe('datasetCoversCountry', () => {
     expect(datasetCoversCountry({}, 'MEX')).toBe(false)
     expect(datasetCoversCountry(null, 'MEX')).toBe(false)
   })
+
+  it('matches Mexico across ISO3 / lowercase slug / display name', () => {
+    const ds = { countries_covered: ['MEX', 'USA'] }
+    expect(datasetCoversCountry(ds, 'MEX')).toBe(true)
+    expect(datasetCoversCountry(ds, 'mex')).toBe(true)
+    expect(datasetCoversCountry(ds, 'mx')).toBe(true)
+    expect(datasetCoversCountry(ds, 'mexico')).toBe(true)
+    expect(datasetCoversCountry(ds, 'Mexico')).toBe(true)
+  })
+
+  it('matches USA across ISO3 / ISO2 / hyphenated slug', () => {
+    const ds = { countries_covered: ['USA', 'MEX'] }
+    expect(datasetCoversCountry(ds, 'USA')).toBe(true)
+    expect(datasetCoversCountry(ds, 'us')).toBe(true)
+    expect(datasetCoversCountry(ds, 'united-states')).toBe(true)
+    expect(datasetCoversCountry(ds, 'United States')).toBe(true)
+  })
+
+  it('still maps US-XX state codes for any US identifier form', () => {
+    const ds = { countries_covered: ['US-CA', 'US-NY'] }
+    expect(datasetCoversCountry(ds, 'us')).toBe(true)
+    expect(datasetCoversCountry(ds, 'united-states')).toBe(true)
+  })
 })
 
 describe('yearsFor', () => {
