@@ -172,3 +172,38 @@ def test_resolve_control_builtin_defaults_to_baseline():
     c_ctrl = resolve_control(c_base=c_base, control_mode="builtin")
     # Not implemented yet — falls back to baseline
     np.testing.assert_array_equal(c_ctrl, c_base)
+
+
+from backend.services.resolver import prepare_builtin_inputs
+
+
+def test_prepare_builtin_inputs_tract_california(tmp_path, monkeypatch):
+    _fake_acs_parquet(tmp_path)
+    _fake_epa_aqs_state(tmp_path)
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))
+
+    result = prepare_builtin_inputs(
+        pollutant="pm25", country="us", year=2022,
+        analysis_level="tract", state_filter="06",
+        control_mode="benchmark", control_value=5.0,
+    )
+    assert len(result.zone_ids) == 3
+    assert (result.c_baseline == 11.4).all()  # CA state value broadcast
+    assert (result.c_control == 5.0).all()
+    assert result.provenance.concentration["grain"] == "state"
+    assert result.provenance.concentration["broadcast_to"] == "tract"
+    assert result.provenance.population["grain"] == "tract"
+    assert any("broadcast" in w.lower() for w in result.warnings)
+
+
+def test_prepare_builtin_inputs_rollback_control(tmp_path, monkeypatch):
+    _fake_acs_parquet(tmp_path)
+    _fake_epa_aqs_state(tmp_path)
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))
+
+    result = prepare_builtin_inputs(
+        pollutant="pm25", country="us", year=2022,
+        analysis_level="state", control_mode="rollback", rollback_percent=20.0,
+    )
+    # For each state, control = baseline * 0.8
+    np.testing.assert_allclose(result.c_control, result.c_baseline * 0.8)

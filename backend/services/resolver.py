@@ -303,3 +303,59 @@ def resolve_control(
         return c_base.copy()
 
     raise ValueError(f"Unknown control_mode: {control_mode}")
+
+
+def prepare_builtin_inputs(
+    pollutant: str,
+    country: str,
+    year: int,
+    analysis_level: str,
+    control_mode: str,
+    state_filter: str | None = None,
+    county_filter: str | None = None,
+    control_value: float | None = None,
+    rollback_percent: float | None = None,
+) -> ResolvedInputs:
+    """Top-level orchestrator for built-in data requests.
+
+    Loads reporting polygons, resolves concentration and control,
+    returns ``ResolvedInputs`` with provenance and warnings.
+    """
+    polygons = load_reporting_polygons(
+        country=country, year=year, analysis_level=analysis_level,
+        state_filter=state_filter, county_filter=county_filter,
+    )
+
+    c_base, c_prov, c_warnings = resolve_concentration(
+        pollutant=pollutant, country=country, year=year,
+        analysis_level=analysis_level, polygons=polygons,
+    )
+
+    c_ctrl = resolve_control(
+        c_base=c_base, control_mode=control_mode,
+        control_value=control_value, rollback_percent=rollback_percent,
+    )
+
+    # Population grain is determined by analysis_level — we always pull
+    # ACS tract and dissolve, so population grain IS analysis_level.
+    pop_prov = {"grain": analysis_level, "source": "acs"}
+
+    # Incidence provenance is filled in at compute time when CRF rates
+    # are known. Placeholder is overwritten by the router.
+    inc_prov = {"grain": "crf_default", "source": "crf_library"}
+
+    return ResolvedInputs(
+        zone_ids=polygons["zone_ids"],
+        zone_names=polygons["zone_names"],
+        parent_ids=polygons["parent_ids"],
+        geometries=polygons["geometries"],
+        c_baseline=c_base,
+        c_control=c_ctrl,
+        population=polygons["population"],
+        provenance=Provenance(
+            concentration=c_prov,
+            population=pop_prov,
+            incidence=inc_prov,
+        ),
+        warnings=c_warnings,
+    )
