@@ -238,32 +238,40 @@ function BuiltinIncidenceLoader({ studyArea, year, uniqueEndpoints, onDataLoaded
     setError(null)
     setLoadedCount(0)
 
-    const causes = [...new Set(uniqueEndpoints.filter((ep) => ep.endpoint).map((ep) =>
-      ep.endpoint.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
-    ))]
-    const causesToTry = ['all', ...causes]
+    // Use the CRF library's `cause` field directly — it already matches
+    // GBD cause codes ("ihd", "lung_cancer", "all_cause", …). Deriving
+    // a slug from the endpoint label produced mismatches like
+    // "ischemic-heart-disease" vs "ihd", so built-in lookups silently
+    // failed (e.g., Mexico 2018).
+    const causes = [...new Set(uniqueEndpoints.map((ep) => ep.cause).filter(Boolean))]
 
     Promise.all(
-      causesToTry.map((cause) =>
-        fetchIncidence(country, cause, year).catch(() => null),
+      causes.map((cause) =>
+        fetchIncidence(country, cause, year)
+          .catch(() => null)
+          .then((r) => [cause, r]),
       ),
     )
-      .then((results) => {
-        const allUnits = results.filter(Boolean).flatMap((r) => r.units || [])
-        if (allUnits.length === 0) {
+      .then((entries) => {
+        const byCause = Object.fromEntries(entries)
+        if (Object.values(byCause).every((r) => r == null)) {
           setError(`No built-in incidence data for ${studyArea?.name || country} in ${year}.`)
           return
         }
         const ratesMap = {}
         let matched = 0
         for (const ep of uniqueEndpoints) {
-          const epLower = (ep.endpoint || '').toLowerCase()
-          const match = allUnits.find((u) => {
-            const cause = (u.cause || '').toLowerCase()
-            return epLower.includes(cause) || cause.includes(epLower.split(' ')[0])
-          })
-          if (match && match.incidence_rate != null) {
-            ratesMap[ep.id] = match.incidence_rate
+          const units = byCause[ep.cause]?.units || []
+          // Prefer all-age, both-sex row when present; else the first
+          // row with a rate. GBD fallback returns one row per age_group.
+          const chosen =
+            units.find(
+              (u) => u.incidence_rate != null
+                && (u.age_group === 'all_ages' || u.age_group == null)
+                && (u.sex == null || u.sex === 'both'),
+            ) || units.find((u) => u.incidence_rate != null)
+          if (chosen) {
+            ratesMap[ep.id] = chosen.incidence_rate
             matched++
           }
         }
@@ -359,6 +367,42 @@ export default function Step4HealthData() {
     return {}
   }, [rates])
 
+  // ── Built-in availability probe ───────────────────────────────
+  // When the user chooses the "Built-in (GBD)" dataset for a
+  // country+year, probe each pollutant-relevant cause to see which
+  // endpoints have data. Drives the disabled state on endpoint
+  // checkboxes below.
+  const country = step1.studyArea?.id || ''
+  const [builtinAvailability, setBuiltinAvailability] = useState({})
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
+
+  useEffect(() => {
+    if (activeTab !== 'builtin') {
+      setBuiltinAvailability({})
+      return
+    }
+    if (!country || !effectiveYear || uniqueEndpoints.length === 0) {
+      setBuiltinAvailability({})
+      return
+    }
+    const causes = [...new Set(uniqueEndpoints.map((ep) => ep.cause).filter(Boolean))]
+    setAvailabilityLoading(true)
+    Promise.all(
+      causes.map((cause) =>
+        fetchIncidence(country, cause, effectiveYear)
+          .catch(() => null)
+          .then((r) => [cause, r != null && (r.units || []).some((u) => u.incidence_rate != null)]),
+      ),
+    )
+      .then((entries) => setBuiltinAvailability(Object.fromEntries(entries)))
+      .finally(() => setAvailabilityLoading(false))
+  }, [activeTab, country, effectiveYear, uniqueEndpoints])
+
+  const isUnavailable = useCallback(
+    (ep) => activeTab === 'builtin' && builtinAvailability[ep.cause] === false,
+    [activeTab, builtinAvailability],
+  )
+
   // Clear stale selected endpoints when pollutant changes (different
   // pollutants expose different endpoint sets).
   useEffect(() => {
@@ -436,10 +480,14 @@ export default function Step4HealthData() {
   }, [selectedEndpoints, selectedEndpointsSet, setStep4])
 
   const handleSelectAllEndpoints = useCallback(() => {
-    const all = uniqueEndpoints.map((ep) => ep.endpoint)
-    const allSelected = all.every((n) => selectedEndpointsSet.has(n))
-    setStep4({ selectedEndpoints: allSelected ? [] : all })
-  }, [uniqueEndpoints, selectedEndpointsSet, setStep4])
+    // When the Built-in dataset is active, "select all" only picks
+    // endpoints that actually have data for the chosen country/year.
+    const selectable = uniqueEndpoints.filter((ep) => !isUnavailable(ep))
+    const selectableNames = selectable.map((ep) => ep.endpoint)
+    const allSelected = selectableNames.length > 0 &&
+      selectableNames.every((n) => selectedEndpointsSet.has(n))
+    setStep4({ selectedEndpoints: allSelected ? [] : selectableNames })
+  }, [uniqueEndpoints, selectedEndpointsSet, setStep4, isUnavailable])
 
   const handleFile = useCallback((fileData) => {
     setStep4({ fileData, incidenceType: 'file' })
@@ -482,7 +530,54 @@ export default function Step4HealthData() {
       </p>
 
       <div className="space-y-6">
-        {/* ── Endpoint selection ─────────────────────────────────── */}
+        {/* ── Incidence Dataset (year + dataset tabs) ───────────── */}
+        <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <legend className="text-sm font-semibold text-gray-700 px-1">Incidence Dataset</legend>
+          <p className="text-xs text-gray-500 mb-3">
+            Choose the source of baseline incidence rates first. The endpoint
+            list below is filtered to what the chosen dataset supports for
+            your study area and year.
+          </p>
+
+          <div className="mb-4">
+            <YearField
+              id="step4-year"
+              label="Year"
+              value={effectiveYear}
+              baselineYear={baselineYear}
+              required
+              onChange={(y) => setStep4({ year: y })}
+            />
+            {incidenceType === 'file' && (
+              <p className="mt-1 text-xs text-gray-500">
+                Applies to the uploaded rate file.
+              </p>
+            )}
+          </div>
+
+          <TabBar tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
+
+          {activeTab === 'builtin' && (
+            <p className="text-xs text-gray-500">
+              Built-in rates are served from the bundled GBD 2023 reference
+              dataset. Endpoints without data for {step1.studyArea?.name || country || 'the selected country'}
+              {effectiveYear ? ` in ${effectiveYear}` : ''} are greyed out below.
+              {availabilityLoading && <span className="ml-1 italic">Checking availability…</span>}
+            </p>
+          )}
+          {activeTab === 'manual' && (
+            <p className="text-xs text-gray-500">
+              Enter the baseline incidence rate for each selected endpoint below.
+            </p>
+          )}
+          {activeTab === 'upload' && (
+            <p className="text-xs text-gray-500">
+              Upload a CSV with one row per endpoint × age group.
+            </p>
+          )}
+        </fieldset>
+
+        {/* ── Endpoint selection (filtered by dataset) ──────────── */}
         <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
           <legend className="text-sm font-semibold text-gray-700 px-1">
             Health Endpoints
@@ -506,12 +601,14 @@ export default function Step4HealthData() {
                     type="checkbox"
                     checked={
                       uniqueEndpoints.length > 0 &&
-                      uniqueEndpoints.every((ep) => selectedEndpointsSet.has(ep.endpoint))
+                      uniqueEndpoints
+                        .filter((ep) => !isUnavailable(ep))
+                        .every((ep) => selectedEndpointsSet.has(ep.endpoint))
                     }
                     onChange={handleSelectAllEndpoints}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  Select all
+                  Select all available
                 </label>
                 <span className="text-xs text-gray-400">
                   {selectedEndpoints.length}/{uniqueEndpoints.length} selected
@@ -521,23 +618,35 @@ export default function Step4HealthData() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {uniqueEndpoints.map((ep) => {
                   const checked = selectedEndpointsSet.has(ep.endpoint)
+                  const unavailable = isUnavailable(ep)
                   return (
                     <label
                       key={ep.endpoint}
-                      className={`flex items-start gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors
-                        ${checked
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                      aria-disabled={unavailable}
+                      className={`flex items-start gap-2 p-2.5 rounded-lg border transition-colors
+                        ${unavailable
+                          ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                          : checked
+                            ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'}`}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
+                        disabled={unavailable}
                         onChange={() => handleToggleEndpoint(ep.endpoint)}
-                        className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
                       />
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900">{ep.endpoint}</p>
-                        <p className="text-xs text-gray-500">Age range: {ep.ageRange}</p>
+                        <p className="text-xs text-gray-500">
+                          Age range: {ep.ageRange}
+                          {unavailable && (
+                            <span className="ml-2 text-amber-600">
+                              · not in this dataset
+                            </span>
+                          )}
+                        </p>
                       </div>
                     </label>
                   )
@@ -547,27 +656,9 @@ export default function Step4HealthData() {
           )}
         </fieldset>
 
-        {/* ── Incidence Rate Input ───────────────────────────────── */}
+        {/* ── Rates input (conditional on dataset) ──────────────── */}
         <fieldset className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
           <legend className="text-sm font-semibold text-gray-700 px-1">Baseline Incidence Rates</legend>
-
-          <div className="mb-4">
-            <YearField
-              id="step4-year"
-              label="Year"
-              value={effectiveYear}
-              baselineYear={baselineYear}
-              required
-              onChange={(y) => setStep4({ year: y })}
-            />
-            {incidenceType === 'file' && (
-              <p className="mt-1 text-xs text-gray-500">
-                Applies to the uploaded rate file.
-              </p>
-            )}
-          </div>
-
-          <TabBar tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
 
           {/* Manual Entry */}
           {activeTab === 'manual' && (

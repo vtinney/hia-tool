@@ -249,7 +249,7 @@
     "beta": 0.01098,
     "betaLow": 0.00492,
     "betaHigh": 0.01699,
-    "cause": "diabetes",
+    "cause": "dm2",
     "endpointType": "mortality",
     "source": "GBD 2023 MR-BRT (IHME)",
     "functionalForm": "mr-brt",
