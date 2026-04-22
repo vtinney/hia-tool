@@ -90,8 +90,11 @@ function initialState() {
     step6: { ...DEFAULT_STEP6 },
     step7: { ...DEFAULT_STEP7 },
 
-    // Results from the backend
+    // Results from the backend — primary run
     results: null,
+    // Additional runs appended by "Compare another year" on the results
+    // page. Each entry: { runId, year, results }.
+    additionalRuns: [],
   }
 }
 
@@ -144,7 +147,16 @@ const useAnalysisStore = create(
 
       // ── Results ──────────────────────────────────────────────
 
-      setResults: (results) => set({ results }),
+      // A fresh primary result invalidates any stacked year-comparison
+      // runs — they were tied to the previous analysis config.
+      setResults: (results) => set({ results, additionalRuns: [] }),
+
+      appendAdditionalRun: (run) =>
+        set((state) => ({
+          additionalRuns: [...state.additionalRuns, run],
+        })),
+
+      clearAdditionalRuns: () => set({ additionalRuns: [] }),
 
       // ── Reset to defaults ────────────────────────────────────
 
@@ -179,7 +191,7 @@ const useAnalysisStore = create(
     }),
     {
       name: 'hia-analysis',
-      version: 7,
+      version: 8,
       partialize: (state) => ({
         // Persist only the data that matters for resume — skip transient UI state
         currentStep: state.currentStep,
@@ -192,12 +204,14 @@ const useAnalysisStore = create(
         step5: state.step5,
         step6: state.step6,
         step7: state.step7,
+        additionalRuns: state.additionalRuns,
       }),
       migrate: (persisted, version) => {
         // v5 and older had a different step shape. v6 added year to
-        // step3 and step4. v7 added step4.selectedEndpoints. Always
-        // reset — simpler than partial upgrade.
-        if (version < 7) return initialState()
+        // step3 and step4. v7 added step4.selectedEndpoints. v8 added
+        // additionalRuns for the post-results multi-year feature.
+        // Always reset — simpler than partial upgrade.
+        if (version < 8) return initialState()
         return persisted
       },
     },
