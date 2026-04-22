@@ -318,10 +318,7 @@ function BuiltinConcentrationLoader({
         <label className="block text-xs text-gray-500 mb-1">Dataset</label>
         <select
           value={selectedDatasetId || ''}
-          onChange={(e) => {
-            onSelect(e.target.value)
-            onYearChange(null)
-          }}
+          onChange={(e) => onSelect(e.target.value)}
           className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm
                      focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         >
@@ -476,7 +473,7 @@ export default function Step2AirQuality() {
 
   const handleBaselineDataset = useCallback((datasetId) => {
     setStep2({
-      baseline: { ...baseline, datasetId: datasetId || null, type: 'dataset' },
+      baseline: { ...baseline, datasetId: datasetId || null, type: 'dataset', year: null },
     })
   }, [baseline, setStep2])
 
@@ -537,7 +534,7 @@ export default function Step2AirQuality() {
 
   const handleControlDataset = useCallback((datasetId) => {
     setStep2({
-      control: { ...control, datasetId: datasetId || null, type: 'dataset' },
+      control: { ...control, datasetId: datasetId || null, type: 'dataset', year: null },
     })
   }, [control, setStep2])
 

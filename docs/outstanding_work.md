@@ -16,5 +16,9 @@ Living checklist of known gaps that need follow-up work. Tracks items that were 
 ### Follow-ups suggested by Plan 3 Non-goals
 
 - [ ] **Narrow the "Compare another year" picker to dataset-supported years.** The picker currently offers 1990..current year. It should query `/api/data/datasets` (filtered to the primary run's pollutant + country) and only surface years the backing dataset actually covers — mirrors the Step 2 year-after-dataset constraint.
+
+## Year pickers — per-country coverage
+
+- [ ] **Scope every year picker to years the dataset actually has for the selected country.** `/api/data/datasets` currently emits one `years` list per dataset (the union across all its countries). Step 2's year picker then shows years that can 404 for a specific country — e.g., a WHO AAP country that's only present in 2018-2019 would still have 2015-2021 offered. Change `backend/routers/data.py::_scan_datasets` to emit `years_by_country` (or per-country years on a nested object), then update `frontend/src/lib/datasets.js::yearsFor` to look up the country's years instead of returning the full list. Step 3 population and Step 4 incidence year pickers should pick this up through the same helper once shipped. Requested 2026-04-22 during demo prep.
 - [ ] **Trend chart visualization across stacked year runs.** Current display is side-by-side cards; a follow-up can add a sparkline/trend chart tab surfacing the year-over-year mortality and CI envelope.
 - [ ] **Include additional runs in PDF / CSV exports.** Export currently writes only the primary run. A follow-up can append a "Multi-year comparison" table / page summarising each additional run's year + totalDeaths.
