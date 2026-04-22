@@ -455,6 +455,21 @@ export default function Step5CRFs() {
     [pollutant, selectedEndpointsSet],
   )
 
+  // Drop any selected CRFs whose endpoint is no longer checked in Step
+  // 4. Without this, unchecking an endpoint leaves its CRFs in the
+  // store invisibly and they still run in Step 6.
+  useEffect(() => {
+    const byId = Object.fromEntries(crfLibrary.map((c) => [c.id, c]))
+    const pruned = selectedCRFs.filter((id) => {
+      const crf = byId[id]
+      return crf && selectedEndpointsSet.has(crf.endpoint)
+    })
+    if (pruned.length !== selectedCRFs.length) {
+      setStep5({ selectedCRFs: pruned })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEndpointsSet])
+
   // ── Validation ─────────────────────────────────────────────────
 
   useEffect(() => {
