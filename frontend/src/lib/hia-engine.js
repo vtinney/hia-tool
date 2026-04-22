@@ -565,11 +565,13 @@ export function computeHIA(config) {
     baselineConcentration,
     controlConcentration,
     baselineIncidence,
+    incidenceRates,
     population,
     selectedCRFs,
     monteCarloIterations = 0,
     poolingMethod = 'separate',
   } = config
+  const userRates = incidenceRates || {}
 
   const useAnalytical = !monteCarloIterations || monteCarloIterations <= 0
 
@@ -588,8 +590,10 @@ export function computeHIA(config) {
 
   const results = selectedCRFs.map((crf) => {
     const form = crf.functionalForm || 'log-linear'
-    // Use CRF-specific incidence rate if provided, else the global config rate
-    const y0 = crf.defaultRate ?? baselineIncidence
+    // Prefer a user-loaded per-CRF rate (Step 4 built-in/manual/file),
+    // fall back to the CRF library's defaultRate, then to the
+    // analysis-wide baselineIncidence.
+    const y0 = userRates[crf.id] ?? crf.defaultRate ?? baselineIncidence
 
     const summary = useAnalytical
       ? analyticalCRF(form, crf, baselineConcentration, controlConcentration, y0, population)
