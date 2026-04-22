@@ -272,3 +272,34 @@ def resolve_concentration(
     raise FileNotFoundError(
         f"No concentration data for {pollutant}/{country}/{year} at any grain"
     )
+
+
+def resolve_control(
+    c_base: np.ndarray,
+    control_mode: str,
+    control_value: float | None = None,
+    rollback_percent: float | None = None,
+) -> np.ndarray:
+    """Compute per-polygon control concentration given the baseline array.
+
+    Modes:
+    - ``scalar`` / ``benchmark``: broadcast ``control_value`` to every polygon.
+    - ``rollback``: multiply baseline by (1 − rollback_percent/100).
+    - ``builtin``: not yet implemented; falls back to baseline (no change scenario).
+    """
+    if control_mode in ("scalar", "benchmark"):
+        if control_value is None:
+            raise ValueError(f"control_mode={control_mode} requires control_value")
+        return np.full_like(c_base, control_value, dtype=float)
+
+    if control_mode == "rollback":
+        if rollback_percent is None:
+            raise ValueError("control_mode=rollback requires rollback_percent")
+        return c_base * (1.0 - rollback_percent / 100.0)
+
+    if control_mode == "builtin":
+        # Future: fetch alternate-year/alternate-scenario from parquet.
+        # For v1: no-change fallback.
+        return c_base.copy()
+
+    raise ValueError(f"Unknown control_mode: {control_mode}")

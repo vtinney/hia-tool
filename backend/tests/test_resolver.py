@@ -1,4 +1,6 @@
 """Tests for the built-in data resolver."""
+import numpy as np
+
 from backend.services.resolver import Provenance, ResolvedInputs
 
 
@@ -136,3 +138,37 @@ def test_resolve_concentration_state_level_direct_use(tmp_path, monkeypatch):
     assert c[idx_06] == 11.4
     assert prov.get("broadcast_to") is None
     assert warnings == []
+
+
+from backend.services.resolver import resolve_control
+
+
+def test_resolve_control_scalar():
+    c_base = np.array([10.0, 20.0, 30.0])
+    c_ctrl = resolve_control(
+        c_base=c_base, control_mode="scalar", control_value=5.0,
+    )
+    assert (c_ctrl == 5.0).all()
+
+
+def test_resolve_control_rollback_percent():
+    c_base = np.array([10.0, 20.0, 30.0])
+    c_ctrl = resolve_control(
+        c_base=c_base, control_mode="rollback", rollback_percent=25.0,
+    )
+    np.testing.assert_allclose(c_ctrl, [7.5, 15.0, 22.5])
+
+
+def test_resolve_control_benchmark_same_as_scalar():
+    c_base = np.array([10.0, 20.0, 30.0])
+    c_ctrl = resolve_control(
+        c_base=c_base, control_mode="benchmark", control_value=5.0,
+    )
+    assert (c_ctrl == 5.0).all()
+
+
+def test_resolve_control_builtin_defaults_to_baseline():
+    c_base = np.array([10.0, 20.0, 30.0])
+    c_ctrl = resolve_control(c_base=c_base, control_mode="builtin")
+    # Not implemented yet — falls back to baseline
+    np.testing.assert_array_equal(c_ctrl, c_base)
