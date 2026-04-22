@@ -478,7 +478,7 @@ const CSV_COLUMNS = [
   { key: 'economicValue',        header: 'Economic Value' },
 ]
 
-function ExportTab({ results, analysisName, hasValuation, summaryRef, tableRef, step1, step2, step6, step7, exportConfig, onOpenTemplateModal }) {
+function ExportTab({ results, analysisName, hasValuation, economicValue, summaryRef, tableRef, step1, step2, step6, step7, exportConfig, onOpenTemplateModal }) {
   const [pdfBusy, setPdfBusy] = useState(false)
   const slug = slugify(analysisName)
   const rows = results?.detail ?? []
@@ -532,6 +532,7 @@ function ExportTab({ results, analysisName, hasValuation, summaryRef, tableRef, 
         params.push(
           ['VSL', `$${(step7?.vsl ?? 0).toLocaleString()}`],
           ['Currency / Year', `${step7?.currency ?? '—'} ${step7?.dollarYear ?? '—'}`],
+          ['Economic value', fmtCurrency(economicValue.mean)],
         )
       }
       for (const [label, value] of params) {
@@ -628,9 +629,39 @@ export default function Results() {
   const isSpatial = Boolean(results?.zones)
   const summary = isSpatial ? (results?.aggregate ?? {}) : (results?.summary ?? {})
   const totalDeaths = isSpatial ? results?.totalDeaths : summary.totalDeaths
-  const hasValuation = step7?.runValuation && summary.economicValue != null
   const analysisName = results?.meta?.analysisName || step1?.analysisName || ''
   const detailRows = results?.detail ?? []
+
+  // The number that anchors the hero — used both for the big display and
+  // as the basis for downstream derived stats (economic value, etc.).
+  const headlineCases = useMemo(() => {
+    if (totalDeaths != null) return totalDeaths
+    if (!detailRows.length) return null
+    const top = [...detailRows].sort(
+      (a, b) => (Number(b.attributableCases) || 0) - (Number(a.attributableCases) || 0),
+    )[0]
+    if (!top) return null
+    return {
+      mean: Number(top.attributableCases) || 0,
+      lower95: top.lower95 != null ? Number(top.lower95) : null,
+      upper95: top.upper95 != null ? Number(top.upper95) : null,
+      endpoint: top.endpoint,
+      crfStudy: top.crfStudy,
+    }
+  }, [totalDeaths, detailRows])
+
+  // Step 7 valuation: cases × VSL. Use transferred VSL if benefit-transfer
+  // is in scope (non-US country), otherwise the user-entered VSL.
+  const effectiveVsl = step7?.transferredVsl ?? step7?.vsl ?? null
+  const economicValue = useMemo(() => {
+    if (!step7?.runValuation || !effectiveVsl || !headlineCases) return null
+    return {
+      mean: headlineCases.mean * effectiveVsl,
+      lower95: headlineCases.lower95 != null ? headlineCases.lower95 * effectiveVsl : null,
+      upper95: headlineCases.upper95 != null ? headlineCases.upper95 * effectiveVsl : null,
+    }
+  }, [step7?.runValuation, effectiveVsl, headlineCases])
+  const hasValuation = economicValue != null
 
   // Years already consumed (primary + stacked additional runs) — excluded
   // from the "Compare another year" picker to prevent duplicate runs.
@@ -769,8 +800,12 @@ export default function Results() {
                 {hasValuation && (
                   <SecondaryStat
                     label="Economic value"
-                    value={fmtCurrency(summary.economicValue)}
-                    sub={`VSL-based valuation · ${step7.currency} ${step7.dollarYear}`}
+                    value={fmtCurrency(economicValue.mean)}
+                    sub={
+                      economicValue.lower95 != null && economicValue.upper95 != null
+                        ? `${fmtCurrency(economicValue.lower95)}–${fmtCurrency(economicValue.upper95)} (95% CI) · ${step7.currency} ${step7.dollarYear}`
+                        : `VSL × headline cases · ${step7.currency} ${step7.dollarYear}`
+                    }
                   />
                 )}
               </div>
@@ -824,6 +859,7 @@ export default function Results() {
                     results={results}
                     analysisName={analysisName}
                     hasValuation={hasValuation}
+                    economicValue={economicValue}
                     summaryRef={summaryRef}
                     tableRef={tableRef}
                     step1={step1}
