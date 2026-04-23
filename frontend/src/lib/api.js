@@ -168,3 +168,19 @@ export async function fetchDemographics(country, year, opts = {}) {
   }
   return res.json()
 }
+
+/**
+ * Fetch the list of ACS vintages available on disk for a country.
+ *
+ * @param {string} country - Country slug (e.g. 'us').
+ * @returns {Promise<number[]|null>} Sorted vintage years, or null on 404.
+ */
+export async function fetchDemographicsVintages(country) {
+  const res = await fetch(`${API_BASE}/data/demographics/vintages/${country}`)
+  if (!res.ok) {
+    if (res.status === 404) return null
+    throw new Error(`Failed to fetch demographics vintages: ${res.status}`)
+  }
+  const body = await res.json()
+  return body.vintages
+}

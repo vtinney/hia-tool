@@ -461,6 +461,34 @@ async def get_incidence(
 # ────────────────────────────────────────────────────────────────────
 
 
+@router.get("/demographics/vintages/{country}")
+async def get_demographics_vintages(country: str) -> dict[str, Any]:
+    """Return the sorted list of ACS vintages on disk for a country.
+
+    Lets the frontend discover which years are actually available for
+    `GET /api/data/demographics/{country}/{year}` instead of hardcoding
+    a fallback. Route is registered before ``/{country}/{year}`` so the
+    literal ``vintages`` segment wins FastAPI path matching.
+    """
+    slug = _canonical_country(country)
+    demo_dir = DATA_ROOT / "demographics" / slug
+    if not demo_dir.is_dir():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No demographics data for {country}",
+        )
+    vintages = sorted(
+        int(f.stem) for f in demo_dir.iterdir()
+        if f.suffix in (".parquet", ".csv") and f.stem.isdigit()
+    )
+    if not vintages:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No demographics vintages for {country}",
+        )
+    return {"country": slug, "vintages": vintages}
+
+
 @router.get("/demographics/{country}/{year}")
 async def get_demographics(
     country: str,

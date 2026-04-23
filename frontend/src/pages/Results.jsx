@@ -7,6 +7,7 @@ import useAnalysisStore from '../stores/useAnalysisStore'
 import ResultsTable from '../components/ResultsTable'
 import EJContextSection from '../components/EJContextSection'
 import { studyAreaToFilter } from '../lib/demographics'
+import { fetchDemographicsVintages } from '../lib/api'
 
 // ── Formatting helpers ─────────────────────────────────────────
 function fmtNumber(n, decimals = 0) {
@@ -600,16 +601,25 @@ export default function Results() {
   const detailRows = results?.detail ?? []
 
   const perTractResults = results?.per_tract_results ?? null
-  // TODO: remove fallback once the backend reliably returns demographics_vintages
-  // in the analysis payload. Hardcoded list reflects the 10 vintages built on
-  // disk as of 2026-04-21.
-  const availableVintages = results?.demographics_vintages ?? [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+  const [availableVintages, setAvailableVintages] = useState(null)
   const analysisYear = step2?.baseline?.year ?? null
+
+  useEffect(() => {
+    if (ejFraming !== true) return
+    let cancelled = false
+    fetchDemographicsVintages('us')
+      .then((v) => { if (!cancelled) setAvailableVintages(v ?? []) })
+      .catch(() => { if (!cancelled) setAvailableVintages([]) })
+    return () => { cancelled = true }
+  }, [ejFraming])
+
   const ejGatePasses =
     ejFraming === true &&
     studyAreaToFilter(step1?.studyArea) !== null &&
     Array.isArray(perTractResults) &&
-    perTractResults.length > 0
+    perTractResults.length > 0 &&
+    Array.isArray(availableVintages) &&
+    availableVintages.length > 0
 
   const handleSaveTemplate = useCallback(async ({ name, description }) => {
     setSavingTemplate(true)
