@@ -41,4 +41,21 @@ describe('useAnalysisStore — ejFraming', () => {
     const tpl = await import('../../data/templates/us_national_pm25.json')
     expect(tpl.default.ejFraming).toBeUndefined()
   })
+
+  it('exportConfig includes ejFraming so user-saved templates replay as EJ', () => {
+    useAnalysisStore.getState().loadFromTemplate({
+      ejFraming: true,
+      step1: { studyArea: { type: 'country', id: 'united-states', name: 'United States' } },
+    })
+    const config = useAnalysisStore.getState().exportConfig()
+    expect(config.ejFraming).toBe(true)
+  })
+
+  it('exportConfig emits ejFraming=false for non-EJ runs', () => {
+    useAnalysisStore.getState().loadFromTemplate({
+      step1: { studyArea: { type: 'country', id: 'mexico', name: 'Mexico' } },
+    })
+    const config = useAnalysisStore.getState().exportConfig()
+    expect(config.ejFraming).toBe(false)
+  })
 })

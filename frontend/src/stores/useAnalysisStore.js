@@ -175,9 +175,9 @@ const useAnalysisStore = create(
       // ── Export (pure read — no state mutation) ───────────────
 
       exportConfig: () => {
-        const { step1, step2, step3, step4, step5, step6, step7 } = get()
+        const { step1, step2, step3, step4, step5, step6, step7, ejFraming } = get()
         return JSON.parse(
-          JSON.stringify({ step1, step2, step3, step4, step5, step6, step7 }),
+          JSON.stringify({ step1, step2, step3, step4, step5, step6, step7, ejFraming }),
         )
       },
     }),
