@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
-import { uploadFile, fetchPopulation } from '../../lib/api'
+import { uploadFile, fetchPopulation, fetchDatasets } from '../../lib/api'
 import YearField from '../../components/YearField'
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -302,12 +302,41 @@ export default function Step3Population() {
 
   const baselineYear = step2?.baseline?.year ?? null
   const effectiveYear = step3.year ?? baselineYear
+  const country = step1?.studyArea?.id
 
   const [activeTab, setActiveTab] = useState(() => {
     if (populationType === 'file' && step3.fileData?.name) return 'upload'
     if (populationType === 'manual' && totalPopulation != null) return 'manual'
     return 'builtin'
   })
+
+  // Scope the year picker to vintages population data actually exists
+  // for, but only on the Built-in tab. Manual entry and file upload
+  // can legitimately specify any year, so they get the unconstrained
+  // YearField default.
+  const [populationDatasets, setPopulationDatasets] = useState(null)
+  useEffect(() => {
+    if (!country) return
+    let cancelled = false
+    fetchDatasets({ country, type: 'population' })
+      .then((res) => { if (!cancelled) setPopulationDatasets(res.datasets || []) })
+      .catch(() => { if (!cancelled) setPopulationDatasets([]) })
+    return () => { cancelled = true }
+  }, [country])
+
+  const populationYears = useMemo(() => {
+    if (!populationDatasets) return null
+    const all = new Set()
+    for (const d of populationDatasets) {
+      for (const y of d.years || []) all.add(y)
+    }
+    return [...all].sort((a, b) => b - a)
+  }, [populationDatasets])
+
+  const yearFieldAllowed =
+    activeTab === 'builtin' && populationYears && populationYears.length > 0
+      ? populationYears
+      : undefined
 
   // ── Validation ─────────────────────────────────────────────────
 
@@ -390,6 +419,7 @@ export default function Step3Population() {
               label="Year"
               value={effectiveYear}
               baselineYear={baselineYear}
+              allowedYears={yearFieldAllowed}
               required
               onChange={(y) => setStep3({ year: y })}
             />
