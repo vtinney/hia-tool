@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import library from '../crf-library.json'
 
 const VALID_CAUSES = new Set([
-  'all_cause', 'ihd', 'stroke', 'lung_cancer', 'copd', 'lri', 'diabetes',
+  'all_cause', 'ihd', 'stroke', 'lung_cancer', 'copd', 'lri', 'dm2',
   'dementia', 'asthma', 'asthma_ed', 'respiratory_mortality',
   'respiratory_hosp', 'cardiovascular', 'cardiovascular_hosp',
   'cardiac_hosp', 'birth_weight', 'gestational_age',

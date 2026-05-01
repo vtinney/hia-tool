@@ -17,7 +17,7 @@ CAUSE_LABELS = {
     "lung_cancer": "Lung cancer",
     "copd": "COPD",
     "lri": "Lower respiratory infection",
-    "diabetes": "Type 2 diabetes",
+    "dm2": "Type 2 diabetes",
     "dementia": "Dementia",
     "asthma": "Asthma incidence",
     "asthma_ed": "Asthma ED visits",
