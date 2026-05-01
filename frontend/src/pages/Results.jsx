@@ -7,7 +7,8 @@ import useAnalysisStore from '../stores/useAnalysisStore'
 import ResultsTable from '../components/ResultsTable'
 import CompareAnotherYearCard from '../components/CompareAnotherYearCard'
 import AdditionalRunSummary from '../components/AdditionalRunSummary'
-import { runAnalysisForYear } from '../lib/api'
+import { fetchDatasets, runAnalysisForYear } from '../lib/api'
+import { yearsFor } from '../lib/datasets'
 
 // ── Formatting helpers ─────────────────────────────────────────
 function fmtNumber(n, decimals = 0) {
@@ -674,15 +675,50 @@ export default function Results() {
     [primaryYear, additionalRuns],
   )
 
-  // Broad 1990..current-year fallback. A follow-up can narrow this to
-  // the years the primary run's datasets actually cover by querying
-  // /api/data/datasets.
+  // Narrow the picker to years the primary run's baseline dataset
+  // actually covers (intersected with the control dataset's coverage,
+  // when one was selected). Falls back to 1990..current when the
+  // baseline came from manual entry / file upload, or while the
+  // dataset list is still loading / failed to load.
+  const pollutant = step1?.pollutant
+  const country = step1?.studyArea?.id
+  const baselineDatasetId = step2?.baseline?.type === 'dataset'
+    ? step2?.baseline?.datasetId
+    : null
+  const controlDatasetId = step2?.control?.type === 'dataset'
+    ? step2?.control?.datasetId
+    : null
+
+  const [datasets, setDatasets] = useState(null)
+  useEffect(() => {
+    if (!pollutant || !baselineDatasetId) return
+    let cancelled = false
+    fetchDatasets({ pollutant, type: 'concentration' })
+      .then((res) => { if (!cancelled) setDatasets(res.datasets || []) })
+      .catch(() => { if (!cancelled) setDatasets([]) })
+    return () => { cancelled = true }
+  }, [pollutant, baselineDatasetId])
+
   const allowedYears = useMemo(() => {
-    const years = []
-    const maxYear = new Date().getFullYear()
-    for (let y = maxYear; y >= 1990; y--) years.push(y)
-    return years
-  }, [])
+    const fallback = () => {
+      const ys = []
+      const maxYear = new Date().getFullYear()
+      for (let y = maxYear; y >= 1990; y--) ys.push(y)
+      return ys
+    }
+    if (!baselineDatasetId || !country || !datasets) return fallback()
+    const findById = (id) => datasets.find(
+      (d) => (d.id || `${d.pollutant}-${d.country}`) === id,
+    )
+    const baseline = findById(baselineDatasetId)
+    if (!baseline) return fallback()
+    const baselineYears = yearsFor(baseline, country)
+    if (!controlDatasetId) return baselineYears
+    const control = findById(controlDatasetId)
+    if (!control) return baselineYears
+    const controlYears = new Set(yearsFor(control, country))
+    return baselineYears.filter((y) => controlYears.has(y))
+  }, [datasets, baselineDatasetId, controlDatasetId, country])
 
   const handleRunAnotherYear = useCallback(async (year) => {
     setRunning(true)

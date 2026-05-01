@@ -15,7 +15,7 @@ Living checklist of known gaps that need follow-up work. Tracks items that were 
 
 ### Follow-ups suggested by Plan 3 Non-goals
 
-- [ ] **Narrow the "Compare another year" picker to dataset-supported years.** The picker currently offers 1990..current year (`Results.jsx:680-685`). The data layer to do this is now in place (`years_by_country` per dataset, `yearsFor()` helper) — the remaining wiring is to look up the primary run's dataset from `/api/data/datasets` and pass `yearsFor(dataset, country)` as `allowedYears` instead of the hardcoded range.
+- [x] ~~**Narrow the "Compare another year" picker to dataset-supported years.**~~ Shipped 2026-05-01. `Results.jsx` now fetches `/api/data/datasets`, looks up the primary run's baseline dataset, and passes `yearsFor(baseline, country)` (intersected with the control dataset when present) as `allowedYears`. Falls back to 1990..current for manual / file-upload baselines.
 
 ## Year pickers — per-country coverage
 
