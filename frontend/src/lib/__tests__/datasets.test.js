@@ -59,4 +59,62 @@ describe('yearsFor', () => {
     const ds = { countries_covered: ['USA'], years: [2018, 2019] }
     expect(yearsFor(ds, 'MEX')).toEqual([])
   })
+
+  it('prefers years_by_country when present, scoped to the country', () => {
+    // FRA only has 2018 even though the dataset union covers 2017+2018.
+    const ds = {
+      countries_covered: ['MEX', 'USA', 'CAN', 'FRA'],
+      years: [2017, 2018],
+      years_by_country: {
+        MEX: [2017],
+        USA: [2017, 2018],
+        CAN: [2017],
+        FRA: [2018],
+      },
+    }
+    expect(yearsFor(ds, 'FRA')).toEqual([2018])
+    expect(yearsFor(ds, 'MEX')).toEqual([2017])
+    expect(yearsFor(ds, 'USA')).toEqual([2017, 2018])
+  })
+
+  it('matches per-country lookup across ISO3 / ISO2 / slug forms', () => {
+    const ds = {
+      countries_covered: ['MEX'],
+      years: [2017, 2018],
+      years_by_country: { MEX: [2017, 2018] },
+    }
+    expect(yearsFor(ds, 'mex')).toEqual([2017, 2018])
+    expect(yearsFor(ds, 'mx')).toEqual([2017, 2018])
+    expect(yearsFor(ds, 'mexico')).toEqual([2017, 2018])
+  })
+
+  it('unions US-XX state entries when country is the US', () => {
+    // EPA AQS shape: per-state coverage. NY drops out in 2021.
+    const ds = {
+      countries_covered: ['US-CA', 'US-NY'],
+      years: [2020, 2021],
+      years_by_country: {
+        'US-CA': [2020, 2021],
+        'US-NY': [2020],
+      },
+    }
+    expect(yearsFor(ds, 'USA')).toEqual([2020, 2021])
+    expect(yearsFor(ds, 'us')).toEqual([2020, 2021])
+    expect(yearsFor(ds, 'united-states')).toEqual([2020, 2021])
+  })
+
+  it('returns empty when country has no entry in years_by_country', () => {
+    const ds = {
+      countries_covered: ['MEX'],
+      years: [2017],
+      years_by_country: { MEX: [2017] },
+    }
+    expect(yearsFor(ds, 'BRA')).toEqual([])
+  })
+
+  it('falls back to dataset.years when years_by_country is absent', () => {
+    // Direct/legacy datasets without per-country breakdown still work.
+    const ds = { countries_covered: ['MEX'], years: [2015, 2016] }
+    expect(yearsFor(ds, 'MEX')).toEqual([2015, 2016])
+  })
 })

@@ -38,5 +38,18 @@ export function datasetCoversCountry(dataset, countryId) {
 
 export function yearsFor(dataset, countryId) {
   if (!datasetCoversCountry(dataset, countryId)) return []
-  return [...(dataset.years || [])]
+  const ybc = dataset.years_by_country
+  if (!ybc || typeof ybc !== 'object') {
+    return [...(dataset.years || [])]
+  }
+  const equivalents = equivalentsFor(countryId)
+  const isUS = equivalents.has('USA')
+  const merged = new Set()
+  for (const [key, years] of Object.entries(ybc)) {
+    const upper = String(key).toUpperCase()
+    const matches = equivalents.has(upper) || (isUS && upper.startsWith('US-'))
+    if (!matches) continue
+    for (const y of years) merged.add(y)
+  }
+  return [...merged].sort((a, b) => a - b)
 }

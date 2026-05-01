@@ -609,6 +609,7 @@ def _scan_datasets() -> list[dict[str, Any]]:
                     "country": country_dir.name,
                     "countries_covered": [country_dir.name],
                     "years": years,
+                    "years_by_country": {country_dir.name: list(years)},
                     "source": f"Processed {pollutant_names.get(key, key)} raster",
                 })
 
@@ -629,15 +630,24 @@ def _scan_datasets() -> list[dict[str, Any]]:
             years = sorted(int(f.stem) for f in year_files)
             if years:
                 covered: set[str] = set()
+                years_by_country: dict[str, list[int]] = {}
                 for f in year_files:
                     try:
                         df = _read_table(f)
-                        if "admin_id" in df.columns:
-                            covered.update(
-                                str(x) for x in df["admin_id"].dropna().unique()
-                            )
                     except Exception:
                         logger.warning("Failed to read %s for coverage", f, exc_info=True)
+                        continue
+                    if "admin_id" not in df.columns:
+                        continue
+                    file_year = int(f.stem)
+                    file_admins = {
+                        str(x) for x in df["admin_id"].dropna().unique()
+                    }
+                    covered.update(file_admins)
+                    for admin in file_admins:
+                        years_by_country.setdefault(admin, []).append(file_year)
+                for admin in years_by_country:
+                    years_by_country[admin].sort()
                 datasets.append({
                     "id": f"epa_aqs_{pkey}",
                     "type": "concentration",
@@ -646,6 +656,7 @@ def _scan_datasets() -> list[dict[str, Any]]:
                     "country": "us",
                     "countries_covered": sorted(covered),
                     "years": years,
+                    "years_by_country": years_by_country,
                     "aggregation": "state",
                     "source": "EPA AQS — state-level monitor means",
                     "label": (
@@ -666,15 +677,24 @@ def _scan_datasets() -> list[dict[str, Any]]:
         years = sorted(int(f.stem) for f in year_files)
         if years:
             covered: set[str] = set()
+            years_by_country: dict[str, list[int]] = {}
             for f in year_files:
                 try:
                     df = _read_table(f)
-                    if "admin_id" in df.columns:
-                        covered.update(
-                            str(x) for x in df["admin_id"].dropna().unique()
-                        )
                 except Exception:
                     logger.warning("Failed to read %s for coverage", f, exc_info=True)
+                    continue
+                if "admin_id" not in df.columns:
+                    continue
+                file_year = int(f.stem)
+                file_admins = {
+                    str(x) for x in df["admin_id"].dropna().unique()
+                }
+                covered.update(file_admins)
+                for admin in file_admins:
+                    years_by_country.setdefault(admin, []).append(file_year)
+            for admin in years_by_country:
+                years_by_country[admin].sort()
             datasets.append({
                 "id": "who_aap_pm25_global",
                 "type": "concentration",
@@ -683,6 +703,7 @@ def _scan_datasets() -> list[dict[str, Any]]:
                 "country": "global",
                 "countries_covered": sorted(covered),
                 "years": years,
+                "years_by_country": years_by_country,
                 "aggregation": "country",
                 "source": "WHO Ambient Air Pollution Database",
                 "label": "WHO AAP — PM2.5 (global, country-level)",
