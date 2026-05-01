@@ -15,10 +15,12 @@ Living checklist of known gaps that need follow-up work. Tracks items that were 
 
 ### Follow-ups suggested by Plan 3 Non-goals
 
-- [ ] **Narrow the "Compare another year" picker to dataset-supported years.** The picker currently offers 1990..current year. It should query `/api/data/datasets` (filtered to the primary run's pollutant + country) and only surface years the backing dataset actually covers — mirrors the Step 2 year-after-dataset constraint.
+- [ ] **Narrow the "Compare another year" picker to dataset-supported years.** The picker currently offers 1990..current year (`Results.jsx:680-685`). The data layer to do this is now in place (`years_by_country` per dataset, `yearsFor()` helper) — the remaining wiring is to look up the primary run's dataset from `/api/data/datasets` and pass `yearsFor(dataset, country)` as `allowedYears` instead of the hardcoded range.
 
 ## Year pickers — per-country coverage
 
-- [ ] **Scope every year picker to years the dataset actually has for the selected country.** `/api/data/datasets` currently emits one `years` list per dataset (the union across all its countries). Step 2's year picker then shows years that can 404 for a specific country — e.g., a WHO AAP country that's only present in 2018-2019 would still have 2015-2021 offered. Change `backend/routers/data.py::_scan_datasets` to emit `years_by_country` (or per-country years on a nested object), then update `frontend/src/lib/datasets.js::yearsFor` to look up the country's years instead of returning the full list. Step 3 population and Step 4 incidence year pickers should pick this up through the same helper once shipped. Requested 2026-04-22 during demo prep.
+- [x] ~~**Backend: emit `years_by_country` per dataset.**~~ Shipped 2026-05-01 (`96dc925`). `_scan_datasets` now attaches a `years_by_country` map to direct concentration, EPA AQS, and WHO AAP entries alongside the union `years` list. EPA AQS scans each year file's `admin_id` to record per-state coverage; WHO AAP does the same per ISO3.
+- [x] ~~**Frontend: `yearsFor` consumes `years_by_country`.**~~ Shipped 2026-05-01 (`96dc925`). Returns the union over keys matching the country's equivalence set (with `US-XX` collapsing into USA), falls back to `dataset.years` when `years_by_country` is absent.
+- [ ] **Wire Step 3 population and Step 4 incidence pickers through `yearsFor`.** Step 2 already routes through it; Step 3 and Step 4 still derive year options independently and so don't yet benefit from per-country scoping. Requested 2026-04-22 during demo prep.
 - [ ] **Trend chart visualization across stacked year runs.** Current display is side-by-side cards; a follow-up can add a sparkline/trend chart tab surfacing the year-over-year mortality and CI envelope.
 - [ ] **Include additional runs in PDF / CSV exports.** Export currently writes only the primary run. A follow-up can append a "Multi-year comparison" table / page summarising each additional run's year + totalDeaths.
