@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
-import { fetchIncidence } from '../../lib/api'
+import { fetchIncidence, fetchDatasets } from '../../lib/api'
 import crfLibrary from '../../data/crf-library.json'
 import YearField from '../../components/YearField'
 
@@ -403,6 +403,34 @@ export default function Step4HealthData() {
     [activeTab, builtinAvailability],
   )
 
+  // Scope the year picker to vintages incidence data actually exists
+  // for in this country, but only on the Built-in tab. Mirrors Step 3.
+  // Per-cause availability is still surfaced via the builtinAvailability
+  // probe above (greys out specific endpoints).
+  const [incidenceDatasets, setIncidenceDatasets] = useState(null)
+  useEffect(() => {
+    if (!country) return
+    let cancelled = false
+    fetchDatasets({ country, type: 'incidence' })
+      .then((res) => { if (!cancelled) setIncidenceDatasets(res.datasets || []) })
+      .catch(() => { if (!cancelled) setIncidenceDatasets([]) })
+    return () => { cancelled = true }
+  }, [country])
+
+  const incidenceYears = useMemo(() => {
+    if (!incidenceDatasets) return null
+    const all = new Set()
+    for (const d of incidenceDatasets) {
+      for (const y of d.years || []) all.add(y)
+    }
+    return [...all].sort((a, b) => b - a)
+  }, [incidenceDatasets])
+
+  const yearFieldAllowed =
+    activeTab === 'builtin' && incidenceYears && incidenceYears.length > 0
+      ? incidenceYears
+      : undefined
+
   // Clear stale selected endpoints when pollutant changes (different
   // pollutants expose different endpoint sets).
   useEffect(() => {
@@ -545,6 +573,7 @@ export default function Step4HealthData() {
               label="Year"
               value={effectiveYear}
               baselineYear={baselineYear}
+              allowedYears={yearFieldAllowed}
               required
               onChange={(y) => setStep4({ year: y })}
             />
