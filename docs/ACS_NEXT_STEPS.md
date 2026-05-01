@@ -1,18 +1,22 @@
 # ACS demographics — next steps
 
-Status snapshot as of 2026-04-09. The `feature/acs-demographics` branch
-is shippable: ETL, endpoint, tests, and a verified nationwide 2022 build
-are all in place. This file tracks what's left if/when someone picks the
-work back up.
+Status snapshot as of 2026-04-23. The mechanical work (merge + full
+backfill) is **done**. What remains is product-shaped (EJ format) and
+low-priority cleanup. This file tracks what's left.
 
 ## Current state
 
-- **Branch:** `feature/acs-demographics`, 16 commits ahead of `master`.
+- **Branch:** `feature/acs-demographics` was **merged into `master` on
+  2026-04-13** (merge commit `5262cdc`). Master has moved 52 commits
+  beyond the merge, including GBD baseline rates ETL and the 2026-04-21
+  EJ template wiring (EJContextSection, TractChoroplethMap,
+  fetchDemographics, studyAreaToFilter, pickVintage, `ejFraming` gate).
 - **ETL:** `backend/etl/process_acs.py` — CLI with `--vintage` and `--all`.
   Pulls ACS 5-year tables B03002, B19013, C17002 for all 50 states + DC +
   PR via cenpy, joins to TIGER cartographic-boundary tracts via pygris.
-- **Data built:** `data/processed/demographics/us/2022.parquet` only
-  (85,059 tracts, 65.7 MB, gitignored). Other vintages unbuilt.
+- **Data built:** All 10 vintages **2015–2024** present in
+  `hia-tool/data/processed/demographics/us/` as of 2026-04-21
+  (~650 MB total, gitignored).
 - **Endpoint:** `GET /api/data/demographics/{country}/{year}` with optional
   `state` (2-digit FIPS), `county` (3-digit FIPS, requires state), and
   `simplify` (default 0.0001°, 0 disables) query params. Full state
@@ -23,40 +27,51 @@ work back up.
 
 ## Immediate next steps (mechanical)
 
-1. **Merge `feature/acs-demographics` → `master`.** The branch is clean
-   and has no dependencies on uncommitted master work. Squash vs merge
-   commit is a style call — 16 commits tell a clean TDD story, so a
-   merge commit preserves history nicely.
-2. **Backfill remaining vintages** — run
-   `python -m backend.etl.process_acs --all` to produce 2015–2024.
-   Estimated ~30 min total (2022 nationwide took ~3 min). Each vintage
-   writes ~65 MB; total ~650 MB on disk. Not needed until historical
-   comparisons matter.
+1. ~~**Merge `feature/acs-demographics` → `master`.**~~ Done 2026-04-13
+   (`5262cdc`).
+2. ~~**Backfill remaining vintages.**~~ Done 2026-04-13 / 2026-04-21 —
+   all 10 vintages (2015–2024) built.
 
-## Product-shaped next steps (need design input first)
+## Product-shaped next steps
 
-These are blocked on a product decision, not code. Saved in memory under
-`project_hia_acs_scope.md`:
+Scope guidance in memory under `project_hia_acs_scope.md`:
 
 > ACS data is opt-in EJ only — does not appear in standard HIA runs.
 > When a user picks an EJ-framed analysis format, the initial scope is
 > just two fields: `pct_minority` and `pct_below_200_pov`.
 
-3. **Design the EJ analysis format.** Open questions:
-   - Is EJ a new wizard step, a variant of Step 3 Population, or a
-     post-run layer on the results page?
-   - Is it chosen at template-pick time (Home.jsx) or toggled inside
-     the wizard?
-   - Does it change the computation, or only the presentation?
-4. **Wire frontend to endpoint.** Once the format exists: fetch
-   `/api/data/demographics/us/{year}?state=XX` (or narrower), render
-   `pct_minority` and `pct_below_200_pov` as either a map overlay on
-   the Step 1 map or a sidebar panel. Use the existing MapBox GL JS
-   setup — the response is already GeoJSON-ready.
-5. **Decide on aggregate stats.** If the format wants "X% of exposed
-   population lives below 200% poverty" style numbers, add a helper in
-   `backend/services/hia_engine.py` that overlays demographics on the
-   study area and aggregates. Out of scope until the format is defined.
+3. ~~**Design the EJ analysis format.**~~ Closed 2026-04-23. Verified
+   landing on master:
+   - Opt-in via template pick on Home.jsx (`us_tract_pm25_ej.json`,
+     tagged "EJ"). No in-wizard toggle.
+   - Post-run results section gated on `ejFraming` (`Results.jsx:608-612`,
+     `EJContextSection.jsx`); presentational only, HIA engine untouched.
+   - Two-field scope confirmed (`pct_minority`, `pct_below_200_pov`) —
+     no out-of-scope columns surfaced.
+   - Aggregates computed client-side via population-weighted means,
+     weighted only over tracts the HIA engine computed (spec D4).
+   - 40/40 EJ-related vitest suites pass.
+4. ~~**Wire frontend to endpoint.**~~ Closed 2026-04-23. `fetchDemographics`
+   in `lib/api.js`, `studyAreaToFilter` + `pickVintage` in
+   `lib/demographics.js`, `TractChoroplethMap` renders the choropleth with
+   a field toggle, error/loading/retry states wired.
+5. **Aggregate stats** — client-side only today, which is sufficient for
+   the EJ results section. A backend helper in `hia_engine.py` is only
+   needed if aggregates need to surface outside the JS runtime (e.g., PDF
+   export). Out of scope until that requirement lands.
+
+## EJ carve-outs (small, not blockers)
+
+6. **Backend should return `demographics_vintages`.** `Results.jsx:603-606`
+   has a TODO fallback hardcoded to `[2015..2024]`. Add
+   `demographics_vintages` to the analysis payload in
+   `backend/services/hia_engine.py` (or wherever the result envelope is
+   assembled) so added/removed vintages flow through without a frontend
+   code change.
+7. **`exportConfig` drops `ejFraming`.** `useAnalysisStore.js:177-182`
+   omits the flag when building a saveable config, so user-saved custom
+   templates built from an EJ run replay as non-EJ. Add `ejFraming` to
+   the JSON.stringify payload.
 
 ## Known issues worth cleaning up (low priority)
 
