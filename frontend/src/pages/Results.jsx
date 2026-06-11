@@ -11,6 +11,10 @@ import EJContextSection from '../components/EJContextSection'
 import { fetchDatasets, runAnalysisForYear, fetchDemographicsVintages } from '../lib/api'
 import { yearsFor } from '../lib/datasets'
 import { studyAreaToFilter } from '../lib/demographics'
+import { buildTrendSeries } from '../lib/trend'
+import {
+  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts'
 
 // ── Formatting helpers ─────────────────────────────────────────
 function fmtNumber(n, decimals = 0) {
@@ -383,15 +387,76 @@ function TableTab({ results, hasValuation }) {
   return <ResultsTable rows={rows} hasValuation={hasValuation} hasSpatialUnits={hasSpatialUnits} />
 }
 
-function TrendTab() {
+function TrendTab({ results, primaryYear, additionalRuns }) {
+  const series = useMemo(
+    () => buildTrendSeries(results, primaryYear, additionalRuns),
+    [results, primaryYear, additionalRuns],
+  )
+
+  if (series.length < 2) {
+    return (
+      <div className="border border-dashed border-zinc-200 rounded-2xl py-20 text-center">
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+          Multi-year trend chart
+        </p>
+        <p className="mt-2 text-[13px] text-zinc-500">
+          Available when analyzing multiple years — add years with "Compare another year".
+        </p>
+      </div>
+    )
+  }
+
+  const chartData = series.map((p) => ({
+    ...p,
+    ciRange: p.lower95 != null && p.upper95 != null ? [p.lower95, p.upper95] : undefined,
+  }))
+  const hasCI = chartData.some((p) => p.ciRange)
+
   return (
-    <div className="border border-dashed border-zinc-200 rounded-2xl py-20 text-center">
-      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400">
-        Multi-year trend chart
+    <div>
+      <h3 className="text-sm font-semibold text-gray-700 mb-1">
+        Attributable deaths by year
+      </h3>
+      <p className="text-xs text-gray-500 mb-4">
+        Mean across {series.length} analyzed years{hasCI ? ', with the 95% confidence envelope' : ''}.
       </p>
-      <p className="mt-2 text-[13px] text-zinc-500">
-        Available when analyzing multiple years.
-      </p>
+      <div style={{ width: '100%', height: 340 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="year" tick={{ fontSize: 11 }} allowDecimals={false} />
+            <YAxis tick={{ fontSize: 11 }} width={64} tickFormatter={(v) => fmtCompact(v)} />
+            <Tooltip
+              contentStyle={{ fontSize: 12 }}
+              formatter={(value, name) => {
+                if (name === 'ciRange' && Array.isArray(value)) {
+                  return [`${fmtNumber(value[0])}–${fmtNumber(value[1])}`, '95% CI']
+                }
+                return [fmtNumber(value), 'Attributable deaths']
+              }}
+              labelFormatter={(y) => `Year ${y}`}
+            />
+            {hasCI && (
+              <Area
+                type="monotone"
+                dataKey="ciRange"
+                stroke="none"
+                fill="#bfdbfe"
+                fillOpacity={0.5}
+                isAnimationActive={false}
+              />
+            )}
+            <Line
+              type="monotone"
+              dataKey="mean"
+              stroke="#2563eb"
+              strokeWidth={2}
+              dot={{ r: 3 }}
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   )
 }
@@ -499,9 +564,24 @@ function ExportTab({ results, analysisName, hasValuation, economicValue, summary
       for (const col of visibleCols) obj[col.header] = row[col.key] ?? ''
       return obj
     })
-    const csv = Papa.unparse(data)
+    let csv = Papa.unparse(data)
+
+    // Append a multi-year comparison block when the user has stacked
+    // "Compare another year" runs, so the export isn't limited to the
+    // primary run.
+    const trend = buildTrendSeries(results, primaryYear, additionalRuns)
+    if (trend.length >= 2) {
+      const trendRows = trend.map((p) => ({
+        Year: p.year,
+        'Attributable deaths (mean)': p.mean ?? '',
+        '95% CI lower': p.lower95 ?? '',
+        '95% CI upper': p.upper95 ?? '',
+      }))
+      csv += `\n\nMulti-year comparison\n${Papa.unparse(trendRows)}`
+    }
+
     triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${slug}-results.csv`)
-  }, [rows, hasValuation, hasSpatialUnits, slug])
+  }, [rows, hasValuation, hasSpatialUnits, slug, results, primaryYear, additionalRuns])
 
   const handleDownloadPDF = useCallback(async () => {
     setPdfBusy(true)
@@ -912,7 +992,13 @@ export default function Results() {
                     <TableTab results={results} hasValuation={hasValuation} />
                   </div>
                 )}
-                {activeTab === 'trend' && <TrendTab />}
+                {activeTab === 'trend' && (
+                  <TrendTab
+                    results={results}
+                    primaryYear={primaryYear}
+                    additionalRuns={additionalRuns}
+                  />
+                )}
                 {activeTab === 'export' && (
                   <ExportTab
                     results={results}
