@@ -15,6 +15,11 @@ INT_COLUMNS = ["year", "pop_source_year"]
 FLOAT_COLUMNS = ["pop_total", "pm25_x_pop", "pm25_mean", *AGE_COLUMNS]
 STRING_COLUMNS = ["feature_id", "name"]
 
+# Optional passthrough columns the GEE script may attach (e.g. country_iso3
+# from CONFIG.boundaries entries with a countryField). Coerced to string when
+# present; absence is not an error.
+OPTIONAL_STRING_COLUMNS = ["country_iso3"]
+
 REQUIRED_COLUMNS = STRING_COLUMNS + INT_COLUMNS + FLOAT_COLUMNS
 
 
@@ -30,6 +35,9 @@ def load_csv(path: Path) -> pd.DataFrame:
         df[col] = df[col].astype("float64")
     for col in STRING_COLUMNS:
         df[col] = df[col].astype("string").astype(object)
+    for col in OPTIONAL_STRING_COLUMNS:
+        if col in df.columns:
+            df[col] = df[col].astype("string").astype(object)
     return df
 
 

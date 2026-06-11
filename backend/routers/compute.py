@@ -28,6 +28,7 @@ from backend.services.hia_engine import compute_hia, _summarise_spatial
 from backend.services.resolver import (
     prepare_builtin_inputs,
     prepare_custom_boundary_inputs,
+    prepare_global_adm2_inputs,
     ResolvedInputs,
     Provenance,
     YearGapTooLarge,
@@ -124,7 +125,7 @@ class BuiltinMode(BaseModel):
     pollutant: str
     country: str
     year: int
-    analysisLevel: Literal["country", "state", "county", "tract"]
+    analysisLevel: Literal["country", "state", "county", "tract", "adm2"]
     stateFilter: str | None = None
     countyFilter: str | None = None
     controlMode: Literal["scalar", "builtin", "rollback", "benchmark"]
@@ -226,14 +227,26 @@ async def run_spatial_compute(
 
     try:
         if req.mode == "builtin":
-            resolved = prepare_builtin_inputs(
-                pollutant=req.pollutant, country=req.country, year=req.year,
-                analysis_level=req.analysisLevel,
-                state_filter=req.stateFilter, county_filter=req.countyFilter,
-                control_mode=req.controlMode,
-                control_value=req.controlConcentration,
-                rollback_percent=req.controlRollbackPercent,
-            )
+            # GADM admin-2 path: per-zone PM2.5 + population from one parquet,
+            # boundaries from a single GeoPackage. Used for the global PM2.5
+            # template and as the default finer-than-country grain for
+            # non-US countries.
+            if req.analysisLevel == "adm2" or req.country.lower() == "global":
+                resolved = prepare_global_adm2_inputs(
+                    pollutant=req.pollutant, country=req.country, year=req.year,
+                    control_mode=req.controlMode,
+                    control_value=req.controlConcentration,
+                    rollback_percent=req.controlRollbackPercent,
+                )
+            else:
+                resolved = prepare_builtin_inputs(
+                    pollutant=req.pollutant, country=req.country, year=req.year,
+                    analysis_level=req.analysisLevel,
+                    state_filter=req.stateFilter, county_filter=req.countyFilter,
+                    control_mode=req.controlMode,
+                    control_value=req.controlConcentration,
+                    rollback_percent=req.controlRollbackPercent,
+                )
         elif req.mode == "builtin_custom_boundary":
             boundary_record = await _get_upload(db, req.boundaryFileId)
             resolved = prepare_custom_boundary_inputs(

@@ -168,6 +168,37 @@ def _who_aap_path(year: int) -> Path:
     return _data_root() / "who_aap" / "ne_countries" / f"{year}.parquet"
 
 
+def _who_aap_adm2_path(year: int) -> Path:
+    return _data_root() / "who_aap" / "gadm_adm2" / f"{year}.parquet"
+
+
+def _gadm_adm2_gpkg_path() -> Path:
+    return _data_root() / "boundaries" / "gadm_adm2.gpkg"
+
+
+# ISO3 mapping for slugs accepted in API requests. Extended whenever a new
+# country is added to the built-in path; matches the mapping baked into
+# resolve_concentration's WHO AAP fallback.
+_ISO3_BY_SLUG: dict[str, str] = {
+    "us": "USA",
+    "usa": "USA",
+    "mexico": "MEX",
+    "mex": "MEX",
+}
+
+
+def _normalize_iso3(country: str) -> str | None:
+    """Return ISO3 for a country slug, name shortcut, or pre-normalized ISO3."""
+    if not country:
+        return None
+    key = country.lower()
+    if key in _ISO3_BY_SLUG:
+        return _ISO3_BY_SLUG[key]
+    if len(country) == 3 and country.isalpha():
+        return country.upper()
+    return None
+
+
 def _concentration_column(df: pd.DataFrame, pollutant: str) -> str:
     """Find the concentration column for a pollutant."""
     candidates = [f"mean_{pollutant}", "mean", "concentration", "value"]
@@ -481,6 +512,154 @@ def prepare_custom_boundary_inputs(
         provenance=Provenance(
             concentration=c_prov,
             population=pop_prov,
+            incidence={"grain": "crf_default", "source": "crf_library"},
+        ),
+        warnings=warnings,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Admin-2 (GADM) global path
+# ─────────────────────────────────────────────────────────────────────────
+#
+#  Used when analysisLevel == "adm2" or country == "global". Both PM2.5
+#  (population-weighted) and population (with age bins) come from the same
+#  per-year parquet at data/processed/who_aap/gadm_adm2/{year}.parquet,
+#  produced by the GEE export script. Boundary geometry comes from the
+#  one-time slim GeoPackage at data/processed/boundaries/gadm_adm2.gpkg.
+
+# Module-level cache for the boundary GeoPackage. Loaded once per process,
+# filtered per call. ~46k rows × a few columns is small enough that holding
+# the full GeoDataFrame in memory is fine.
+_gadm_adm2_gdf: gpd.GeoDataFrame | None = None
+
+
+def _load_gadm_adm2_boundaries() -> gpd.GeoDataFrame:
+    global _gadm_adm2_gdf
+    if _gadm_adm2_gdf is None:
+        path = _gadm_adm2_gpkg_path()
+        if not path.exists():
+            raise FileNotFoundError(
+                f"GADM admin-2 boundary file missing: {path}. "
+                "Build it with scripts/gadm_adm2_to_geopackage.py."
+            )
+        _gadm_adm2_gdf = gpd.read_file(path)
+    return _gadm_adm2_gdf
+
+
+def prepare_global_adm2_inputs(
+    pollutant: str,
+    country: str,
+    year: int,
+    control_mode: str,
+    control_value: float | None = None,
+    rollback_percent: float | None = None,
+) -> ResolvedInputs:
+    """Resolver for the GADM admin-2 path: per-zone PM2.5 + population.
+
+    ``country`` may be ``"global"`` (no filter, all ~46k zones) or a country
+    slug / ISO3. The same parquet provides both concentration
+    (``pm25_popweighted``) and population (``pop_total`` + age bins), so this
+    function does not consult the EPA AQS or WHO AAP country-scalar fallbacks.
+
+    Currently only PM2.5 is supported on this path — the GEE export only
+    carries PM2.5. NO2 / Ozone callers should not route here.
+    """
+    if pollutant != "pm25":
+        raise FileNotFoundError(
+            f"Admin-2 path only carries PM2.5 today (requested {pollutant})"
+        )
+
+    stats_path = _who_aap_adm2_path(year)
+    if not stats_path.exists():
+        raise FileNotFoundError(
+            f"GADM admin-2 stats parquet missing for {year}: {stats_path}. "
+            "Run scripts/gee_export_pm25.py --boundary gadm_adm2 then "
+            "scripts/pm25_csv_to_parquet.py."
+        )
+
+    boundaries = _load_gadm_adm2_boundaries()
+    df = pd.read_parquet(stats_path)
+
+    # Country filtering. "global" = no filter; otherwise resolve to ISO3 and
+    # filter both layers by country_iso3.
+    if country and country.lower() != "global":
+        iso3 = _normalize_iso3(country)
+        if iso3 is None:
+            raise FileNotFoundError(
+                f"Cannot resolve country='{country}' to ISO3 for admin-2 path"
+            )
+        boundaries = boundaries[boundaries["country_iso3"] == iso3]
+        df = df[df["country_iso3"] == iso3] if "country_iso3" in df.columns else df[
+            df["feature_id"].str.startswith(iso3 + ".", na=False)
+        ]
+
+    if len(boundaries) == 0:
+        raise FileNotFoundError(
+            f"No GADM admin-2 boundaries matched country='{country}'"
+        )
+    if len(df) == 0:
+        raise FileNotFoundError(
+            f"No GADM admin-2 stats matched country='{country}' in {stats_path}"
+        )
+
+    # Inner join on feature_id. Sort to keep zone order stable.
+    merged = boundaries.merge(df, on="feature_id", how="inner",
+                              suffixes=("", "_stats"))
+    merged = merged.sort_values("feature_id").reset_index(drop=True)
+
+    if len(merged) == 0:
+        raise FileNotFoundError(
+            f"No GADM admin-2 features matched between gpkg and parquet "
+            f"for country='{country}', year={year}"
+        )
+
+    n_zones = len(merged)
+    n_drop_b = len(boundaries) - n_zones
+    n_drop_s = len(df) - n_zones
+    warnings: list[str] = []
+    if n_drop_b or n_drop_s:
+        warnings.append(
+            f"GADM admin-2 join dropped {n_drop_b} unmatched boundaries and "
+            f"{n_drop_s} unmatched stats rows (likely simplification or "
+            f"version mismatch between gpkg and stats parquet)."
+        )
+
+    c_baseline = merged["pm25_popweighted"].astype(float).to_numpy()
+    population = merged["pop_total"].astype(float).to_numpy()
+
+    c_control = resolve_control(
+        c_base=c_baseline,
+        control_mode=control_mode,
+        control_value=control_value,
+        rollback_percent=rollback_percent,
+    )
+
+    # Use NAME_2 ("name" in the gpkg) for human-readable zone names; merge
+    # may have suffixed it with _stats if both sides carry it.
+    name_col = "name" if "name" in merged.columns else "name_stats"
+
+    return ResolvedInputs(
+        zone_ids=merged["feature_id"].astype(str).tolist(),
+        zone_names=merged[name_col].astype(str).tolist(),
+        parent_ids=merged["country_iso3"].astype(str).tolist(),
+        geometries=[mapping(g) if g is not None else None
+                    for g in merged["geometry"]],
+        c_baseline=c_baseline,
+        c_control=c_control,
+        population=population,
+        provenance=Provenance(
+            concentration={
+                "grain": "adm2",
+                "source": "acag_via_gee",
+                "year": year,
+            },
+            population={
+                "grain": "adm2",
+                "source": "worldpop_via_gee",
+                "year": int(merged["pop_source_year"].iloc[0])
+                        if "pop_source_year" in merged.columns else year,
+            },
             incidence={"grain": "crf_default", "source": "crf_library"},
         ),
         warnings=warnings,

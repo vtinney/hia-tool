@@ -35,6 +35,14 @@ const US_ANALYSIS_LEVELS = [
   { id: 'tract', label: 'Census Tract level' },
 ]
 
+// Non-US countries get a coarser set: country-scalar (legacy WHO AAP fallback)
+// or GADM admin-2. Admin-2 is the default — country scalar stays available
+// for the older path during the transition.
+const NON_US_ANALYSIS_LEVELS = [
+  { id: 'adm2', label: 'Admin-2 (district / municipality)' },
+  { id: 'country', label: 'Country average' },
+]
+
 // ── Sorted country list (USA pinned to top) ─────────────────────
 
 const sortedCountries = [
@@ -237,7 +245,12 @@ export default function Step1StudyArea() {
         id: country.iso,
         name: country.name,
         geometry: null,
-        ...(country.iso === 'USA' ? { stateId: '', stateName: '', analysisLevel: 'state' } : {}),
+        // US gets the existing tract/county/state path. Non-US defaults to
+        // GADM admin-2 (the new global finer-than-country path); the user
+        // can fall back to country-scalar via the analysis-level radios.
+        ...(country.iso === 'USA'
+          ? { stateId: '', stateName: '', analysisLevel: 'state' }
+          : { analysisLevel: 'adm2' }),
       },
     })
   }, [setStep1])
@@ -366,6 +379,29 @@ export default function Step1StudyArea() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Non-US drilldown: analysis-level radios for the GADM admin-2
+                / country-scalar split. Only shown once a country is picked. */}
+            {!isUSA && studyArea.id && (
+              <div className="mt-4">
+                <p className="text-xs text-gray-500 mb-2">Analysis level</p>
+                <div className="flex flex-wrap gap-3">
+                  {NON_US_ANALYSIS_LEVELS.map(({ id, label }) => (
+                    <label key={id} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="analysisLevel"
+                        value={id}
+                        checked={(studyArea.analysisLevel || 'adm2') === id}
+                        onChange={() => handleAnalysisLevel(id)}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
           </fieldset>

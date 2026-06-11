@@ -44,6 +44,7 @@ var assets = [
   'projects/hia-tool/assets/ne_countries',
   'projects/hia-tool/assets/ne_states',
   'projects/hia-tool/assets/GHS_SMOD',
+  'projects/hia-tool/assets/gadm_adm2',
 ];
 assets.forEach(function(id) {
   var fc = ee.FeatureCollection(id);
@@ -64,15 +65,22 @@ next to it. Pick:
 
 **Defaults baked into the script.** Compare what you see to these:
 
-| Asset           | idField        | nameField   |
-|-----------------|----------------|-------------|
-| ne_countries    | `ADM0_A3`      | `NAME`      |
-| ne_states       | `adm1_code`    | `name`      |
-| GHS_SMOD        | `ID_HDC_G0`    | `UC_NM_MN`  |
+| Asset           | idField        | nameField   | countryField |
+|-----------------|----------------|-------------|--------------|
+| ne_countries    | `ADM0_A3`      | `NAME`      | —            |
+| ne_states       | `adm1_code`    | `name`      | —            |
+| GHS_SMOD        | `ID_HDC_G0`    | `UC_NM_MN`  | —            |
+| gadm_adm2       | `GID_2`        | `NAME_2`    | `GID_0`      |
 
 **If any differ**, edit `CONFIG.boundaries` in `scripts/pm25_popweighted.js`
-before running, changing the `idField` / `nameField` string for that row to
-match what you found. Save the file.
+(or `BOUNDARIES` in `scripts/gee_export_pm25.py`) before running, changing
+the `idField` / `nameField` / `countryField` string for that row to match
+what you found. Save the file.
+
+**About `countryField`.** Optional passthrough that attaches the parent ISO3
+to every output row, used by the resolver for cheap country-prefix filtering.
+Boundary sets that omit it produce identical output to before the field was
+added.
 
 ---
 
@@ -190,18 +198,78 @@ you pasted. The script should once again end with the main
 
 ## 7. Step 5 — Full production run
 
+There are two ways to launch the export tasks: the GEE web editor (good for
+the original 3 boundary sets where total task count is small) and the Python
+launcher (necessary for `gadm_adm2` where ~736 tasks would mean 736 manual
+clicks). Use whichever is appropriate for your boundary set.
+
+### 7a. Web-editor mode (ne_countries, ne_states, ghs_smod)
+
 1. Make sure your editor contains the committed, unmodified contents of
    `scripts/pm25_popweighted.js` (smoke-test override reverted) and that any
    `CONFIG` edits from Steps 1–3 are in place.
-2. Click **Run**. After a few seconds, the Tasks panel should show 3 queued
-   tasks: `pm25_ne_countries`, `pm25_ne_states`, `pm25_ghs_smod`.
+2. Click **Run**. After a few seconds, the Tasks panel should show queued
+   tasks: `pm25_ne_countries`, `pm25_ne_states`, `pm25_ghs_smod_*`.
 3. Click **Run** on each task in turn. You can start them all in parallel —
    GEE will schedule them on its backend.
 4. **Expected durations.** Each task typically finishes within tens of minutes
    depending on feature count and year range.
 5. Leave the tasks running. They will complete in the background even if you
-   close the browser tab. Check back by reopening the Code Editor and viewing
-   the Tasks panel, or by checking the Drive folder.
+   close the browser tab.
+
+### 7b. Python launcher mode (gadm_adm2 and any other large boundary set)
+
+For boundary sets where the number of (year × batch) tasks is large enough
+that the Tasks panel becomes unworkable, use `scripts/gee_export_pm25.py`
+instead. It's a Python translation of the same export logic that calls
+`ee.batch.Export.table.toDrive(...).start()` directly, so all tasks are
+queued AND started in one shot.
+
+**One-time setup** (Python tooling only, no admin rights needed):
+
+```bash
+pip install earthengine-api
+python -c "import ee; ee.Authenticate()"   # opens browser, writes ~/.config/earthengine/credentials
+```
+
+The first `ee.Authenticate()` call opens a browser, asks you to sign in to
+the same Google account that has Earth Engine access, and writes a token to
+`~/.config/earthengine/credentials`. You only need to do this once per
+machine.
+
+**Launch all tasks for one boundary set:**
+
+```bash
+python scripts/gee_export_pm25.py --boundary gadm_adm2
+```
+
+This prints one line per task as it queues. After the launch returns,
+EE owns the queue — closing your shell does not cancel anything. EE runs
+tasks with its own concurrency limit (~2-3 active per user); for ~736
+tasks expect 1-2 days of total wall clock.
+
+**Monitor progress (optional, run any time after launch):**
+
+```bash
+python scripts/gee_export_pm25.py --boundary gadm_adm2 --status
+```
+
+Polls every 60 s and prints summary state counts (`READY=N, RUNNING=N,
+COMPLETED=N`). Exits with code 0 when everything is COMPLETED, 1 if any
+FAILED. Ctrl-C to stop watching; tasks keep running.
+
+**Re-running a single year** after a bad batch:
+
+```bash
+python scripts/gee_export_pm25.py --boundary gadm_adm2 --years 2020
+```
+
+**Specifying a non-default EE cloud project** (only needed if the project
+that owns the assets isn't your default EE project):
+
+```bash
+python scripts/gee_export_pm25.py --boundary gadm_adm2 --ee-project hia-tool
+```
 
 ---
 

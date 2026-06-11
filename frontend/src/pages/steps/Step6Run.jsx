@@ -262,22 +262,23 @@ export default function Step6Run() {
           ratePer100k: r.attributableRate.mean,
         }))
 
-        const totalDeaths = raw.totalDeaths
-        const totalPop = step3.totalPopulation || 1
-        const avgFraction = detail.length > 0
-          ? detail.reduce((s, d) => s + (d.attributableFraction || 0), 0) / detail.length
-          : 0
-        const avgRate = detail.length > 0
-          ? detail.reduce((s, d) => s + (d.ratePer100k || 0), 0) / detail.length
-          : 0
+        // Headline numbers come from the first selected CRF, not a sum
+        // or average across CRFs — multiple CRFs typically estimate the
+        // same endpoint (e.g. all-cause mortality) and adding them would
+        // double-count. The full per-CRF table is still shown below.
+        const primary = raw.results[0]
+        const summary = primary
+          ? {
+              totalDeaths: primary.attributableCases,
+              attributableFraction: primary.attributableFraction.mean,
+              attributableRate: primary.attributableRate.mean,
+              primaryCRF: { study: primary.study, endpoint: primary.endpoint },
+            }
+          : { totalDeaths: null, attributableFraction: 0, attributableRate: 0 }
 
         setResults({
           meta: { analysisName: step1.analysisName || '' },
-          summary: {
-            totalDeaths,
-            attributableFraction: avgFraction,
-            attributableRate: avgRate,
-          },
+          summary,
           detail,
         })
       }

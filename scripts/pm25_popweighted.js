@@ -91,6 +91,17 @@ var CONFIG = {
     // features) that shipped without the name field — which is why the first
     // export run produced empty feature_id / name columns.
     {assetId: 'projects/hia-tool/assets/GHS_SMOD', name: 'ghs_smod', idField: 'ID_UC_G0', nameField: 'UC_NM_MN', batchSize: 500},
+
+    // GADM v4.1 admin-2 worldwide. ~46,000 features. Verify idField /
+    // nameField / countryField via the Task 0 probe in
+    // docs/methods/pm25_gee_runbook.md before launching exports — GADM
+    // standard field names are GID_2 / NAME_2 / GID_0 but assets uploaded
+    // as shapefiles can have field names truncated to 10 chars.
+    // countryField is an OPTIONAL passthrough that attaches a parent ISO3
+    // to every output row so the resolver can do cheap country-prefix
+    // filtering without parsing GID_2. Other boundary sets that omit
+    // countryField produce identical output to before this change.
+    // {assetId: 'projects/hia-tool/assets/gadm_adm2', name: 'gadm_adm2', idField: 'GID_2', nameField: 'NAME_2', countryField: 'GID_0', batchSize: 500},
   ],
   // 20 WorldPop 5-year age bins, labelled by lower bound.
   // age_0 = 0-1, age_1 = 1-4, age_5 = 5-9, ..., age_85 = 85-89, age_90 = 90+.
@@ -132,6 +143,33 @@ function loadWorldPop(year) {
 }
 
 // -----------------------------------------------------------------------------
+// alignPopToPm25Grid(popImage) -> ee.Image on the PM2.5 grid
+// -----------------------------------------------------------------------------
+function alignPopToPm25Grid(popImage) {
+  // Aggregate WorldPop's 100 m bands onto the PM2.5 ~1113 m grid using SUM
+  // (the documented method). Without this, reduceRegions at scale 1113 with
+  // a sum reducer relies on the image pyramid, and WorldPop bands pyramid
+  // with mean-of-children (default for float images), causing the totals to
+  // be undercounted by roughly (1113/100)^2 ≈ 124x.
+  //
+  // maxPixels must exceed the (target_scale / source_scale)^2 ratio or
+  // reduceResolution silently degrades — the earlier abandoned attempt at
+  // pre-alignment hit the default 64 cap and we mistook the resulting
+  // failure for a true coordinate-edge error. 256 leaves ample headroom.
+  return popImage
+    .reduceResolution({
+      reducer:    ee.Reducer.sum().unweighted(),
+      bestEffort: false,
+      maxPixels:  256
+    })
+    .reproject({
+      crs:          'EPSG:4326',
+      crsTransform: GRID_CRS_TRANSFORM
+    })
+    .clip(VALID_BOUNDS);
+}
+
+// -----------------------------------------------------------------------------
 // prepAgeBands(wp) -> ee.Image with bands pop_total, age_0, age_1, ..., age_80
 // -----------------------------------------------------------------------------
 function prepAgeBands(wp) {
@@ -161,24 +199,18 @@ function prepAgeBands(wp) {
 }
 
 // -----------------------------------------------------------------------------
-// computeStatsForYear(boundaries, year, idField, nameField) -> ee.FeatureCollection
+// computeStatsForYear(boundaries, year, idField, nameField, countryField) -> ee.FeatureCollection
 // -----------------------------------------------------------------------------
-function computeStatsForYear(boundaries, year, idField, nameField) {
+function computeStatsForYear(boundaries, year, idField, nameField, countryField) {
   var pm25          = loadPM25(year);
   var wp            = loadWorldPop(year);  // already has setDefaultProjection
   var popSourceYear = ee.Image(wp).get('pop_source_year');
   var popImage      = prepAgeBands(wp);    // pop_total + 20 age bands at 100m
+  popImage          = alignPopToPm25Grid(popImage);  // bands now on PM2.5 grid
 
   // Per-pixel pm25 * pop_total forms the numerator of the weighted mean.
-  // We do NOT pre-align pop onto the pm25 grid; earlier attempts with
-  // reduceResolution + reproject tripped "Unable to transform edge" errors
-  // at the poles because GEE evaluated target pixels outside the valid
-  // latitude range. Instead we stack pm25 and pop at their native grids and
-  // let reduceRegions do all the aggregation via its sum reducer + scale
-  // argument. For a SUM reducer, coarser-scale reduceRegions on a finer
-  // source image aggregates correctly via GEE's pyramid, so summing the
-  // 100m pop surface at scale 1113 gives the true total population in each
-  // feature.
+  // Both inputs are now on the same PM2.5 grid, so this multiplication is
+  // a clean per-pixel product with no implicit resampling.
   var pm25xPop = pm25.multiply(popImage.select('pop_total'))
     .rename('pm25_x_pop');
 
@@ -189,16 +221,21 @@ function computeStatsForYear(boundaries, year, idField, nameField) {
   var pixelCount = pm25.multiply(0).add(1).rename('pixel_count');
   var sumStack = ee.Image.cat([popImage, pm25xPop, pm25.rename('sum_pm25'), pixelCount]);
 
-  // Slim the boundary features down to just feature_id + name AND intersect
-  // each geometry with VALID_BOUNDS. The intersection matters for features
-  // like Antarctica (in ne_countries) whose native polygons extend to the
-  // south pole — without this, reduceRegions tries to sample pixels past
-  // -90 deg lat and the EPSG:4326 transform fails at the edge.
+  // Slim the boundary features down to just feature_id + name (+ optional
+  // country_iso3) AND intersect each geometry with VALID_BOUNDS. The
+  // intersection matters for features like Antarctica (in ne_countries)
+  // whose native polygons extend to the south pole — without this,
+  // reduceRegions tries to sample pixels past -90 deg lat and the
+  // EPSG:4326 transform fails at the edge.
   var slim = boundaries.map(function(f) {
-    return ee.Feature(f.geometry().intersection(VALID_BOUNDS, 1), {
+    var props = {
       feature_id: f.get(idField),
       name:       f.get(nameField)
-    });
+    };
+    if (countryField) {
+      props.country_iso3 = f.get(countryField);
+    }
+    return ee.Feature(f.geometry().intersection(VALID_BOUNDS, 1), props);
   });
 
   // Single sum reducer for everything: population bands, pm25_x_pop,
@@ -236,11 +273,14 @@ function processBoundarySet(cfg) {
 
   var selectors = ['feature_id', 'name', 'year', 'pop_source_year',
                    'pop_total', 'pm25_x_pop', 'pm25_mean'];
+  if (cfg.countryField) {
+    selectors.splice(2, 0, 'country_iso3');  // insert after 'name'
+  }
   CONFIG.ageBins.forEach(function(bin) { selectors.push('age_' + bin); });
 
   // Helper to queue one export task.
   function exportStats(fc, y, suffix) {
-    var stats = computeStatsForYear(fc, y, cfg.idField, cfg.nameField);
+    var stats = computeStatsForYear(fc, y, cfg.idField, cfg.nameField, cfg.countryField);
     var taskName = 'pm25_' + cfg.name + '_' + y + suffix;
     Export.table.toDrive({
       collection:     stats,
