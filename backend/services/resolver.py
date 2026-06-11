@@ -208,6 +208,23 @@ def _concentration_column(df: pd.DataFrame, pollutant: str) -> str:
     raise KeyError(f"No concentration column found in {list(df.columns)}")
 
 
+# USPS state abbreviation → 2-digit FIPS. EPA AQS state files key states by
+# abbreviation (admin_id "US-CA"), but tract/county/state reporting units key
+# by FIPS, so the state→reporting-unit broadcast must translate. Values already
+# in FIPS form (e.g. a "US-06" test fixture) pass through unchanged.
+_US_ABBR_TO_FIPS = {
+    "AL": "01", "AK": "02", "AZ": "04", "AR": "05", "CA": "06", "CO": "08",
+    "CT": "09", "DE": "10", "DC": "11", "FL": "12", "GA": "13", "HI": "15",
+    "ID": "16", "IL": "17", "IN": "18", "IA": "19", "KS": "20", "KY": "21",
+    "LA": "22", "ME": "23", "MD": "24", "MA": "25", "MI": "26", "MN": "27",
+    "MS": "28", "MO": "29", "MT": "30", "NE": "31", "NV": "32", "NH": "33",
+    "NJ": "34", "NM": "35", "NY": "36", "NC": "37", "ND": "38", "OH": "39",
+    "OK": "40", "OR": "41", "PA": "42", "RI": "44", "SC": "45", "SD": "46",
+    "TN": "47", "TX": "48", "UT": "49", "VT": "50", "VA": "51", "WA": "53",
+    "WV": "54", "WI": "55", "WY": "56", "PR": "72",
+}
+
+
 def resolve_concentration(
     pollutant: str,
     country: str,
@@ -233,7 +250,9 @@ def resolve_concentration(
     if country == "us" and state_path.exists() and analysis_level != "custom":
         df = pd.read_parquet(state_path)
         df = df[df["admin_id"].str.startswith("US-", na=False)]
-        df["state_fips"] = df["admin_id"].str.replace("US-", "", regex=False)
+        tokens = df["admin_id"].str.replace("US-", "", regex=False)
+        # admin_id is "US-<abbr>" in production data, "US-<fips>" in fixtures.
+        df["state_fips"] = tokens.map(lambda t: _US_ABBR_TO_FIPS.get(t, t))
         col = _concentration_column(df, pollutant)
         lookup = dict(zip(df["state_fips"], df[col]))
 

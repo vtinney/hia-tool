@@ -28,6 +28,45 @@ def _setup_data(tmp_path: Path) -> None:
     aqs.to_parquet(a / "2022.parquet")
 
 
+def _setup_data_abbr(tmp_path: Path) -> None:
+    """Like _setup_data, but the EPA AQS state file keys states by USPS
+    abbreviation (US-CA) — the real production data format — rather than by
+    FIPS (US-06). The state→tract concentration broadcast must still resolve."""
+    df = pd.DataFrame({
+        "geoid":       ["06001000100", "06001000200", "06003000100"],
+        "state_fips":  ["06", "06", "06"],
+        "county_fips": ["001", "001", "003"],
+        "total_pop":   [3500, 4200, 500],
+        "geometry":    ["POLYGON((0 0,1 0,1 1,0 1,0 0))"] * 3,
+    })
+    p = tmp_path / "processed" / "demographics" / "us"
+    p.mkdir(parents=True)
+    df.to_parquet(p / "2022.parquet")
+    aqs = pd.DataFrame({"admin_id": ["US-CA"], "mean_pm25": [11.4]})
+    a = tmp_path / "processed" / "epa_aqs" / "pm25" / "ne_states"
+    a.mkdir(parents=True)
+    aqs.to_parquet(a / "2022.parquet")
+
+
+def test_builtin_tract_broadcasts_concentration_with_abbreviation_admin_id(tmp_path, monkeypatch):
+    _setup_data_abbr(tmp_path)
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))
+    client = TestClient(app)
+    r = client.post("/api/compute/spatial", json={
+        "mode": "builtin",
+        "pollutant": "pm25", "country": "us", "year": 2022,
+        "analysisLevel": "tract", "stateFilter": "06",
+        "controlMode": "benchmark", "controlConcentration": 0.0,
+        "selectedCRFs": [_ihd_crf()],
+        "monteCarloIterations": 200,
+    })
+    assert r.status_code == 200, r.text
+    body = r.json()
+    # The state mean (11.4) must broadcast to every tract, not resolve to NaN.
+    assert body["zones"][0]["baselineConcentration"] == pytest.approx(11.4)
+    assert body["causeRollups"][0]["attributableCases"]["mean"] > 0
+
+
 def _ihd_crf() -> dict:
     return {
         "id": "epa_pm25_ihd_adult", "source": "Pope 2004",
