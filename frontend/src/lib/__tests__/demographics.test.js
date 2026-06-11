@@ -1,5 +1,35 @@
 import { describe, it, expect } from 'vitest'
-import { populationWeightedMean, pickVintage } from '../demographics'
+import { populationWeightedMean, pickVintage, tractResultsFromResponse } from '../demographics'
+
+describe('tractResultsFromResponse', () => {
+  const tractZone = (geoid, pop) => ({ zoneId: geoid, population: pop, results: [] })
+
+  it('returns null when there are no zones and no per-tract results', () => {
+    expect(tractResultsFromResponse(null)).toBeNull()
+    expect(tractResultsFromResponse({})).toBeNull()
+    expect(tractResultsFromResponse({ zones: [] })).toBeNull()
+  })
+
+  it('maps tract-level zones (11-digit GEOID) to { tract_fips, population }', () => {
+    const results = { zones: [tractZone('48201100000', 2500), tractZone('48201100100', 1800)] }
+    expect(tractResultsFromResponse(results)).toEqual([
+      { tract_fips: '48201100000', population: 2500 },
+      { tract_fips: '48201100100', population: 1800 },
+    ])
+  })
+
+  it('filters out non-tract zones (state/county FIPS) and returns null if none remain', () => {
+    const stateLevel = { zones: [{ zoneId: '06', population: 39000000, results: [] }] }
+    expect(tractResultsFromResponse(stateLevel)).toBeNull()
+    const mixed = { zones: [tractZone('06037123456', 500), { zoneId: '06037', population: 1000, results: [] }] }
+    expect(tractResultsFromResponse(mixed)).toEqual([{ tract_fips: '06037123456', population: 500 }])
+  })
+
+  it('passes through an existing per_tract_results array unchanged', () => {
+    const pre = [{ tract_fips: '48201100000', population: 2500, attributable_cases: { mean: 3 } }]
+    expect(tractResultsFromResponse({ per_tract_results: pre })).toBe(pre)
+  })
+})
 
 describe('populationWeightedMean', () => {
   it('computes population-weighted mean across tracts', () => {

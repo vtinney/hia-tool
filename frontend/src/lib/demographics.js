@@ -9,6 +9,27 @@
  * @param {string} field - Property name on each tract to aggregate.
  * @returns {number|null}
  */
+/**
+ * Adapt a spatial compute response into the per-tract shape the EJ context
+ * section consumes. The backend returns computed units under `zones`
+ * (`{ zoneId, population, ... }`); the EJ join keys on an 11-digit tract
+ * GEOID, so only tract-level zones qualify. Non-tract runs (state/county
+ * FIPS) yield null, which makes the EJ gate fail cleanly. A response that
+ * already carries an explicit `per_tract_results` array is passed through.
+ *
+ * @param {object|null} results - Analysis results payload.
+ * @returns {Array<{tract_fips: string, population: number}>|null}
+ */
+export function tractResultsFromResponse(results) {
+  if (Array.isArray(results?.per_tract_results)) return results.per_tract_results
+  const zones = results?.zones
+  if (!Array.isArray(zones) || zones.length === 0) return null
+  const tracts = zones
+    .filter((z) => typeof z?.zoneId === 'string' && z.zoneId.length === 11)
+    .map((z) => ({ tract_fips: z.zoneId, population: z.population }))
+  return tracts.length > 0 ? tracts : null
+}
+
 export function populationWeightedMean(tracts, field) {
   let numerator = 0
   let denominator = 0

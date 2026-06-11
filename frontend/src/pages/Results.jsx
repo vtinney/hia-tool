@@ -10,7 +10,7 @@ import AdditionalRunSummary from '../components/AdditionalRunSummary'
 import EJContextSection from '../components/EJContextSection'
 import { fetchDatasets, runAnalysisForYear, fetchDemographicsVintages } from '../lib/api'
 import { yearsFor } from '../lib/datasets'
-import { studyAreaToFilter } from '../lib/demographics'
+import { studyAreaToFilter, tractResultsFromResponse } from '../lib/demographics'
 import { buildTrendSeries } from '../lib/trend'
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -825,7 +825,7 @@ export default function Results() {
     useAnalysisStore.setState({ additionalRuns: kept })
   }, [additionalRuns])
 
-  const perTractResults = results?.per_tract_results ?? null
+  const perTractResults = useMemo(() => tractResultsFromResponse(results), [results])
   const [availableVintages, setAvailableVintages] = useState(null)
   const analysisYear = step2?.baseline?.year ?? null
 
