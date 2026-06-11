@@ -7,8 +7,10 @@ import useAnalysisStore from '../stores/useAnalysisStore'
 import ResultsTable from '../components/ResultsTable'
 import CompareAnotherYearCard from '../components/CompareAnotherYearCard'
 import AdditionalRunSummary from '../components/AdditionalRunSummary'
-import { fetchDatasets, runAnalysisForYear } from '../lib/api'
+import EJContextSection from '../components/EJContextSection'
+import { fetchDatasets, runAnalysisForYear, fetchDemographicsVintages } from '../lib/api'
 import { yearsFor } from '../lib/datasets'
+import { studyAreaToFilter } from '../lib/demographics'
 
 // ── Formatting helpers ─────────────────────────────────────────
 function fmtNumber(n, decimals = 0) {
@@ -615,7 +617,7 @@ const TABS = [
 export default function Results() {
   const {
     results, step1, step2, step6, step7, exportConfig,
-    additionalRuns, appendAdditionalRun,
+    additionalRuns, appendAdditionalRun, ejFraming,
   } = useAnalysisStore()
   const [activeTab, setActiveTab] = useState('table')
   const [templateModal, setTemplateModal] = useState(false)
@@ -742,6 +744,27 @@ export default function Results() {
     const kept = additionalRuns.filter((r) => r.runId !== runId)
     useAnalysisStore.setState({ additionalRuns: kept })
   }, [additionalRuns])
+
+  const perTractResults = results?.per_tract_results ?? null
+  const [availableVintages, setAvailableVintages] = useState(null)
+  const analysisYear = step2?.baseline?.year ?? null
+
+  useEffect(() => {
+    if (ejFraming !== true) return
+    let cancelled = false
+    fetchDemographicsVintages('us')
+      .then((v) => { if (!cancelled) setAvailableVintages(v ?? []) })
+      .catch(() => { if (!cancelled) setAvailableVintages([]) })
+    return () => { cancelled = true }
+  }, [ejFraming])
+
+  const ejGatePasses =
+    ejFraming === true &&
+    studyAreaToFilter(step1?.studyArea) !== null &&
+    Array.isArray(perTractResults) &&
+    perTractResults.length > 0 &&
+    Array.isArray(availableVintages) &&
+    availableVintages.length > 0
 
   const handleSaveTemplate = useCallback(async ({ name, description }) => {
     setSavingTemplate(true)
@@ -940,6 +963,15 @@ export default function Results() {
                 </div>
               )}
             </div>
+
+            {ejGatePasses && (
+              <EJContextSection
+                studyArea={step1.studyArea}
+                analysisYear={analysisYear}
+                perTractResults={perTractResults}
+                availableVintages={availableVintages}
+              />
+            )}
           </>
         )}
       </div>

@@ -168,3 +168,51 @@ async def test_simplify_zero_preserves_all_vertices(demographics_parquet):
 async def test_simplify_above_max_is_rejected(demographics_parquet):
     resp = await _get("/api/data/demographics/us/2022?simplify=1.0")
     assert resp.status_code == 422  # FastAPI/Pydantic validation error
+
+
+# ────────────────────────────────────────────────────────────────────
+#  Vintages endpoint — lets the frontend discover which ACS years are
+#  actually on disk instead of hardcoding a fallback list.
+# ────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def demographics_multi_year(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Seed `demographics/us/{2015,2020,2022}.parquet` for vintage discovery."""
+    out_dir = tmp_path / "demographics" / "us"
+    out_dir.mkdir(parents=True)
+    rows = [{
+        "geoid": "06037000100", "state_fips": "06", "county_fips": "037",
+        "tract_code": "000100", "vintage": 2020, "boundary_year": 2020,
+        "total_pop": 1000, "pct_minority": 0.4, "pct_below_200_pov": 0.15,
+        "median_hh_income": 75000.0,
+        "geometry": _rect_wkt(-118.0, 34.0),
+    }]
+    df = pd.DataFrame(rows)
+    for year in (2015, 2020, 2022):
+        df.to_parquet(out_dir / f"{year}.parquet", engine="pyarrow")
+    monkeypatch.setattr(data_router, "DATA_ROOT", tmp_path)
+    yield out_dir
+
+
+@pytest.mark.asyncio
+async def test_vintages_returns_sorted_list(demographics_multi_year):
+    resp = await _get("/api/data/demographics/vintages/us")
+    assert resp.status_code == 200
+    assert resp.json() == {"country": "us", "vintages": [2015, 2020, 2022]}
+
+
+@pytest.mark.asyncio
+async def test_vintages_accepts_country_aliases(demographics_multi_year):
+    resp = await _get("/api/data/demographics/vintages/united-states")
+    assert resp.status_code == 200
+    # Canonicalized to the on-disk slug "us".
+    assert resp.json() == {"country": "us", "vintages": [2015, 2020, 2022]}
+
+
+@pytest.mark.asyncio
+async def test_vintages_unknown_country_returns_404(tmp_path, monkeypatch):
+    # Empty DATA_ROOT — no demographics directory.
+    monkeypatch.setattr(data_router, "DATA_ROOT", tmp_path)
+    resp = await _get("/api/data/demographics/vintages/mexico")
+    assert resp.status_code == 404

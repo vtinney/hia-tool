@@ -90,6 +90,9 @@ function initialState() {
     step6: { ...DEFAULT_STEP6 },
     step7: { ...DEFAULT_STEP7 },
 
+    // EJ framing (set by template; gates Results-page EJ section)
+    ejFraming: false,
+
     // Results from the backend — primary run
     results: null,
     // Additional runs appended by "Compare another year" on the results
@@ -176,6 +179,7 @@ const useAnalysisStore = create(
 
         if (config.completedSteps) next.completedSteps = config.completedSteps
         if (config.stepValidity) next.stepValidity = { ...defaultStepValidity(), ...config.stepValidity }
+        next.ejFraming = config.ejFraming === true
 
         set(next)
       },
@@ -183,15 +187,15 @@ const useAnalysisStore = create(
       // ── Export (pure read — no state mutation) ───────────────
 
       exportConfig: () => {
-        const { step1, step2, step3, step4, step5, step6, step7 } = get()
+        const { step1, step2, step3, step4, step5, step6, step7, ejFraming } = get()
         return JSON.parse(
-          JSON.stringify({ step1, step2, step3, step4, step5, step6, step7 }),
+          JSON.stringify({ step1, step2, step3, step4, step5, step6, step7, ejFraming }),
         )
       },
     }),
     {
       name: 'hia-analysis',
-      version: 8,
+      version: 9,
       partialize: (state) => ({
         // Persist only the data that matters for resume — skip transient UI state
         currentStep: state.currentStep,
@@ -205,13 +209,17 @@ const useAnalysisStore = create(
         step6: state.step6,
         step7: state.step7,
         additionalRuns: state.additionalRuns,
+        ejFraming: state.ejFraming,
       }),
       migrate: (persisted, version) => {
-        // v5 and older had a different step shape. v6 added year to
-        // step3 and step4. v7 added step4.selectedEndpoints. v8 added
-        // additionalRuns for the post-results multi-year feature.
-        // Always reset — simpler than partial upgrade.
-        if (version < 8) return initialState()
+        // v5 and older had a different step shape. v6 added year to step3
+        // and step4. v7 added step4.selectedEndpoints (master) and
+        // ejFraming (ej-template) in parallel branches. v8 was reached
+        // independently by two lines — polygon-results (additionalRuns)
+        // and master (step4.selectedEndpoints + ejFraming) — so v9 is the
+        // first version carrying all three fields. Hard reset for anything
+        // older is simpler than a partial upgrade.
+        if (version < 9) return initialState()
         return persisted
       },
     },
