@@ -66,7 +66,7 @@ class ComputeRequest(BaseModel):
     baselineIncidence: float
     population: float
     selectedCRFs: list[CRFInput]
-    monteCarloIterations: int = Field(default=1000, ge=100, le=50_000)
+    monteCarloIterations: int = Field(default=0, ge=0, le=50_000)
 
 
 class EstimateCI(BaseModel):
@@ -132,7 +132,7 @@ class BuiltinMode(BaseModel):
     controlConcentration: float | None = None
     controlRollbackPercent: float | None = None
     selectedCRFs: list[CRFInputV2]
-    monteCarloIterations: int = Field(default=1000, ge=100, le=50_000)
+    monteCarloIterations: int = Field(default=0, ge=0, le=50_000)
 
 
 class UploadedMode(BaseModel):
@@ -143,7 +143,7 @@ class UploadedMode(BaseModel):
     populationFileId: int
     boundaryFileId: int
     selectedCRFs: list[CRFInputV2]
-    monteCarloIterations: int = Field(default=1000, ge=100, le=50_000)
+    monteCarloIterations: int = Field(default=0, ge=0, le=50_000)
 
 
 class CustomBoundaryBuiltinMode(BaseModel):
@@ -156,7 +156,7 @@ class CustomBoundaryBuiltinMode(BaseModel):
     controlConcentration: float | None = None
     controlRollbackPercent: float | None = None
     selectedCRFs: list[CRFInputV2]
-    monteCarloIterations: int = Field(default=1000, ge=100, le=50_000)
+    monteCarloIterations: int = Field(default=0, ge=0, le=50_000)
 
 
 SpatialComputeRequest = Annotated[
@@ -382,6 +382,30 @@ def _run_spatial_compute_v2(
     rng = np.random.default_rng()
     per_100k = 100_000
 
+    # mc_iterations == 0 → analytical mode: no Monte Carlo. The point estimate
+    # comes from beta and the 95% bounds from betaLow/betaHigh (the same
+    # approach as the in-browser scalar engine). betas is then the deterministic
+    # triple [low, central, high] and the summary maps it directly.
+    analytical = mc_iterations <= 0
+
+    def _summ(samples):
+        if analytical:
+            lo, ce, hi = float(samples[0]), float(samples[1]), float(samples[2])
+            return {"mean": ce, "lower95": min(lo, hi), "upper95": max(lo, hi)}
+        return _summarise(samples)
+
+    def _summ_spatial(arr):
+        if analytical:
+            return [
+                {
+                    "mean": float(arr[1, i]),
+                    "lower95": float(min(arr[0, i], arr[2, i])),
+                    "upper95": float(max(arr[0, i], arr[2, i])),
+                }
+                for i in range(arr.shape[1])
+            ]
+        return _summarise_spatial(arr)
+
     zones: list[dict] = [
         {
             "zoneId": resolved.zone_ids[i],
@@ -402,10 +426,14 @@ def _run_spatial_compute_v2(
         se = _beta_se(crf["betaLow"], crf["betaHigh"])
         form = crf.get("functionalForm", "log-linear")
         y0 = crf.get("defaultRate") or 0.008
-        betas = rng.normal(loc=crf["beta"], scale=se, size=mc_iterations)
+        if analytical:
+            betas = np.array([crf["betaLow"], crf["beta"], crf["betaHigh"]], dtype=float)
+        else:
+            betas = rng.normal(loc=crf["beta"], scale=se, size=mc_iterations)
+        n_iter = len(betas)
 
-        zone_cases = np.zeros((mc_iterations, n_zones))
-        zone_paf = np.zeros((mc_iterations, n_zones))
+        zone_cases = np.zeros((n_iter, n_zones))
+        zone_paf = np.zeros((n_iter, n_zones))
         for zi in range(n_zones):
             cases_zi, paf_zi = _compute_single_crf(
                 form, betas,
@@ -417,12 +445,12 @@ def _run_spatial_compute_v2(
             zone_cases[:, zi] = cases_zi
             zone_paf[:, zi] = paf_zi
 
-        cases_by_zone = _summarise_spatial(zone_cases)
-        paf_by_zone = _summarise_spatial(zone_paf)
+        cases_by_zone = _summ_spatial(zone_cases)
+        paf_by_zone = _summ_spatial(zone_paf)
         pop_arr = resolved.population.copy()
         pop_arr[pop_arr == 0] = 1
         zone_rate = (zone_cases / pop_arr[np.newaxis, :]) * per_100k
-        rate_by_zone = _summarise_spatial(zone_rate)
+        rate_by_zone = _summ_spatial(zone_rate)
 
         for zi in range(n_zones):
             zones[zi]["results"].append({
@@ -441,14 +469,14 @@ def _run_spatial_compute_v2(
             "crfId": crf["id"],
             "study": crf.get("source", ""),
             "endpoint": crf.get("endpoint", ""),
-            "attributableCases": _summarise(total_cases_per_iter),
-            "attributableFraction": _summarise(
+            "attributableCases": _summ(total_cases_per_iter),
+            "attributableFraction": _summ(
                 total_cases_per_iter / (y0 * total_pop) if total_pop > 0
-                else np.zeros(mc_iterations)
+                else np.zeros(n_iter)
             ),
-            "attributableRate": _summarise(
+            "attributableRate": _summ(
                 (total_cases_per_iter / total_pop * per_100k) if total_pop > 0
-                else np.zeros(mc_iterations)
+                else np.zeros(n_iter)
             ),
             "_cause": crf.get("cause", "all_cause"),
             "_endpointType": crf.get("endpointType", "mortality"),

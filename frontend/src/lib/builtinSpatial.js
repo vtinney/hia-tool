@@ -53,9 +53,10 @@ export function buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFs) {
       defaultRate: crf.defaultRate,
     })),
   }
-  // MC UI is hidden; pass the store value only when meaningful (backend ge=100),
-  // otherwise let the backend use its own default.
-  if (step6?.monteCarloIterations >= 100) {
+  // Default to analytical (no Monte Carlo): pass an iteration count only when
+  // the user explicitly set one (> 0). Omitting it → backend default of 0 →
+  // analytical CIs.
+  if (step6?.monteCarloIterations > 0) {
     config.monteCarloIterations = step6.monteCarloIterations
   }
   return config

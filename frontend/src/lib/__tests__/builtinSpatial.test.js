@@ -51,8 +51,8 @@ describe('buildBuiltinSpatialConfig', () => {
     expect(cfg.selectedCRFs[0]).not.toHaveProperty('extraneous')
   })
 
-  it('includes monteCarloIterations only when >= 100', () => {
-    expect(cfg).not.toHaveProperty('monteCarloIterations')
+  it('includes monteCarloIterations only when the user set a positive count (else analytical)', () => {
+    expect(cfg).not.toHaveProperty('monteCarloIterations') // step6 mc=0 → omitted → backend analytical
     const mc = buildBuiltinSpatialConfig(usTract.step1, usTract.step2, { monteCarloIterations: 500 }, [crf])
     expect(mc.monteCarloIterations).toBe(500)
   })

@@ -227,10 +227,10 @@ export default function Step6Run() {
             functionalForm: crf.functionalForm,
             defaultRate: crf.defaultRate,
           })),
-          // MC UI is hidden but the backend still accepts the field (ge=100).
-          // Pass the store value when >0; otherwise omit so the backend
-          // uses its own default (1000).
-          ...(step6.monteCarloIterations >= 100
+          // Default to analytical: pass an iteration count only when the user
+          // explicitly set one (> 0); otherwise omit so the backend defaults
+          // to 0 (analytical CIs).
+          ...(step6.monteCarloIterations > 0
             ? { monteCarloIterations: step6.monteCarloIterations }
             : {}),
         }

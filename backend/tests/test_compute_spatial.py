@@ -48,6 +48,26 @@ def _setup_data_abbr(tmp_path: Path) -> None:
     aqs.to_parquet(a / "2022.parquet")
 
 
+def test_builtin_analytical_default_zero_iterations(tmp_path, monkeypatch):
+    """monteCarloIterations=0 → analytical CIs (no Monte Carlo): point estimate
+    from beta, bounds from betaLow/betaHigh, no random sampling."""
+    _setup_data(tmp_path)
+    monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))
+    client = TestClient(app)
+    r = client.post("/api/compute/spatial", json={
+        "mode": "builtin",
+        "pollutant": "pm25", "country": "us", "year": 2022,
+        "analysisLevel": "tract", "stateFilter": "06",
+        "controlMode": "benchmark", "controlConcentration": 0.0,
+        "selectedCRFs": [_ihd_crf()],
+        "monteCarloIterations": 0,
+    })
+    assert r.status_code == 200, r.text
+    agg = r.json()["causeRollups"][0]["attributableCases"]
+    assert agg["mean"] > 0
+    assert agg["lower95"] < agg["mean"] < agg["upper95"]
+
+
 def test_builtin_tract_broadcasts_concentration_with_abbreviation_admin_id(tmp_path, monkeypatch):
     _setup_data_abbr(tmp_path)
     monkeypatch.setenv("DATA_ROOT", str(tmp_path / "processed"))

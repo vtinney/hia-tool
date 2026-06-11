@@ -24,7 +24,7 @@
   },
   "step6": {
     "poolingMethod": "separate",
-    "monteCarloIterations": 1000
+    "monteCarloIterations": 0
   },
   "step7": {
     "runValuation": false,
