@@ -207,7 +207,7 @@ function StudyAreaMap({ selectedCountry, selectedState }) {
 // ── Main step component ─────────────────────────────────────────
 
 export default function Step1StudyArea() {
-  const { step1, setStep1, setStepValidity } = useAnalysisStore()
+  const { step1, setStep1, setStepValidity, ejFraming } = useAnalysisStore()
   const { studyArea, pollutant, analysisName, analysisDescription } = step1
 
   // Derived lookup objects for map
@@ -226,10 +226,16 @@ export default function Step1StudyArea() {
   // ── Validation ─────────────────────────────────────────────────
 
   useEffect(() => {
-    const valid = Boolean(studyArea.id) && Boolean(pollutant)
+    // A US tract-level run must scope to a state (all-US tract is infeasible),
+    // so it isn't valid until a state is chosen.
+    const needsState = isUSA && (studyArea.analysisLevel || 'state') === 'tract'
+    const valid =
+      Boolean(studyArea.id) &&
+      Boolean(pollutant) &&
+      (!needsState || Boolean(studyArea.stateId))
     setStepValidity(1, valid)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studyArea.id, pollutant])
+  }, [studyArea.id, pollutant, isUSA, studyArea.analysisLevel, studyArea.stateId])
 
   // ── Handlers ───────────────────────────────────────────────────
 
@@ -344,6 +350,11 @@ export default function Step1StudyArea() {
             {/* US-specific drilldown */}
             {isUSA && (
               <div className="mt-4 space-y-3">
+                {ejFraming && (
+                  <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+                    Environmental Justice analysis runs at <span className="font-medium">Census Tract level</span> — select a state below to analyze its tracts.
+                  </div>
+                )}
                 <select
                   value={studyArea.stateId || ''}
                   onChange={(e) => handleStateChange(e.target.value)}
@@ -377,6 +388,11 @@ export default function Step1StudyArea() {
                         </label>
                       ))}
                     </div>
+                    {ejFraming && (studyArea.analysisLevel || 'state') !== 'tract' && (
+                      <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        The Environmental Justice context section only appears for <span className="font-medium">Census Tract level</span>. Select it above to see the screening.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

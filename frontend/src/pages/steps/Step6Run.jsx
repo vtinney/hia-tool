@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import useAnalysisStore from '../../stores/useAnalysisStore'
 import { computeHIA } from '../../lib/hia-engine'
 import { runSpatialCompute } from '../../lib/api'
+import { shouldUseBuiltinSpatial, buildBuiltinSpatialConfig } from '../../lib/builtinSpatial'
 import crfLibrary from '../../data/crf-library.json'
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -234,6 +235,14 @@ export default function Step6Run() {
             : {}),
         }
         const results = await runSpatialCompute(spatialConfig)
+        setResults(results)
+      } else if (shouldUseBuiltinSpatial(step1, step2)) {
+        // Built-in US tract pathway: call the backend builtin spatial engine
+        // so the run returns per-tract zones (required for the EJ section),
+        // rather than the in-browser scalar engine.
+        const results = await runSpatialCompute(
+          buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFDetails),
+        )
         setResults(results)
       } else {
         // Scalar pathway: client-side engine
