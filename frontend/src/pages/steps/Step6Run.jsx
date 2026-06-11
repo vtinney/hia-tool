@@ -240,7 +240,10 @@ export default function Step6Run() {
         const config = {
           pollutant: step1.pollutant,
           baselineConcentration: step2.baseline?.value,
-          controlConcentration: step2.control?.value ?? step2.baseline?.value,
+          // Unset counterfactual → total burden (engine defaults control to
+          // 0). Previously this cloned the baseline, making ΔC = 0 and
+          // zeroing every result.
+          controlConcentration: step2.control?.value ?? null,
           population: step3.totalPopulation,
           ageGroups: step3.ageGroups,
           selectedCRFs: selectedCRFDetails,

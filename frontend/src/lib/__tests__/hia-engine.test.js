@@ -33,6 +33,37 @@ const GEMM_CRF = {
   defaultRate: 0.008,
 }
 
+// ── Default counterfactual: omitted control = total burden (control = 0) ──
+
+describe('computeHIA default counterfactual', () => {
+  const run = (extra) =>
+    computeHIA({
+      baselineConcentration: 10,
+      population: 1_000_000,
+      selectedCRFs: [KREWSKI_CRF],
+      poolingMethod: 'separate',
+      monteCarloIterations: 0,
+      ...extra,
+    })
+
+  it('treats an omitted controlConcentration as 0 (total burden), yielding a positive result', () => {
+    const cases = run({}).results[0].attributableCases.mean
+    expect(cases).toBeGreaterThan(0)
+    expect(Number.isFinite(cases)).toBe(true)
+  })
+
+  it('an omitted control equals an explicit control of 0', () => {
+    const omitted = run({}).results[0].attributableCases.mean
+    const explicitZero = run({ controlConcentration: 0 }).results[0].attributableCases.mean
+    expect(omitted).toBeCloseTo(explicitZero, 10)
+  })
+
+  it('still honors an explicit control (control = baseline → zero burden)', () => {
+    const cases = run({ controlConcentration: 10 }).results[0].attributableCases.mean
+    expect(cases).toBe(0)
+  })
+})
+
 // ── Test 1: Single-value PM₂.₅, Krewski CRF ───────────────────────
 
 describe('Log-linear (Krewski CRF)', () => {

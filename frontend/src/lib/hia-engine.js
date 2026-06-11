@@ -573,6 +573,12 @@ export function computeHIA(config) {
   } = config
   const userRates = incidenceRates || {}
 
+  // An unset counterfactual means the total air-pollution-attributable
+  // burden, i.e. control = 0 µg/m³ — not "no change from baseline". Coerce
+  // null/undefined to 0 so a missing control yields total burden rather than
+  // a zero delta (or NaN).
+  const cCtrl = controlConcentration ?? 0
+
   const useAnalytical = !monteCarloIterations || monteCarloIterations <= 0
 
   const skipPooling = poolingMethod === 'none' || poolingMethod === 'separate'
@@ -596,8 +602,8 @@ export function computeHIA(config) {
     const y0 = userRates[crf.id] ?? crf.defaultRate ?? baselineIncidence
 
     const summary = useAnalytical
-      ? analyticalCRF(form, crf, baselineConcentration, controlConcentration, y0, population)
-      : monteCarloCRF(form, crf, baselineConcentration, controlConcentration, y0, population, monteCarloIterations)
+      ? analyticalCRF(form, crf, baselineConcentration, cCtrl, y0, population)
+      : monteCarloCRF(form, crf, baselineConcentration, cCtrl, y0, population, monteCarloIterations)
 
     return {
       crfId: crf.id,
