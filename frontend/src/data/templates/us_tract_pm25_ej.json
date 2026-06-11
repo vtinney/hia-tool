@@ -10,7 +10,7 @@
   },
   "step2": {
     "baseline": { "type": "dataset", "datasetId": "acag_v5" },
-    "control": { "type": "benchmark", "value": 9, "benchmarkId": "us_naaqs" }
+    "control": { "type": "none", "value": null }
   },
   "step3": {
     "populationType": "dataset",
