@@ -40,17 +40,19 @@ CLI
     # Watch task progress
     python scripts/gee_export_pm25.py --boundary gadm_adm2 --status
 
-    # Retry specific failing batches with a higher tileScale.
-    # Use this for "Computation timed out" failures on geometry-heavy
-    # batches (typical for GADM admin-2 — its features vary far more in
-    # complexity than the GHS_SMOD urban centroids that batch_size=500
-    # was originally tuned for). tileScale=32 is the practical max.
+    # Retry specific failing batches. NOTE: EE caps reduceRegions tileScale
+    # at 16, which is already the default here — there is no headroom to
+    # "bump tileScale" for "Computation timed out" failures on
+    # geometry-heavy batches (typical for GADM admin-2 — its features vary
+    # far more in complexity than the GHS_SMOD urban centroids that
+    # batch_size=500 was originally tuned for). For persistent timeouts,
+    # use scripts/gee_reexport_missing.py, which splits each failing batch
+    # into smaller per-task feature chunks instead.
     python scripts/gee_export_pm25.py --boundary gadm_adm2 \
-        --years 2016 --batch 13 --tile-scale 32
+        --years 2016 --batch 13
 
     # Retry several failing batches at once (comma-separated, no spaces).
-    python scripts/gee_export_pm25.py --boundary gadm_adm2 \
-        --batch 13,42,87 --tile-scale 32
+    python scripts/gee_export_pm25.py --boundary gadm_adm2 --batch 13,42,87
 
 The launch command prints a one-line summary plus task IDs; rerun with
 ``--status`` later from any directory to see what's still running.
@@ -173,6 +175,7 @@ def compute_stats_for_year(
     name_field: str,
     country_field: str | None,
     tile_scale: int = TILE_SCALE,
+    simplify_error: float | None = None,
 ) -> "ee.FeatureCollection":
     pm25 = load_pm25(year)
     wp = load_worldpop(year)
@@ -195,7 +198,16 @@ def compute_stats_for_year(
         }
         if country_field:
             props["country_iso3"] = f.get(country_field)
-        return ee.Feature(f.geometry().intersection(valid, 1), props)
+        geom = f.geometry().intersection(valid, 1)
+        # simplify_error (metres) collapses the vertex count of pathological
+        # admin-2 polygons (fjord-heavy Arctic districts with millions of
+        # vertices) that blow past reduceRegions' per-operation timeout. It is
+        # only used by the residual-shard relaunch path; at sub-grid tolerance
+        # (<1113 m PM2.5 cell) the pop-weighted zonal sums are unchanged for
+        # these large, sparsely-populated units.
+        if simplify_error:
+            geom = geom.simplify(simplify_error)
+        return ee.Feature(geom, props)
 
     slim = boundaries.map(_slim)
 
@@ -241,9 +253,11 @@ def _launch_one(
     name_field: str,
     country_field: str | None,
     tile_scale: int = TILE_SCALE,
+    simplify_error: float | None = None,
 ) -> "ee.batch.Task":
     stats = compute_stats_for_year(
-        fc, year, id_field, name_field, country_field, tile_scale=tile_scale
+        fc, year, id_field, name_field, country_field,
+        tile_scale=tile_scale, simplify_error=simplify_error,
     )
     task_name = f"pm25_{boundary_name}_{year}{suffix}"
     task = ee.batch.Export.table.toDrive(
@@ -269,8 +283,9 @@ def launch_boundary(
     Returns the list of task IDs (also printed to stdout).
 
     Pass ``batches`` to launch only specific batch indices (useful for
-    retrying timed-out batches). Pass ``tile_scale`` to override the
-    default ``TILE_SCALE`` — bump to 32 for geometry-heavy retries.
+    retrying timed-out batches). ``tile_scale`` can only be lowered —
+    the default ``TILE_SCALE`` (16) is EE's hard maximum; for batches
+    that time out at 16, split them smaller via gee_reexport_missing.py.
     """
     cfg = BOUNDARIES[boundary_name]
     boundaries = ee.FeatureCollection(cfg["asset_id"])
@@ -434,9 +449,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--tile-scale", default=None, type=int, dest="tile_scale",
         help=(
             f"Override the default reduceRegions tileScale ({TILE_SCALE}). "
-            "Higher values use smaller tiles and reduce per-tile memory at "
-            "the cost of more parallel jobs. 32 is the practical max — try "
-            "this first when retrying 'Computation timed out' failures."
+            f"EE caps this at 16, which is already the default — for "
+            "'Computation timed out' retries use gee_reexport_missing.py, "
+            "which splits batches into smaller per-task chunks."
         ),
     )
     p.add_argument(
