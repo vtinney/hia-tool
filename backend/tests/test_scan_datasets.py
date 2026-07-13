@@ -172,3 +172,79 @@ def test_direct_country_dataset_emits_years_by_country(tmp_data_root: Path):
     )
     assert direct["years"] == [2019, 2020]
     assert direct["years_by_country"] == {"mexico": [2019, 2020]}
+
+
+# ── Filter pushdown ────────────────────────────────────────────────
+#
+# ``_scan_datasets`` accepts ``type_filter`` / ``pollutant_filter`` so the
+# concentration-only path (Step 2's built-in loader) skips the expensive
+# GBD-incidence enumeration instead of building ~7k entries it throws away.
+# These tests pin the contract: a filtered scan must equal the full scan
+# post-filtered (no rows gained or lost), and must not touch other blocks.
+
+
+@pytest.fixture
+def mixed_data_root(tmp_data_root: Path) -> Path:
+    """A DATA_ROOT spanning every dataset type so filter pushdown has
+    something to exclude."""
+    _write_parquet(
+        tmp_data_root / "epa_aqs" / "pm25" / "ne_states" / "2020.parquet",
+        pd.DataFrame({"admin_id": ["US-CA"], "mean_pm25": [10.0], "geometry": [None]}),
+    )
+    _write_parquet(
+        tmp_data_root / "epa_aqs" / "no2" / "ne_states" / "2020.parquet",
+        pd.DataFrame({"admin_id": ["US-CA"], "mean_no2": [20.0], "geometry": [None]}),
+    )
+    _write_parquet(
+        tmp_data_root / "demographics" / "us" / "2022.parquet",
+        pd.DataFrame({"geoid": ["06001"], "total_pop": [1000], "geometry": [None]}),
+    )
+    _write_parquet(
+        tmp_data_root / "incidence" / "gbd_rates.parquet",
+        pd.DataFrame({
+            "cause": ["ihd", "ihd", "stroke"],
+            "location_name": ["Mexico", "United States of America", "Mexico"],
+            "year": [2019, 2019, 2019],
+            "rate": [1.0, 2.0, 3.0],
+        }),
+    )
+    return tmp_data_root
+
+
+def test_concentration_filter_matches_full_scan(mixed_data_root: Path):
+    full = data_module._scan_datasets()
+    expected = [d for d in full if d.get("type") == "concentration"]
+    filtered = data_module._scan_datasets(type_filter="concentration")
+    assert sorted(map(str, filtered)) == sorted(map(str, expected))
+    # And it must not have produced any incidence entries at all.
+    assert all(d.get("type") == "concentration" for d in filtered)
+
+
+def test_pollutant_filter_matches_full_scan(mixed_data_root: Path):
+    full = data_module._scan_datasets()
+    expected = [
+        d for d in full
+        if d.get("type") == "concentration" and d.get("pollutant") == "pm25"
+    ]
+    filtered = data_module._scan_datasets(
+        type_filter="concentration", pollutant_filter="pm25"
+    )
+    assert sorted(map(str, filtered)) == sorted(map(str, expected))
+    assert all(d.get("pollutant") == "pm25" for d in filtered)
+
+
+def test_incidence_filter_matches_full_scan(mixed_data_root: Path):
+    full = data_module._scan_datasets()
+    expected = [d for d in full if d.get("type") == "incidence"]
+    filtered = data_module._scan_datasets(type_filter="incidence")
+    assert sorted(map(str, filtered)) == sorted(map(str, expected))
+
+
+def test_population_filter_includes_acs_derived(mixed_data_root: Path):
+    # The ACS-derived population entry lives in the demographics block;
+    # a population filter must still surface it.
+    full = data_module._scan_datasets()
+    expected = [d for d in full if d.get("type") == "population"]
+    filtered = data_module._scan_datasets(type_filter="population")
+    assert sorted(map(str, filtered)) == sorted(map(str, expected))
+    assert any(d.get("id") == "acs_population_us" for d in filtered)

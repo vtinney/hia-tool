@@ -600,26 +600,46 @@ def _df_to_geojson_simplified(
 # ────────────────────────────────────────────────────────────────────
 
 
-def _scan_datasets() -> list[dict[str, Any]]:
+def _scan_datasets(
+    type_filter: str | None = None,
+    pollutant_filter: str | None = None,
+) -> list[dict[str, Any]]:
     """Walk DATA_ROOT to discover available datasets and their metadata.
 
     Returns a list of dataset descriptors with pollutant, source, years,
     and countries. Intentionally NOT cached so newly-built parquet files
     (e.g. from running an ETL script against a live backend) are picked
     up on the next request without a server restart.
+
+    ``type_filter`` / ``pollutant_filter`` let callers skip whole blocks
+    of work up front. This matters because the concentration-only path
+    (Step 2's built-in loader) would otherwise pay the full cost of
+    enumerating ~7k GBD incidence entries on every request just to throw
+    them away in the caller's post-filter.
     """
     datasets: list[dict[str, Any]] = []
 
     if not DATA_ROOT.exists():
         return datasets
 
+    want_concentration = type_filter in (None, "concentration")
+    want_population = type_filter in (None, "population")
+    want_incidence = type_filter in (None, "incidence")
+    want_demographics = type_filter in (None, "demographics")
+
     # Concentration datasets: {pollutant}/{country}/{year}.parquet
     pollutant_names = {"pm25": "PM2.5", "ozone": "Ozone", "no2": "NO2"}
-    for pollutant_dir in sorted(DATA_ROOT.iterdir()):
+    if not want_concentration:
+        pollutant_dirs: list[Path] = []
+    else:
+        pollutant_dirs = sorted(DATA_ROOT.iterdir())
+    for pollutant_dir in pollutant_dirs:
         if not pollutant_dir.is_dir():
             continue
         key = pollutant_dir.name
         if key in _NON_POLLUTANT_DIRS:
+            continue
+        if pollutant_filter and key != pollutant_filter:
             continue
 
         for country_dir in sorted(pollutant_dir.iterdir()):
@@ -643,11 +663,13 @@ def _scan_datasets() -> list[dict[str, Any]]:
 
     # EPA AQS concentration datasets: epa_aqs/{pollutant}/{agg}/{year}.parquet
     aqs_dir = DATA_ROOT / "epa_aqs"
-    if aqs_dir.exists():
+    if want_concentration and aqs_dir.exists():
         for pollutant_dir in sorted(aqs_dir.iterdir()):
             if not pollutant_dir.is_dir():
                 continue
             pkey = pollutant_dir.name
+            if pollutant_filter and pkey != pollutant_filter:
+                continue
             state_sub = pollutant_dir / "ne_states"
             if not state_sub.exists():
                 continue
@@ -697,7 +719,7 @@ def _scan_datasets() -> list[dict[str, Any]]:
     # parquets also contain state-level rows (US states) so we surface
     # both a country entry (global) and a US-state entry.
     who_countries = DATA_ROOT / "who_aap" / "ne_countries"
-    if who_countries.exists():
+    if want_concentration and (not pollutant_filter or pollutant_filter == "pm25") and who_countries.exists():
         year_files = [
             f for f in who_countries.iterdir()
             if f.suffix in (".parquet", ".csv") and f.stem.isdigit()
@@ -739,7 +761,7 @@ def _scan_datasets() -> list[dict[str, Any]]:
 
     # Population datasets
     pop_dir = DATA_ROOT / "population"
-    if pop_dir.exists():
+    if want_population and pop_dir.exists():
         for country_dir in sorted(pop_dir.iterdir()):
             if not country_dir.is_dir():
                 continue
@@ -757,7 +779,7 @@ def _scan_datasets() -> list[dict[str, Any]]:
 
     # Incidence datasets
     inc_dir = DATA_ROOT / "incidence"
-    if inc_dir.exists():
+    if want_incidence and inc_dir.exists():
         for country_dir in sorted(inc_dir.iterdir()):
             if not country_dir.is_dir():
                 continue
@@ -777,9 +799,11 @@ def _scan_datasets() -> list[dict[str, Any]]:
                         "source": "Processed incidence data",
                     })
 
-    # Demographics datasets: demographics/{country}/{year}.parquet
+    # Demographics datasets: demographics/{country}/{year}.parquet.
+    # This block also surfaces an ACS-derived population entry, so it runs
+    # whenever either demographics *or* population is wanted.
     demo_dir = DATA_ROOT / "demographics"
-    if demo_dir.exists():
+    if (want_demographics or want_population) and demo_dir.exists():
         for country_dir in sorted(demo_dir.iterdir()):
             if not country_dir.is_dir():
                 continue
@@ -788,16 +812,17 @@ def _scan_datasets() -> list[dict[str, Any]]:
                 if f.suffix in (".parquet", ".csv") and f.stem.isdigit()
             )
             if years:
-                datasets.append({
-                    "type": "demographics",
-                    "country": country_dir.name,
-                    "years": years,
-                    "source": "ACS 5-year estimates (B03002, B19013, C17002)",
-                })
+                if want_demographics:
+                    datasets.append({
+                        "type": "demographics",
+                        "country": country_dir.name,
+                        "years": years,
+                        "source": "ACS 5-year estimates (B03002, B19013, C17002)",
+                    })
                 # Surface the same file as a population source, derived
                 # from ``total_pop``. This is what the population endpoint
                 # falls back to when no dedicated population file exists.
-                if not (DATA_ROOT / "population" / country_dir.name).exists():
+                if want_population and not (DATA_ROOT / "population" / country_dir.name).exists():
                     datasets.append({
                         "id": f"acs_population_{country_dir.name}",
                         "type": "population",
@@ -814,28 +839,29 @@ def _scan_datasets() -> list[dict[str, Any]]:
     # long table, surfaced only when the per-country directory layout is
     # missing that cause. Keeps the primary path authoritative.
     gbd_path = DATA_ROOT / "incidence" / "gbd_rates.parquet"
-    if gbd_path.exists():
+    if want_incidence and gbd_path.exists():
         try:
             gbd = _read_parquet(str(gbd_path.resolve()))
         except Exception:
             gbd = None
         if gbd is not None and len(gbd) > 0:
+            # Build location_name → {cause: sorted years} in a single
+            # groupby pass. The previous per-location/per-cause boolean
+            # masks did ~7k full scans of this 64k-row frame (~3.7 s);
+            # one groupby + dict lookup is ~50 ms and yields the identical
+            # mapping. Indexing by location keeps the per-slug step O(1).
+            valid = gbd.dropna(subset=["location_name", "cause", "year"])
+            causes_by_loc: dict[str, dict[str, list[int]]] = {}
+            for (loc, cause), years in (
+                valid.groupby(["location_name", "cause"])["year"]
+            ):
+                yrs = sorted({int(y) for y in years.unique()})
+                if yrs:
+                    causes_by_loc.setdefault(loc, {})[cause] = yrs
             for slug, location_name in _gbd_location_names().items():
-                per_country = gbd[gbd["location_name"] == location_name]
-                if len(per_country) == 0:
-                    continue
-                for cause in sorted(per_country["cause"].dropna().unique()):
-                    existing_dir = (
-                        DATA_ROOT / "incidence" / slug / cause
-                    )
+                for cause, years in causes_by_loc.get(location_name, {}).items():
+                    existing_dir = DATA_ROOT / "incidence" / slug / cause
                     if existing_dir.exists():
-                        continue
-                    years = sorted(
-                        int(y) for y in
-                        per_country[per_country["cause"] == cause]["year"]
-                        .dropna().unique()
-                    )
-                    if not years:
                         continue
                     datasets.append({
                         "id": f"gbd_{slug}_{cause}",
@@ -860,7 +886,7 @@ async def list_datasets(
     type: str | None = Query(None, description="Filter by type: concentration, population, incidence"),
 ):
     """List available built-in datasets with metadata."""
-    datasets = _scan_datasets()
+    datasets = _scan_datasets(type_filter=type, pollutant_filter=pollutant)
 
     if type:
         datasets = [d for d in datasets if d.get("type") == type]
