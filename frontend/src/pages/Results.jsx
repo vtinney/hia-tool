@@ -319,30 +319,79 @@ function EndpointBreakdown({ rows = [] }) {
   )
 }
 
-// ── Map placeholder (zone summary) ─────────────────────────
+// Sequential ramp (light→dark) matching the choropleth palette used elsewhere.
+// Returns a fill for an intensity in [0,1].
+function intensityFill(t) {
+  const stops = ['#f7fbff', '#deebf7', '#c6dbef', '#9ecae1', '#6baed6', '#3182bd', '#08519c']
+  const i = Math.min(stops.length - 1, Math.max(0, Math.round(t * (stops.length - 1))))
+  return stops[i]
+}
+
+// ── Spatial distribution (zone-level results) ──────────────
 function MapTab({ zones }) {
   if (!zones || zones.length === 0) {
     return (
       <div className="border border-dashed border-zinc-200 rounded-2xl py-20 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400">
-          Spatial map available for gridded analyses
+          Spatial results available for admin-level and gridded analyses
         </p>
         <p className="mt-2 text-[13px] text-zinc-500">
-          Run a gridded analysis to generate spatial results.
+          Run a tract, county, state, or admin-2 analysis to generate per-zone results.
         </p>
       </div>
     )
   }
 
+  // Total attributable cases per zone (summed across CRFs), for the ranked
+  // intensity view. Sorted so the highest-burden zones read first.
+  const ranked = zones
+    .map((zone) => ({
+      zone,
+      total: zone.results?.reduce((s, r) => s + (r.attributableCases?.mean || 0), 0) || 0,
+    }))
+    .sort((a, b) => b.total - a.total)
+  const maxTotal = ranked.length ? ranked[0].total : 0
+  const TOP_N = 15
+  const top = ranked.slice(0, TOP_N)
+
   return (
     <div className="space-y-6">
-      <div className="border border-dashed border-zinc-200 rounded-2xl py-16 text-center">
-        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-700">
-          Choropleth rendering coming soon
+      <div className="rounded-2xl border border-zinc-200/80 p-6">
+        <div className="flex items-baseline justify-between mb-1">
+          <h3 className="text-[15px] font-medium text-ink">Attributable cases by zone</h3>
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 tabular-nums">
+            {zones.length} zone{zones.length === 1 ? '' : 's'}
+          </span>
+        </div>
+        <p className="text-[12.5px] text-zinc-500 mb-5">
+          Ranked by attributable cases; shading is relative to the highest-burden zone.
         </p>
-        <p className="mt-2 text-[13px] text-zinc-500 tabular-nums">
-          {zones.length} zones with spatial results available
-        </p>
+        <ul className="space-y-2.5">
+          {top.map(({ zone, total }) => {
+            const t = maxTotal > 0 ? total / maxTotal : 0
+            return (
+              <li key={zone.zoneId} className="flex items-center gap-3">
+                <span className="text-[12.5px] text-zinc-600 w-40 shrink-0 truncate" title={zone.zoneName || zone.zoneId}>
+                  {zone.zoneName || zone.zoneId}
+                </span>
+                <div className="relative flex-1 h-4 bg-zinc-100 rounded">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded"
+                    style={{ width: `${Math.max(2, t * 100)}%`, backgroundColor: intensityFill(t) }}
+                  />
+                </div>
+                <span className="font-mono text-[12px] tabular-nums text-ink w-16 text-right shrink-0">
+                  {fmtNumber(total)}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+        {ranked.length > TOP_N && (
+          <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400">
+            + {ranked.length - TOP_N} more zones in the table below
+          </p>
+        )}
       </div>
 
       <div className="overflow-x-auto border-y border-zinc-200/80">
@@ -546,7 +595,7 @@ const CSV_COLUMNS = [
   { key: 'economicValue',        header: 'Economic Value' },
 ]
 
-function ExportTab({ results, analysisName, hasValuation, economicValue, summaryRef, tableRef, step1, step2, step6, step7, exportConfig, onOpenTemplateModal }) {
+function ExportTab({ results, analysisName, hasValuation, economicValue, summaryRef, tableRef, step1, step2, step6, step7, primaryYear, additionalRuns, exportConfig, onOpenTemplateModal }) {
   const [pdfBusy, setPdfBusy] = useState(false)
   const slug = slugify(analysisName)
   const rows = results?.detail ?? []
@@ -652,6 +701,35 @@ function ExportTab({ results, analysisName, hasValuation, economicValue, summary
         }
       }
 
+      // Multi-year comparison page — only when the user stacked additional
+      // years via "Compare another year". Mirrors the CSV block so the PDF
+      // isn't limited to the primary run.
+      const trend = buildTrendSeries(results, primaryYear, additionalRuns)
+      if (trend.length >= 2) {
+        pdf.addPage()
+        pdf.setFontSize(16); pdf.setTextColor(15, 23, 42)
+        pdf.text('Multi-year comparison', margin, 25)
+        let ty = 40
+        pdf.setFontSize(10)
+        pdf.setFont(undefined, 'bold'); pdf.setTextColor(71, 85, 105)
+        pdf.text('Year', margin, ty)
+        pdf.text('Attributable deaths (mean)', margin + 40, ty)
+        pdf.text('95% CI', margin + 120, ty)
+        pdf.setFont(undefined, 'normal')
+        ty += 8
+        for (const p of trend) {
+          pdf.setTextColor(15, 23, 42)
+          pdf.text(String(p.year), margin, ty)
+          pdf.text(fmtNumber(p.mean), margin + 40, ty)
+          const ci = p.lower95 != null && p.upper95 != null
+            ? `${fmtNumber(p.lower95)} – ${fmtNumber(p.upper95)}`
+            : '—'
+          pdf.text(ci, margin + 120, ty)
+          ty += 7
+          if (ty > pageH - 20) { pdf.addPage(); ty = 25 }
+        }
+      }
+
       pdf.save(`${slug}-report.pdf`)
     } catch (err) {
       console.error('PDF generation failed:', err)
@@ -659,7 +737,7 @@ function ExportTab({ results, analysisName, hasValuation, economicValue, summary
     } finally {
       setPdfBusy(false)
     }
-  }, [analysisName, hasValuation, step1, step6, step7, summaryRef, tableRef, slug])
+  }, [analysisName, hasValuation, economicValue, step1, step2, step6, step7, summaryRef, tableRef, slug, results, primaryYear, additionalRuns])
 
   const handleDownloadConfig = useCallback(() => {
     const config = exportConfig()
@@ -1011,6 +1089,8 @@ export default function Results() {
                     step2={step2}
                     step6={step6}
                     step7={step7}
+                    primaryYear={primaryYear}
+                    additionalRuns={additionalRuns}
                     exportConfig={exportConfig}
                     onOpenTemplateModal={() => setTemplateModal(true)}
                   />

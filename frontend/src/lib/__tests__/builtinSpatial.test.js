@@ -16,8 +16,19 @@ describe('shouldUseBuiltinSpatial', () => {
   it('is true for a built-in US tract run', () => {
     expect(shouldUseBuiltinSpatial(usTract.step1, usTract.step2)).toBe(true)
   })
-  it('is false for non-US, non-tract, or manual (non-dataset) baseline', () => {
+  it('is true for built-in US state and county runs with a state selected', () => {
+    expect(shouldUseBuiltinSpatial(
+      { studyArea: { id: 'USA', analysisLevel: 'state', stateId: '48' } }, usTract.step2,
+    )).toBe(true)
+    expect(shouldUseBuiltinSpatial(
+      { studyArea: { id: 'USA', analysisLevel: 'county', stateId: '48' } }, usTract.step2,
+    )).toBe(true)
+  })
+  it('is false for non-US, country level, no state selected, or manual baseline', () => {
     expect(shouldUseBuiltinSpatial({ studyArea: { id: 'MEX', analysisLevel: 'adm2' } }, usTract.step2)).toBe(false)
+    // country level stays on the scalar path (avoids an all-US dissolve)
+    expect(shouldUseBuiltinSpatial({ studyArea: { id: 'USA', analysisLevel: 'country', stateId: '48' } }, usTract.step2)).toBe(false)
+    // state level but no state chosen yet → not routable to the backend
     expect(shouldUseBuiltinSpatial({ studyArea: { id: 'USA', analysisLevel: 'state' } }, usTract.step2)).toBe(false)
     expect(shouldUseBuiltinSpatial(usTract.step1, { baseline: { type: 'manual', value: 19.67 } })).toBe(false)
   })
@@ -29,8 +40,21 @@ describe('buildBuiltinSpatialConfig', () => {
   it('builds a builtin tract request mapping USA→us with the chosen year/pollutant/state', () => {
     expect(cfg).toMatchObject({
       mode: 'builtin', pollutant: 'pm25', country: 'us', year: 2018,
-      analysisLevel: 'tract', stateFilter: '48', controlMode: 'benchmark',
+      analysisLevel: 'tract', stateFilter: '48', countyFilter: null, controlMode: 'benchmark',
     })
+  })
+
+  it('passes the real analysis level (state / county) instead of hardcoding tract', () => {
+    const stateCfg = buildBuiltinSpatialConfig(
+      { ...usTract.step1, studyArea: { id: 'USA', analysisLevel: 'state', stateId: '48' } },
+      usTract.step2, usTract.step6, [crf],
+    )
+    expect(stateCfg.analysisLevel).toBe('state')
+    const countyCfg = buildBuiltinSpatialConfig(
+      { ...usTract.step1, studyArea: { id: 'USA', analysisLevel: 'county', stateId: '48', countyId: '201' } },
+      usTract.step2, usTract.step6, [crf],
+    )
+    expect(countyCfg).toMatchObject({ analysisLevel: 'county', stateFilter: '48', countyFilter: '201' })
   })
 
   it('defaults the counterfactual to 0 (total burden) when no control is set', () => {
