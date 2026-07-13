@@ -23,5 +23,13 @@ Living checklist of known gaps that need follow-up work. Tracks items that were 
 - [x] ~~**Frontend: `yearsFor` consumes `years_by_country`.**~~ Shipped 2026-05-01 (`96dc925`). Returns the union over keys matching the country's equivalence set (with `US-XX` collapsing into USA), falls back to `dataset.years` when `years_by_country` is absent.
 - [x] ~~**Wire Step 3 population picker to dataset coverage.**~~ Shipped 2026-05-01. `Step3Population.jsx` now fetches `/api/data/datasets?type=population&country={country}` and constrains the YearField's options to the union of those datasets' years — but only when the Built-in tab is active. Manual entry and file upload retain the unconstrained year range since the year is metadata about user-supplied numbers in those cases.
 - [x] ~~**Wire Step 4 incidence picker to dataset coverage.**~~ Shipped 2026-05-01. `Step4HealthData.jsx` now fetches `/api/data/datasets?type=incidence&country={country}` and constrains the YearField to the union of years across all incidence datasets for the country — Built-in tab only. Per-cause availability is still surfaced via the existing `builtinAvailability` probe (greys out endpoints with no data for the chosen year).
-- [ ] **Trend chart visualization across stacked year runs.** Current display is side-by-side cards; a follow-up can add a sparkline/trend chart tab surfacing the year-over-year mortality and CI envelope.
-- [ ] **Include additional runs in PDF / CSV exports.** Export currently writes only the primary run. A follow-up can append a "Multi-year comparison" table / page summarising each additional run's year + totalDeaths.
+- [x] ~~**Trend chart visualization across stacked year runs.**~~ Shipped — `TrendTab` in `Results.jsx` renders a Recharts mean + 95% CI envelope from `buildTrendSeries`.
+- [x] ~~**Include additional runs in PDF / CSV exports.**~~ Shipped 2026-07-13. CSV already appended a "Multi-year comparison" block; PDF now gets a matching comparison page. Also fixed a latent bug where `ExportTab` didn't receive `primaryYear`/`additionalRuns` as props, which crashed *every* CSV download.
+
+## Built-in spatial routing
+
+- [x] ~~**Route built-in US state/county runs to the backend spatial engine.**~~ Shipped 2026-07-13. `shouldUseBuiltinSpatial` now accepts `state`/`county` (with a state selected); `buildBuiltinSpatialConfig` passes the real `analysisLevel` + `countyFilter`. Verified live: DE county = 3 zones, DE state = 1 zone, consistent totals. Country level intentionally stays on the scalar path (avoids an all-US tract dissolve).
+
+## GADM admin-2 global export
+
+- [ ] **Confirm 760/760 GADM admin-2 shards, then build parquet.** As of 2026-07-13, 747/760 were complete; the residual 14 shards were relaunched (`relaunch_missing_shards_v2.py` for timeouts, `relaunch_arctic_oom.py` for the Baffin/Nunavut out-of-memory units). Once the EE queue drains, re-audit Drive (`rclone lsf gdrive: --include "pm25_gadm_adm2_*.csv" -R`), expect 760/760, then `pm25_csv_to_parquet.py --boundary gadm_adm2`. See vault note *HIA Tool - GADM Admin-2 GEE Timeout Retries* (2026-07-13).
