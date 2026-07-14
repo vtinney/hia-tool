@@ -55,20 +55,31 @@ def write_parquet(df: pd.DataFrame, path: Path) -> None:
     df.to_parquet(path, engine="pyarrow", index=False)
 
 
-def group_csvs(csvs: list[Path]) -> dict[str, list[Path]]:
-    """Group CSVs by boundary name, stripping trailing numeric suffixes.
+# Trailing per-task suffixes appended by the batched / re-tiled export paths,
+# stripped when deriving a CSV's boundary group. Covers:
+#   _2022_000            whole batch           (gee_export_pm25)
+#   _2016_013_s3         5-way shard           (gee_reexport_missing)
+#   _040_s3a / _040_s3b  50-feat re-tile       (relaunch_failed_shards)
+#   _040_s3_x0           25-feat re-tile       (relaunch_missing_shards_v2)
+#   _040_s3_z1           5-feat Arctic re-tile (relaunch_arctic_oom)
+#   _040_s3_w2           1-feat per-feature    (relaunch_arctic_oom --per-feature)
+_SUFFIX_RE = re.compile(r"(_\d+|_s\d[ab]?|_x\d+|_z\d+|_w\d+)+$")
 
-    Handles all naming conventions produced by the GEE script:
+
+def group_csvs(csvs: list[Path]) -> dict[str, list[Path]]:
+    """Group CSVs by boundary name, stripping trailing per-task suffixes.
+
+    Handles every naming convention the export + relaunch scripts produce:
       pm25_ne_countries.csv              -> group 'pm25_ne_countries'
       pm25_ne_countries_2015.csv         -> group 'pm25_ne_countries'
       pm25_ghs_smod_2022_000.csv         -> group 'pm25_ghs_smod'
-      pm25_ghs_smod_2022_001.csv         -> group 'pm25_ghs_smod'
-
-    The rule: strip all trailing '_DIGITS' groups from the stem.
+      pm25_gadm_adm2_2016_013_s3.csv     -> group 'pm25_gadm_adm2'
+      pm25_gadm_adm2_2018_040_s3_x0.csv  -> group 'pm25_gadm_adm2'
+      pm25_gadm_adm2_2020_040_s3_z1.csv  -> group 'pm25_gadm_adm2'
     """
     groups: dict[str, list[Path]] = defaultdict(list)
     for csv in csvs:
-        group_name = re.sub(r"(_\d+)+$", "", csv.stem)
+        group_name = _SUFFIX_RE.sub("", csv.stem)
         groups[group_name].append(csv)
     return dict(groups)
 
@@ -83,6 +94,12 @@ def main() -> None:
                         help="Process only this boundary group (e.g. 'ghs_smod'). "
                              "When set, only pm25_{boundary}_*.csv files are read "
                              "and only the matching .parquet is (re)written.")
+    parser.add_argument("--split-by-year", action="store_true",
+                        help="Write per-year files to <output-dir>/<boundary>/"
+                             "{year}.parquet instead of one combined "
+                             "<output-dir>/pm25_<boundary>.parquet. Required for "
+                             "the gadm_adm2 path, whose resolver reads "
+                             "who_aap/gadm_adm2/{year}.parquet.")
     args = parser.parse_args()
 
     if args.boundary:
@@ -96,10 +113,31 @@ def main() -> None:
     for group_name, csv_list in sorted(groups.items()):
         frames = [load_csv(csv) for csv in sorted(csv_list)]
         df = pd.concat(frames, ignore_index=True)
+        # Sharded / re-tiled exports write disjoint feature ranges to separate
+        # CSVs, so (feature_id, year) is unique by construction — but dedupe
+        # defensively in case a batch was ever re-exported under a colliding
+        # name. Keeping "first" is arbitrary since duplicates are identical.
+        before = len(df)
+        df = df.drop_duplicates(subset=["feature_id", "year"], keep="first")
+        dropped = before - len(df)
         df = compute_popweighted(df)
-        out = args.output_dir / (group_name + ".parquet")
-        write_parquet(df, out)
-        print(f"wrote {out} ({len(df)} rows from {len(csv_list)} CSVs)")
+        note = f" ({dropped} dup rows dropped)" if dropped else ""
+
+        if args.split_by_year:
+            # <output-dir>/<boundary>/{year}.parquet — the layout the gadm_adm2
+            # resolver reads. boundary = group name without the pm25_ prefix.
+            boundary = group_name[len("pm25_"):] if group_name.startswith("pm25_") else group_name
+            subdir = args.output_dir / boundary
+            for year, ydf in df.groupby("year"):
+                out = subdir / f"{int(year)}.parquet"
+                write_parquet(ydf.reset_index(drop=True), out)
+                print(f"wrote {out} ({len(ydf)} rows)")
+            print(f"  {group_name}: {len(df)} rows across "
+                  f"{df['year'].nunique()} years from {len(csv_list)} CSVs{note}")
+        else:
+            out = args.output_dir / (group_name + ".parquet")
+            write_parquet(df, out)
+            print(f"wrote {out} ({len(df)} rows from {len(csv_list)} CSVs){note}")
 
 
 if __name__ == "__main__":

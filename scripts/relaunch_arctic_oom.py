@@ -89,6 +89,34 @@ def plan() -> list[dict]:
     return tasks
 
 
+# Per-feature fallback for the one 5-feature z-tile (20355..20359) that still
+# OOMs, because it mixes three enormous Nunavut units with two small populated
+# ones. Each feature runs alone, with a simplify tolerance matched to its size:
+# the small districts keep 1 km (heavy simplify would distort them), the Arctic
+# giants get 40 km (immaterial to their ~zero-pop PM2.5, cuts the vertex load).
+PER_FEATURE = [
+    # (offset, name,             simplify_m)
+    (20355, "Hants",            1000.0),
+    (20356, "Baffin",           40000.0),
+    (20357, "Keewatin",         40000.0),
+    (20358, "Kitikmeot",        40000.0),
+    (20359, "Greater Sudbury",  1000.0),
+]
+
+
+def plan_per_feature() -> list[dict]:
+    tasks = []
+    for year in YEARS:
+        for i, (off, label, simp) in enumerate(PER_FEATURE):
+            tasks.append({
+                "year": year, "offset": off, "count": 1, "simplify": simp,
+                "label": label,
+                "suffix": f"_040_s3_w{i}",
+                "name": f"pm25_{BOUNDARY}_{year}_040_s3_w{i}",
+            })
+    return tasks
+
+
 def cancel_oom_tiles() -> int:
     """Cancel any active _x tile that covers 20350..20374 to avoid double count."""
     targets = {f"pm25_{BOUNDARY}_{y}{sfx}" for y, sfx in OOM_XTILE_SUFFIX.items()}
@@ -112,22 +140,35 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("--launch", action="store_true",
                    help="Cancel OOM tiles and start the reprocess (default: dry run)")
+    p.add_argument("--per-feature", action="store_true",
+                   help="Fallback: reprocess the 20355..20359 tile one feature at "
+                        "a time with per-feature simplify (populated districts 1 km, "
+                        "Arctic giants 40 km). Use after the 5-feature z-tile OOMs.")
     p.add_argument("--ee-project", default="hia-tool")
     args = p.parse_args(argv)
 
-    tasks = plan()
-    print(f"Arctic OOM reprocess: features {OOM_START}..{OOM_START + OOM_COUNT - 1} "
-          f"x {len(YEARS)} years -> {len(tasks)} x {TILE_SIZE}-feature tasks "
-          f"[tileScale={TILE_SCALE}, simplify={SIMPLIFY_ERROR:.0f} m]\n")
+    per_feature = args.per_feature
+    tasks = plan_per_feature() if per_feature else plan()
+    if per_feature:
+        print(f"Arctic OOM per-feature reprocess: features "
+              f"{PER_FEATURE[0][0]}..{PER_FEATURE[-1][0]} x {len(YEARS)} years "
+              f"-> {len(tasks)} x 1-feature tasks [tileScale={TILE_SCALE}]\n")
+    else:
+        print(f"Arctic OOM reprocess: features {OOM_START}..{OOM_START + OOM_COUNT - 1} "
+              f"x {len(YEARS)} years -> {len(tasks)} x {TILE_SIZE}-feature tasks "
+              f"[tileScale={TILE_SCALE}, simplify={SIMPLIFY_ERROR:.0f} m]\n")
 
     if not args.launch:
-        print("Would cancel active OOM _x tiles:")
-        for y, sfx in OOM_XTILE_SUFFIX.items():
-            print(f"  pm25_{BOUNDARY}_{y}{sfx}")
-        print()
+        if not per_feature:
+            print("Would cancel active OOM _x tiles:")
+            for y, sfx in OOM_XTILE_SUFFIX.items():
+                print(f"  pm25_{BOUNDARY}_{y}{sfx}")
+            print()
         for t in tasks:
+            extra = (f"  {t['label']} simplify={t['simplify']:.0f}m"
+                     if per_feature else "")
             print(f"  would launch {t['name']:<36} "
-                  f"(features {t['offset']}..{t['offset'] + t['count'] - 1})")
+                  f"(feature {t['offset']}){extra}")
         print(f"\nDRY RUN — nothing cancelled or launched. Re-run with --launch.")
         return 0
 
@@ -136,19 +177,22 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     ee.Initialize(project=args.ee_project)
 
-    print("Cancelling active OOM _x tiles ...")
-    cancel_oom_tiles()
-    print()
-
     cfg = BOUNDARIES[BOUNDARY]
     boundaries = ee.FeatureCollection(cfg["asset_id"])
+
+    if not per_feature:
+        print("Cancelling active OOM _x tiles ...")
+        cancel_oom_tiles()
+        print()
+
     launched = 0
     for t in tasks:
         sub_fc = ee.FeatureCollection(boundaries.toList(t["count"], t["offset"]))
         task = _launch_one(
             sub_fc, BOUNDARY, t["year"], t["suffix"],
             cfg["id_field"], cfg["name_field"], cfg.get("country_field"),
-            tile_scale=TILE_SCALE, simplify_error=SIMPLIFY_ERROR,
+            tile_scale=TILE_SCALE,
+            simplify_error=t.get("simplify", SIMPLIFY_ERROR),
         )
         launched += 1
         print(f"  queued {task.config['description']:<36} id={task.id}")
