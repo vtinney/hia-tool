@@ -485,6 +485,16 @@ def parse_batches(spec: str | None) -> list[int] | None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # The progress lines below use non-ASCII glyphs (→, ×). On Windows the
+    # console defaults to a legacy codepage (cp1252) that can't encode them,
+    # which aborts the run *before* any task is queued. Force UTF-8 so the
+    # launcher behaves the same on Windows as on POSIX.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass
+
     args = parse_args(argv)
 
     if ee is None:
