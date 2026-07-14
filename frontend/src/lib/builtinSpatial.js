@@ -1,40 +1,47 @@
-// Built-in US analyses (tract / county / state) run on the backend spatial
-// engine (mode:'builtin') rather than the client-side scalar engine, so they
-// return per-zone `zones` — real dissolved reporting units with their own
-// population and concentration, and (at tract level) the per-tract results the
-// Environmental Justice context section needs. This module decides when that
-// path applies and builds the request.
+// Built-in analyses that run on the backend spatial engine (mode:'builtin')
+// rather than the client-side scalar engine, so they return per-zone `zones`
+// — real reporting units with their own population and concentration, and
+// (at US tract level) the per-tract results the Environmental Justice context
+// section needs. This module decides when that path applies and builds the
+// request.
+//
+// Two families route here:
+//   - US admin grains (tract / county / state), resolved from ACS tracts.
+//   - Non-US admin-2 (GADM), resolved from the global admin-2 parquet.
+// US country level stays on the scalar path: dissolving all ~85k US tracts
+// into one polygon is slow and a national scalar is just as accurate. Non-US
+// "country average" likewise stays scalar (the legacy WHO AAP fallback).
 
-// US admin grains the backend spatial engine resolves from ACS tracts. Country
-// level stays on the scalar path: dissolving all ~85k US tracts into one
-// polygon is slow and a national scalar is just as accurate.
 const US_SPATIAL_LEVELS = new Set(['tract', 'county', 'state'])
 
 /**
- * True when the current run is a built-in US admin-level analysis (tract,
- * county, or state) that should be routed to the backend `mode:'builtin'`
- * spatial endpoint instead of the in-browser scalar engine.
+ * True when the current run should be routed to the backend `mode:'builtin'`
+ * spatial endpoint instead of the in-browser scalar engine:
  *
- * A state must be selected: the Step 1 UI only exposes the analysis-level
- * radios once a state is picked, and the backend needs a state filter to avoid
- * an all-US dissolve. Country-level and non-US runs fall through to the scalar
- * / admin-2 paths.
+ *   - built-in US admin-level analysis (tract, county, or state). A state
+ *     must be selected: the Step 1 UI only exposes the analysis-level radios
+ *     once a state is picked, and the backend needs a state filter to avoid
+ *     an all-US dissolve.
+ *   - non-US admin-2 analysis (GADM). Step 1 defaults the non-US radio to
+ *     adm2, so a study area without analysisLevel routes as adm2 to match
+ *     what the UI displays.
  *
  * @param {object} step1 - Study-area step state.
  * @param {object} step2 - Concentration step state.
  * @returns {boolean}
  */
 export function shouldUseBuiltinSpatial(step1, step2) {
-  return (
-    step1?.studyArea?.id === 'USA' &&
-    US_SPATIAL_LEVELS.has(step1?.studyArea?.analysisLevel) &&
-    Boolean(step1?.studyArea?.stateId) &&
-    step2?.baseline?.type === 'dataset'
-  )
+  if (step2?.baseline?.type !== 'dataset') return false
+  const area = step1?.studyArea
+  if (!area?.id) return false
+  if (area.id === 'USA') {
+    return US_SPATIAL_LEVELS.has(area.analysisLevel) && Boolean(area.stateId)
+  }
+  return (area.analysisLevel || 'adm2') === 'adm2'
 }
 
 /**
- * Build the `/api/compute/spatial` request body for a built-in US tract run.
+ * Build the `/api/compute/spatial` request body for a built-in run.
  * Assumes shouldUseBuiltinSpatial() already returned true.
  *
  * @param {object} step1 - Study-area step state (pollutant, studyArea).
@@ -44,16 +51,22 @@ export function shouldUseBuiltinSpatial(step1, step2) {
  * @returns {object} Spatial compute request.
  */
 export function buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFs) {
+  const isUS = step1?.studyArea?.id === 'USA'
   const config = {
     mode: 'builtin',
     pollutant: step1?.pollutant,
-    country: 'us', // studyArea.id 'USA' → backend country slug
+    // Backend country: 'us' slug for US runs; ISO3 passthrough for the
+    // admin-2 path (the resolver normalizes slugs and ISO3 alike).
+    country: isUS ? 'us' : step1?.studyArea?.id,
     year: step2?.baseline?.year ?? null,
-    // Real grain from Step 1 (tract / county / state); default to tract so an
-    // older persisted study area without analysisLevel still resolves safely.
-    analysisLevel: step1?.studyArea?.analysisLevel || 'tract',
-    stateFilter: step1?.studyArea?.stateId || null,
-    countyFilter: step1?.studyArea?.countyId || null,
+    // US: real grain from Step 1 (tract / county / state); default to tract
+    // so an older persisted study area without analysisLevel still resolves
+    // safely. Non-US: always adm2 (the only backend-routed non-US grain).
+    analysisLevel: isUS
+      ? (step1?.studyArea?.analysisLevel || 'tract')
+      : 'adm2',
+    stateFilter: (isUS && step1?.studyArea?.stateId) || null,
+    countyFilter: (isUS && step1?.studyArea?.countyId) || null,
     controlMode: 'benchmark',
     // Unset counterfactual → total burden (0 µg/m³), consistent with the
     // scalar engine's default.

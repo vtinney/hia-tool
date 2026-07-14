@@ -759,6 +759,49 @@ def _scan_datasets(
                 "label": "WHO AAP — PM2.5 (global, country-level)",
             })
 
+    # GADM admin-2 — global population-weighted PM2.5 from the GEE export,
+    # one parquet per year. Coverage keys on the country_iso3 column (this
+    # parquet has no admin_id); only that column is read so the scan stays
+    # cheap against ~47k-row files.
+    adm2_dir = DATA_ROOT / "who_aap" / "gadm_adm2"
+    if want_concentration and (not pollutant_filter or pollutant_filter == "pm25") and adm2_dir.exists():
+        year_files = [
+            f for f in adm2_dir.iterdir()
+            if f.suffix == ".parquet" and f.stem.isdigit()
+        ]
+        years = sorted(int(f.stem) for f in year_files)
+        if years:
+            covered: set[str] = set()
+            years_by_country: dict[str, list[int]] = {}
+            for f in year_files:
+                try:
+                    df = pd.read_parquet(f, columns=["country_iso3"])
+                except Exception:
+                    logger.warning("Failed to read %s for coverage", f, exc_info=True)
+                    continue
+                file_year = int(f.stem)
+                file_countries = {
+                    str(x) for x in df["country_iso3"].dropna().unique()
+                }
+                covered.update(file_countries)
+                for iso3 in file_countries:
+                    years_by_country.setdefault(iso3, []).append(file_year)
+            for iso3 in years_by_country:
+                years_by_country[iso3].sort()
+            datasets.append({
+                "id": "gadm_adm2_pm25_global",
+                "type": "concentration",
+                "pollutant": "pm25",
+                "pollutant_label": "PM2.5",
+                "country": "global",
+                "countries_covered": sorted(covered),
+                "years": years,
+                "years_by_country": years_by_country,
+                "aggregation": "adm2",
+                "source": "GEE population-weighted PM2.5 on GADM admin-2 boundaries",
+                "label": "Global admin-2 (GADM) — PM2.5, population-weighted",
+            })
+
     # Population datasets
     pop_dir = DATA_ROOT / "population"
     if want_population and pop_dir.exists():

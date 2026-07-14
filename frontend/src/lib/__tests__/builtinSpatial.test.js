@@ -24,13 +24,21 @@ describe('shouldUseBuiltinSpatial', () => {
       { studyArea: { id: 'USA', analysisLevel: 'county', stateId: '48' } }, usTract.step2,
     )).toBe(true)
   })
-  it('is false for non-US, country level, no state selected, or manual baseline', () => {
-    expect(shouldUseBuiltinSpatial({ studyArea: { id: 'MEX', analysisLevel: 'adm2' } }, usTract.step2)).toBe(false)
-    // country level stays on the scalar path (avoids an all-US dissolve)
+  it('is true for a non-US admin-2 run with a built-in dataset', () => {
+    expect(shouldUseBuiltinSpatial({ studyArea: { id: 'MEX', analysisLevel: 'adm2' } }, usTract.step2)).toBe(true)
+    // Step 1 defaults the non-US radio to adm2, so a study area persisted
+    // without analysisLevel must route the same way the UI displays it.
+    expect(shouldUseBuiltinSpatial({ studyArea: { id: 'MEX' } }, usTract.step2)).toBe(true)
+  })
+  it('is false for country level, no state selected, or manual baseline', () => {
+    // non-US country average stays on the scalar path
+    expect(shouldUseBuiltinSpatial({ studyArea: { id: 'MEX', analysisLevel: 'country' } }, usTract.step2)).toBe(false)
+    // US country level stays on the scalar path (avoids an all-US dissolve)
     expect(shouldUseBuiltinSpatial({ studyArea: { id: 'USA', analysisLevel: 'country', stateId: '48' } }, usTract.step2)).toBe(false)
     // state level but no state chosen yet → not routable to the backend
     expect(shouldUseBuiltinSpatial({ studyArea: { id: 'USA', analysisLevel: 'state' } }, usTract.step2)).toBe(false)
     expect(shouldUseBuiltinSpatial(usTract.step1, { baseline: { type: 'manual', value: 19.67 } })).toBe(false)
+    expect(shouldUseBuiltinSpatial({ studyArea: { id: 'MEX', analysisLevel: 'adm2' } }, { baseline: { type: 'manual', value: 15 } })).toBe(false)
   })
 })
 
@@ -73,6 +81,26 @@ describe('buildBuiltinSpatialConfig', () => {
       beta: 0.0062, betaLow: 0.0044, betaHigh: 0.008, functionalForm: 'mr-brt', defaultRate: 0.008,
     }])
     expect(cfg.selectedCRFs[0]).not.toHaveProperty('extraneous')
+  })
+
+  it('builds a non-US admin-2 request with the real ISO3 country and no US filters', () => {
+    const adm2Cfg = buildBuiltinSpatialConfig(
+      { pollutant: 'pm25', studyArea: { id: 'MEX', analysisLevel: 'adm2' } },
+      usTract.step2, usTract.step6, [crf],
+    )
+    expect(adm2Cfg).toMatchObject({
+      mode: 'builtin', pollutant: 'pm25', country: 'MEX', year: 2018,
+      analysisLevel: 'adm2', stateFilter: null, countyFilter: null, controlMode: 'benchmark',
+      controlConcentration: 0,
+    })
+  })
+
+  it('defaults a non-US study area without analysisLevel to adm2', () => {
+    const adm2Cfg = buildBuiltinSpatialConfig(
+      { pollutant: 'pm25', studyArea: { id: 'MEX' } },
+      usTract.step2, usTract.step6, [crf],
+    )
+    expect(adm2Cfg).toMatchObject({ country: 'MEX', analysisLevel: 'adm2' })
   })
 
   it('includes monteCarloIterations only when the user set a positive count (else analytical)', () => {

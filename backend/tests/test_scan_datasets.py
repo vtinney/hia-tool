@@ -84,6 +84,59 @@ def test_who_aap_entry_includes_per_country_years(tmp_data_root: Path):
     assert ybc["FRA"] == [2018]
 
 
+def _gadm_frame(iso3s: list[str]) -> pd.DataFrame:
+    # Minimal shape of the GEE-exported admin-2 parquet: feature_id is the
+    # GADM GID_2, country_iso3 is what coverage scanning keys on.
+    return pd.DataFrame({
+        "feature_id": [f"{iso3}.1.1_1" for iso3 in iso3s],
+        "name": [f"District {iso3}" for iso3 in iso3s],
+        "country_iso3": iso3s,
+        "pm25_popweighted": [12.0] * len(iso3s),
+        "pop_total": [50_000.0] * len(iso3s),
+    })
+
+
+def test_gadm_adm2_entry_lists_iso3_coverage_and_years(tmp_data_root: Path):
+    # CAN drops out in 2016; MEX carries through. Coverage and per-country
+    # years come from the country_iso3 column (the parquet has no admin_id).
+    _write_parquet(
+        tmp_data_root / "who_aap" / "gadm_adm2" / "2015.parquet",
+        _gadm_frame(["MEX", "CAN"]),
+    )
+    _write_parquet(
+        tmp_data_root / "who_aap" / "gadm_adm2" / "2016.parquet",
+        _gadm_frame(["MEX"]),
+    )
+
+    datasets = data_module._scan_datasets()
+    gadm = [d for d in datasets if d.get("id") == "gadm_adm2_pm25_global"]
+    assert len(gadm) == 1
+    entry = gadm[0]
+    assert entry["type"] == "concentration"
+    assert entry["pollutant"] == "pm25"
+    assert entry["aggregation"] == "adm2"
+    assert sorted(entry["countries_covered"]) == ["CAN", "MEX"]
+    assert entry["years"] == [2015, 2016]
+    assert entry["years_by_country"] == {"CAN": [2015], "MEX": [2015, 2016]}
+
+
+def test_gadm_adm2_entry_respects_pollutant_filter(tmp_data_root: Path):
+    _write_parquet(
+        tmp_data_root / "who_aap" / "gadm_adm2" / "2015.parquet",
+        _gadm_frame(["MEX"]),
+    )
+
+    pm25 = data_module._scan_datasets(
+        type_filter="concentration", pollutant_filter="pm25"
+    )
+    assert any(d.get("id") == "gadm_adm2_pm25_global" for d in pm25)
+
+    no2 = data_module._scan_datasets(
+        type_filter="concentration", pollutant_filter="no2"
+    )
+    assert not any(d.get("id") == "gadm_adm2_pm25_global" for d in no2)
+
+
 def test_epa_aqs_entry_includes_us_states_covered(tmp_data_root: Path):
     _write_parquet(
         tmp_data_root / "epa_aqs" / "pm25" / "ne_states" / "2020.parquet",
