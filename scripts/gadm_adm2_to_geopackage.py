@@ -10,27 +10,25 @@ gadm_adm2/{year}.parquet on feature_id (= GID_2).
 
 Source
 ------
-GADM v4.1 worldwide. Two ways to get it:
+GADM v4.1 worldwide, from gadm.org:
+    https://geodata.ucdavis.edu/gadm/gadm4.1/gadm_410-gpkg.zip
+Unzip into data/raw/boundaries/ so you have data/raw/boundaries/gadm_410.gpkg.
 
-  1. Download from gadm.org (recommended):
-       https://geodata.ucdavis.edu/gadm/gadm4.1/gadm_410-gpkg.zip
-     Unzip into data/raw/boundaries/ so you have:
-       data/raw/boundaries/gadm_410.gpkg
-     The level-2 layer inside is named ADM_2.
+IMPORTANT: gadm_410.gpkg is a SINGLE FLAT LAYER holding the deepest available
+admin level per country (admin-2 in the US, admin-4 in Indonesia, etc.), NOT a
+multi-layer file with a named ADM_2 layer. So admin-2 is extracted the same way
+scripts/build_gadm_adm2_for_gee.py built the GEE asset: keep rows where GID_2 is
+populated, then dissolve by GID_2 to merge admin-3/4/5 leaves into one polygon
+per admin-2. Using the identical extraction guarantees the gpkg's GID_2 set
+matches the asset's, so the resolver's inner join on feature_id is clean.
 
-  2. Export from your GEE asset (if that's all you've got) via
-     Export.table.toDrive(format='SHP'). Then point --input at the
-     downloaded .zip / .shp and --layer at None.
-
-The version of the source MUST match the version of the GEE asset used to
-produce the per-year stats parquets, otherwise GID_2 strings won't join
-cleanly. v4.1 throughout is the spec.
+The version of the source MUST match the GEE asset used to produce the per-year
+stats parquets (both are gadm_410 here), otherwise GID_2 strings won't join.
 
 Run
 ---
     python scripts/gadm_adm2_to_geopackage.py \
         --input data/raw/boundaries/gadm_410.gpkg \
-        --layer ADM_2 \
         --simplify-tolerance 0.005
 
 Output
@@ -53,15 +51,15 @@ import time
 from pathlib import Path
 
 import geopandas as gpd
+import pyogrio
 
 logger = logging.getLogger("gadm_adm2_to_geopackage")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT = REPO_ROOT / "data" / "processed" / "boundaries" / "gadm_adm2.gpkg"
 
-# GADM v4.1 standard admin-2 column names. Edit this dict if your source uses
-# a non-standard schema (e.g. shapefile DBF truncation to 10 chars). The keys
-# are the source columns we read; the values are what the resolver expects.
+# GADM v4.1 admin-2 columns read from the flat source. Keys are source columns;
+# values are what the resolver expects. Edit if a source uses a truncated schema.
 COLUMN_MAP = {
     "GID_2":  "feature_id",
     "NAME_2": "name",
@@ -70,30 +68,41 @@ COLUMN_MAP = {
 
 
 def open_source(path: Path, layer: str | None) -> gpd.GeoDataFrame:
-    """Read the GADM source file. Layer is required for multi-layer GPKGs."""
+    """Read admin-2 rows from the flat gadm_410 source and dissolve by GID_2.
+
+    Mirrors scripts/build_gadm_adm2_for_gee.py exactly (same rows, same
+    dissolve) so the resulting GID_2 set matches the GEE asset the stats
+    parquets were computed against. ``layer`` is accepted for API compatibility
+    but ignored — gadm_410.gpkg is single-layer.
+    """
     if not path.exists():
         raise FileNotFoundError(f"GADM source not found: {path}")
     read_path = f"zip://{path}" if path.suffix == ".zip" else str(path)
-    if layer:
-        gdf = gpd.read_file(read_path, layer=layer)
-    else:
-        gdf = gpd.read_file(read_path)
-    logger.info("loaded %d features from %s%s",
-                len(gdf), path.name, f" (layer={layer})" if layer else "")
-    return gdf
+    logger.info("reading admin-2 rows (GID_2 populated) from %s ...", path.name)
+    gdf = pyogrio.read_dataframe(
+        read_path,
+        columns=[*COLUMN_MAP.keys()],
+        where="GID_2 IS NOT NULL AND GID_2 != ''",
+    )
+    logger.info("  loaded %d admin-2+ rows; dissolving by GID_2 ...", len(gdf))
+    # Merge admin-3/4/5 leaves into one polygon per admin-2. GADM children tile
+    # their parent exactly, so the dissolve is geometrically clean.
+    adm2 = gdf.dissolve(by="GID_2", aggfunc="first", as_index=False)
+    logger.info("  produced %d admin-2 polygons", len(adm2))
+    return adm2
 
 
 def slim_and_simplify(
     gdf: gpd.GeoDataFrame,
     tolerance: float,
 ) -> gpd.GeoDataFrame:
-    """Drop unused columns, simplify geometry, ensure WGS84."""
+    """Rename to resolver columns, simplify geometry, ensure WGS84."""
     missing = [c for c in COLUMN_MAP if c not in gdf.columns]
     if missing:
         raise SystemExit(
             f"Source is missing expected columns {missing}. "
             f"Available: {sorted(c for c in gdf.columns if c != 'geometry')}\n"
-            f"If your asset uses a non-standard schema, edit COLUMN_MAP in this script."
+            f"If your source uses a non-standard schema, edit COLUMN_MAP in this script."
         )
 
     slim = gdf[[*COLUMN_MAP.keys(), "geometry"]].rename(columns=COLUMN_MAP)
