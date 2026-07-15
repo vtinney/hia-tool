@@ -82,10 +82,13 @@ export async function fetchConcentration(pollutant, country, year) {
  *
  * @param {string} country
  * @param {number} year
+ * @param {string} [datasetId] - Population dataset id (e.g.
+ *   "gadm_adm2_pop_global"); omit for the legacy totals/ACS resolution.
  * @returns {Promise<object|null>} { country, year, units: [...] } or null if 404
  */
-export async function fetchPopulation(country, year) {
-  const res = await fetch(`${API_BASE}/data/population/${country}/${year}`)
+export async function fetchPopulation(country, year, datasetId) {
+  const qs = datasetId ? `?dataset=${encodeURIComponent(datasetId)}` : ''
+  const res = await fetch(`${API_BASE}/data/population/${country}/${year}${qs}`)
   if (!res.ok) {
     if (res.status === 404) return null
     throw new Error(`Failed to fetch population data: ${res.status}`)

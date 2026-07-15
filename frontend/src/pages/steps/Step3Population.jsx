@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
 import { uploadFile, fetchPopulation, fetchDatasets } from '../../lib/api'
+import { yearsFor } from '../../lib/datasets'
 import YearField from '../../components/YearField'
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -207,7 +208,7 @@ function CsvUpload({ fileData, onFile, onClear }) {
 
 // ── Built-in population loader ────────────────────────────────────
 
-function BuiltinPopulationLoader({ studyArea, year, onDataLoaded }) {
+function BuiltinPopulationLoader({ studyArea, year, datasetId, onDataLoaded }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [loadedData, setLoadedData] = useState(null)
@@ -221,7 +222,7 @@ function BuiltinPopulationLoader({ studyArea, year, onDataLoaded }) {
     setError(null)
     setLoadedData(null)
 
-    fetchPopulation(country, year)
+    fetchPopulation(country, year, datasetId || undefined)
       .then((data) => {
         if (!data) {
           setError(`No built-in population data for ${studyArea?.name || country} in ${year}.`)
@@ -255,7 +256,7 @@ function BuiltinPopulationLoader({ studyArea, year, onDataLoaded }) {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [country, year]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [country, year, datasetId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!year) {
     return (
@@ -324,14 +325,53 @@ export default function Step3Population() {
     return () => { cancelled = true }
   }, [country])
 
+  // Spatially-resolved WorldPop datasets (global coverage) appear as extra
+  // "Data source" options; the plain per-country totals stay behind the
+  // default option, so they aren't listed twice.
+  const spatialPopDatasets = useMemo(
+    () => (populationDatasets || []).filter((d) => d.id && d.countries_covered),
+    [populationDatasets],
+  )
+
+  const selectedDatasetId = step3.populationDatasetId ?? null
+
+  // Auto-default once datasets load: prefer the WorldPop dataset matching
+  // the Step 1 analysis level (adm2 / urban); otherwise the legacy
+  // country-totals path. A selection the user already made is kept unless
+  // it no longer exists for this country.
+  useEffect(() => {
+    if (!populationDatasets) return
+    const ids = new Set(spatialPopDatasets.map((d) => d.id))
+    const current = step3.populationDatasetId
+    if (current === '' || (current && ids.has(current))) return
+    const level = step1?.studyArea?.analysisLevel
+    const preferred =
+      level === 'adm2' && ids.has('gadm_adm2_pop_global')
+        ? 'gadm_adm2_pop_global'
+        : level === 'urban' && ids.has('ghs_smod_pop_global')
+          ? 'ghs_smod_pop_global'
+          : ''
+    if (current !== preferred) setStep3({ populationDatasetId: preferred })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [populationDatasets, spatialPopDatasets, step1?.studyArea?.analysisLevel])
+
   const populationYears = useMemo(() => {
     if (!populationDatasets) return null
+    const selected = selectedDatasetId
+      ? populationDatasets.find((d) => d.id === selectedDatasetId)
+      : null
+    if (selected) {
+      const ys = selected.countries_covered
+        ? yearsFor(selected, country)
+        : selected.years || []
+      if (ys.length) return [...ys].sort((a, b) => b - a)
+    }
     const all = new Set()
     for (const d of populationDatasets) {
       for (const y of d.years || []) all.add(y)
     }
     return [...all].sort((a, b) => b - a)
-  }, [populationDatasets])
+  }, [populationDatasets, selectedDatasetId, country])
 
   const yearFieldAllowed =
     activeTab === 'builtin' && populationYears && populationYears.length > 0
@@ -473,17 +513,39 @@ export default function Step3Population() {
 
           {/* Built-in Data */}
           {activeTab === 'builtin' && (
-            <BuiltinPopulationLoader
-              studyArea={step1.studyArea}
-              year={effectiveYear}
-              onDataLoaded={(total, ageGroups) => {
-                setStep3({
-                  totalPopulation: total,
-                  ageGroups: ageGroups || step3.ageGroups,
-                  populationType: 'dataset',
-                })
-              }}
-            />
+            <div className="space-y-3">
+              {spatialPopDatasets.length > 0 && (
+                <div>
+                  <label htmlFor="pop-dataset" className="block text-sm text-gray-600 mb-1">
+                    Data source
+                  </label>
+                  <select
+                    id="pop-dataset"
+                    value={selectedDatasetId ?? ''}
+                    onChange={(e) => setStep3({ populationDatasetId: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm
+                               focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">Country totals (default)</option>
+                    {spatialPopDatasets.map((d) => (
+                      <option key={d.id} value={d.id}>{d.label || d.id}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <BuiltinPopulationLoader
+                studyArea={step1.studyArea}
+                year={effectiveYear}
+                datasetId={selectedDatasetId || null}
+                onDataLoaded={(total, ageGroups) => {
+                  setStep3({
+                    totalPopulation: total,
+                    ageGroups: ageGroups || step3.ageGroups,
+                    populationType: 'dataset',
+                  })
+                }}
+              />
+            </div>
           )}
         </fieldset>
       </div>

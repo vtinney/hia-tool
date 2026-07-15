@@ -271,19 +271,99 @@ async def get_concentration(
 # ────────────────────────────────────────────────────────────────────
 
 
+def _worldpop_population(slug: str, year: int, dataset: str) -> dict[str, Any]:
+    """Per-zone WorldPop population from a GEE stats parquet.
+
+    ``gadm_adm2_pop_global`` filters the adm2 parquet by its own
+    ``country_iso3`` column; ``ghs_smod_pop_global`` has no country column,
+    so the country scope comes from the urban boundary GeoPackage.
+    """
+    iso3 = _ISO3_BY_SLUG.get(
+        slug, slug.upper() if len(slug) == 3 and slug.isalpha() else None
+    )
+    if iso3 is None:
+        raise HTTPException(
+            status_code=404, detail=f"Cannot resolve country '{slug}' to ISO3"
+        )
+
+    if dataset == "gadm_adm2_pop_global":
+        path = DATA_ROOT / "who_aap" / "gadm_adm2" / f"{year}.parquet"
+        if not path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"No GADM admin-2 population for {year}",
+            )
+        df = pd.read_parquet(path)
+        df = df[df["country_iso3"] == iso3]
+        source = "worldpop_gee_gadm_adm2"
+    elif dataset == "ghs_smod_pop_global":
+        path = DATA_ROOT / "ghs_smod_gee" / "ghs_smod" / f"{year}.parquet"
+        gpkg = DATA_ROOT / "boundaries" / "ghs_ucdb_r2024a.gpkg"
+        if not path.exists() or not gpkg.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"No urban-centre population for {year}",
+            )
+        bdf = pyogrio.read_dataframe(
+            gpkg, columns=["feature_id", "country_iso3"], read_geometry=False,
+        )
+        wanted = set(bdf.loc[bdf["country_iso3"] == iso3, "feature_id"])
+        df = pd.read_parquet(path)
+        df = df[df["feature_id"].astype(str).isin(wanted)]
+        source = "worldpop_gee_ghs_smod"
+    else:
+        raise HTTPException(
+            status_code=404, detail=f"Unknown population dataset '{dataset}'"
+        )
+
+    if len(df) == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No {dataset} population for country '{slug}' in {year}",
+        )
+
+    age_cols = [c for c in df.columns if c.startswith("age_")]
+    records = []
+    for _, row in df.iterrows():
+        entry: dict[str, Any] = {
+            "admin_id": _sanitize(row.get("feature_id")),
+            "admin_name": _sanitize(row.get("name")),
+            "total": _sanitize(row.get("pop_total")),
+        }
+        if age_cols:
+            entry["age_groups"] = {c: _sanitize(row[c]) for c in age_cols}
+        records.append(entry)
+
+    return {"country": slug, "year": year, "units": records, "source": source}
+
+
 @router.get("/population/{country}/{year}")
-async def get_population(country: str, year: int):
+async def get_population(
+    country: str,
+    year: int,
+    dataset: str | None = Query(
+        None,
+        description="Population dataset id (e.g. gadm_adm2_pop_global, "
+                    "ghs_smod_pop_global). Omit for the legacy "
+                    "totals/demographics resolution order.",
+    ),
+):
     """Return JSON with population by admin unit and age group.
 
-    Primary source: ``data/processed/population/{country}/{year}.parquet``
-    with columns ``admin_id``, ``admin_name``, ``total``, and optional
-    ``age_*`` columns.
+    With ``?dataset=``, serves the spatially-resolved WorldPop population
+    that rides on the GEE stats parquets (GADM admin-2 or GHS-UCDB urban
+    centres), one unit per zone with ``age_*`` bins.
 
-    Fallback: ``data/processed/demographics/{country}/{year}.parquet``
-    (tract-level ACS), using ``total_pop`` as the total. No age
-    breakdown is available from the ACS fallback.
+    Without it: primary source is
+    ``data/processed/population/{country}/{year}.parquet`` with columns
+    ``admin_id``, ``admin_name``, ``total``, and optional ``age_*`` columns;
+    fallback is ``data/processed/demographics/{country}/{year}.parquet``
+    (tract-level ACS), using ``total_pop`` as the total (no age breakdown).
     """
     slug = _canonical_country(country)
+
+    if dataset is not None:
+        return _worldpop_population(slug, year, dataset)
 
     # 1. Primary path — dedicated population file.
     try:
@@ -915,10 +995,87 @@ def _scan_datasets(
             )
             if years:
                 datasets.append({
+                    "id": f"pop_totals_{country_dir.name}",
                     "type": "population",
                     "country": country_dir.name,
                     "years": years,
                     "source": "Processed population data",
+                    "label": f"National totals ({country_dir.name})",
+                })
+
+    # WorldPop-via-GEE population — the same per-year parquets that carry the
+    # population-weighted PM2.5 also carry pop_total + age bins per zone, so
+    # they double as spatially-resolved population datasets for Step 3.
+    if want_population and adm2_dir.exists():
+        year_files = [
+            f for f in adm2_dir.iterdir()
+            if f.suffix == ".parquet" and f.stem.isdigit()
+        ]
+        years = sorted(int(f.stem) for f in year_files)
+        if years:
+            covered: set[str] = set()
+            years_by_country: dict[str, list[int]] = {}
+            for f in year_files:
+                try:
+                    df = pd.read_parquet(f, columns=["country_iso3"])
+                except Exception:
+                    logger.warning("Failed to read %s for coverage", f, exc_info=True)
+                    continue
+                file_year = int(f.stem)
+                file_countries = {
+                    str(x) for x in df["country_iso3"].dropna().unique()
+                }
+                covered.update(file_countries)
+                for iso3 in file_countries:
+                    years_by_country.setdefault(iso3, []).append(file_year)
+            for iso3 in years_by_country:
+                years_by_country[iso3].sort()
+            if covered:
+                datasets.append({
+                    "id": "gadm_adm2_pop_global",
+                    "type": "population",
+                    "country": "global",
+                    "countries_covered": sorted(covered),
+                    "years": years,
+                    "years_by_country": years_by_country,
+                    "aggregation": "adm2",
+                    "source": "WorldPop age-stratified population via GEE "
+                              "on GADM admin-2 boundaries",
+                    "label": "Global admin-2 (GADM) — WorldPop population, "
+                             "age-stratified",
+                })
+
+    if want_population and ghs_dir.exists() and ghs_gpkg.exists():
+        year_files = [
+            f for f in ghs_dir.iterdir()
+            if f.suffix == ".parquet" and f.stem.isdigit()
+        ]
+        years = sorted(int(f.stem) for f in year_files)
+        if years:
+            try:
+                bdf = pyogrio.read_dataframe(
+                    ghs_gpkg, columns=["country_iso3"], read_geometry=False,
+                )
+                covered_urban = sorted(
+                    str(x) for x in bdf["country_iso3"].dropna().unique()
+                )
+            except Exception:
+                logger.warning("Failed to read %s for coverage", ghs_gpkg,
+                               exc_info=True)
+                covered_urban = []
+            if covered_urban:
+                datasets.append({
+                    "id": "ghs_smod_pop_global",
+                    "type": "population",
+                    "country": "global",
+                    "countries_covered": covered_urban,
+                    "years": years,
+                    "years_by_country": {iso3: years for iso3 in covered_urban},
+                    "aggregation": "urban",
+                    "source": "WorldPop age-stratified population via GEE "
+                              "on GHS-UCDB R2024A urban centres",
+                    "label": "Urban centres (GHS-UCDB) — WorldPop population, "
+                             "age-stratified",
                 })
 
     # Incidence datasets
@@ -1038,6 +1195,15 @@ async def list_datasets(
         datasets = [d for d in datasets if d.get("pollutant") == pollutant]
     if country:
         slug = _canonical_country(country)
-        datasets = [d for d in datasets if d.get("country") == slug]
+        iso3 = _ISO3_BY_SLUG.get(
+            slug, slug.upper() if len(slug) == 3 and slug.isalpha() else None
+        )
+        # A dataset matches if it is country-specific for this slug, or if it
+        # is a global dataset whose coverage includes the country's ISO3.
+        datasets = [
+            d for d in datasets
+            if d.get("country") == slug
+            or (iso3 is not None and iso3 in (d.get("countries_covered") or ()))
+        ]
 
     return {"datasets": datasets}
