@@ -683,3 +683,142 @@ def prepare_global_adm2_inputs(
         ),
         warnings=warnings,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Urban-centre (GHS-UCDB R2024A) path
+# ─────────────────────────────────────────────────────────────────────────
+#
+#  Used when analysisLevel == "urban". PM2.5 (population-weighted) and
+#  population come from data/processed/ghs_smod_gee/ghs_smod/{year}.parquet
+#  (GEE export over the GHS-UCDB R2024A urban centres). Boundary geometry +
+#  country_iso3 come from data/processed/boundaries/ghs_ucdb_r2024a.gpkg
+#  (built by scripts/ghs_ucdb_to_boundaries.py from the same UCDB source as
+#  the GEE asset, so feature_id matches 1:1). The stats parquet has NO
+#  country column — country scoping happens through the gpkg.
+
+def _ghs_smod_stats_path(year: int) -> Path:
+    return _data_root() / "ghs_smod_gee" / "ghs_smod" / f"{year}.parquet"
+
+
+def _ghs_ucdb_gpkg_path() -> Path:
+    return _data_root() / "boundaries" / "ghs_ucdb_r2024a.gpkg"
+
+
+_ghs_ucdb_gdf: gpd.GeoDataFrame | None = None
+
+
+def _load_ghs_ucdb_boundaries() -> gpd.GeoDataFrame:
+    global _ghs_ucdb_gdf
+    if _ghs_ucdb_gdf is None:
+        path = _ghs_ucdb_gpkg_path()
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Urban-centre boundary file missing: {path}. "
+                "Build it with scripts/ghs_ucdb_to_boundaries.py."
+            )
+        _ghs_ucdb_gdf = gpd.read_file(path)
+    return _ghs_ucdb_gdf
+
+
+def prepare_urban_centre_inputs(
+    pollutant: str,
+    country: str,
+    year: int,
+    control_mode: str,
+    city_ids: list[str] | None = None,
+    control_value: float | None = None,
+    rollback_percent: float | None = None,
+) -> ResolvedInputs:
+    """Resolver for the urban-centre path: per-city PM2.5 + population.
+
+    ``country`` must resolve to an ISO3 (no ``"global"`` — an all-world urban
+    run is not a supported study area). ``city_ids`` optionally restricts to
+    specific centres; None/empty means every centre in the country.
+    """
+    if pollutant != "pm25":
+        raise FileNotFoundError(
+            f"Urban-centre path only carries PM2.5 today (requested {pollutant})"
+        )
+    if not country or country.lower() == "global":
+        raise FileNotFoundError(
+            "Urban-centre path requires a specific country (got "
+            f"'{country}')"
+        )
+    iso3 = _normalize_iso3(country)
+    if iso3 is None:
+        raise FileNotFoundError(
+            f"Cannot resolve country='{country}' to ISO3 for urban-centre path"
+        )
+
+    stats_path = _ghs_smod_stats_path(year)
+    if not stats_path.exists():
+        raise FileNotFoundError(
+            f"Urban-centre stats parquet missing for {year}: {stats_path}. "
+            "Run scripts/gee_export_pm25.py --boundary ghs_smod then "
+            "scripts/pm25_csv_to_parquet.py --boundary ghs_smod --split-by-year."
+        )
+
+    boundaries = _load_ghs_ucdb_boundaries()
+    boundaries = boundaries[boundaries["country_iso3"] == iso3]
+    if len(boundaries) == 0:
+        raise FileNotFoundError(
+            f"No urban centres matched country='{country}'"
+        )
+
+    if city_ids:
+        wanted = {str(c) for c in city_ids}
+        boundaries = boundaries[boundaries["feature_id"].isin(wanted)]
+        missing = wanted - set(boundaries["feature_id"])
+        if missing:
+            raise FileNotFoundError(
+                f"Unknown urban-centre ids for {iso3}: {sorted(missing)}"
+            )
+
+    df = pd.read_parquet(stats_path)
+    df["feature_id"] = df["feature_id"].astype(str)
+
+    merged = boundaries.merge(df, on="feature_id", how="inner",
+                              suffixes=("", "_stats"))
+    merged = merged.sort_values("pop_total", ascending=False).reset_index(drop=True)
+    if len(merged) == 0:
+        raise FileNotFoundError(
+            f"No urban-centre stats matched country='{country}' "
+            f"for year={year}"
+        )
+
+    warnings: list[str] = []
+    n_drop = len(boundaries) - len(merged)
+    if n_drop:
+        warnings.append(
+            f"Urban-centre join dropped {n_drop} boundaries with no stats "
+            f"row for {year} (GEE export gap)."
+        )
+
+    c_baseline = merged["pm25_popweighted"].astype(float).to_numpy()
+    population = merged["pop_total"].astype(float).to_numpy()
+    c_control = resolve_control(
+        c_base=c_baseline, control_mode=control_mode,
+        control_value=control_value, rollback_percent=rollback_percent,
+    )
+
+    name_col = "name" if "name" in merged.columns else "name_stats"
+    return ResolvedInputs(
+        zone_ids=merged["feature_id"].astype(str).tolist(),
+        zone_names=merged[name_col].astype(str).tolist(),
+        parent_ids=merged["country_iso3"].astype(str).tolist(),
+        geometries=[mapping(g) if g is not None else None
+                    for g in merged["geometry"]],
+        c_baseline=c_baseline,
+        c_control=c_control,
+        population=population,
+        provenance=Provenance(
+            concentration={"grain": "urban_centre", "source": "acag_via_gee",
+                           "year": year},
+            population={"grain": "urban_centre", "source": "worldpop_via_gee",
+                        "year": int(merged["pop_source_year"].iloc[0])
+                                if "pop_source_year" in merged.columns else year},
+            incidence={"grain": "crf_default", "source": "crf_library"},
+        ),
+        warnings=warnings,
+    )
