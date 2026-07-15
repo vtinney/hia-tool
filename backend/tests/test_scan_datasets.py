@@ -301,3 +301,75 @@ def test_population_filter_includes_acs_derived(mixed_data_root: Path):
     filtered = data_module._scan_datasets(type_filter="population")
     assert sorted(map(str, filtered)) == sorted(map(str, expected))
     assert any(d.get("id") == "acs_population_us" for d in filtered)
+
+
+# ── GHS-UCDB urban centres ─────────────────────────────────────────
+#
+# The urban-centre stats parquet (Task 1's GEE export) carries no country
+# column, so coverage keys on country_iso3 in the (small) boundary
+# GeoPackage instead. Every year file carries every centre, so
+# years_by_country is uniform across countries.
+
+
+def _write_ghs_ucdb_gpkg(tmp_data_root: Path) -> None:
+    import geopandas as gpd
+    from shapely.geometry import box
+
+    bdir = tmp_data_root / "boundaries"
+    bdir.mkdir(parents=True, exist_ok=True)
+    gpd.GeoDataFrame(
+        {
+            "feature_id": ["101", "201"],
+            "name": ["Ciudad Uno", "Lagos"],
+            "country_iso3": ["MEX", "NGA"],
+        },
+        geometry=[box(0, 0, 1, 1), box(5, 5, 6, 6)],
+        crs="EPSG:4326",
+    ).to_file(bdir / "ghs_ucdb_r2024a.gpkg", driver="GPKG")
+
+
+def test_scan_emits_ghs_smod_urban_dataset(tmp_data_root: Path):
+    _write_ghs_ucdb_gpkg(tmp_data_root)
+
+    sdir = tmp_data_root / "ghs_smod_gee" / "ghs_smod"
+    sdir.mkdir(parents=True)
+    for y in (2019, 2020):
+        _write_parquet(
+            sdir / f"{y}.parquet",
+            pd.DataFrame({"feature_id": ["101", "201"], "pop_total": [1.0, 2.0]}),
+        )
+
+    datasets = data_module._scan_datasets(
+        type_filter="concentration", pollutant_filter="pm25"
+    )
+    ids = {d.get("id") for d in datasets}
+    assert "ghs_smod_pm25_global" in ids
+    entry = next(d for d in datasets if d.get("id") == "ghs_smod_pm25_global")
+    assert entry["type"] == "concentration"
+    assert entry["pollutant"] == "pm25"
+    assert entry["aggregation"] == "urban"
+    assert entry["countries_covered"] == ["MEX", "NGA"]
+    assert entry["years"] == [2019, 2020]
+    assert entry["years_by_country"]["MEX"] == [2019, 2020]
+    assert entry["years_by_country"]["NGA"] == [2019, 2020]
+
+
+def test_ghs_smod_entry_respects_pollutant_filter(tmp_data_root: Path):
+    _write_ghs_ucdb_gpkg(tmp_data_root)
+
+    sdir = tmp_data_root / "ghs_smod_gee" / "ghs_smod"
+    sdir.mkdir(parents=True)
+    _write_parquet(
+        sdir / "2020.parquet",
+        pd.DataFrame({"feature_id": ["101", "201"], "pop_total": [1.0, 2.0]}),
+    )
+
+    pm25 = data_module._scan_datasets(
+        type_filter="concentration", pollutant_filter="pm25"
+    )
+    assert any(d.get("id") == "ghs_smod_pm25_global" for d in pm25)
+
+    no2 = data_module._scan_datasets(
+        type_filter="concentration", pollutant_filter="no2"
+    )
+    assert not any(d.get("id") == "ghs_smod_pm25_global" for d in no2)

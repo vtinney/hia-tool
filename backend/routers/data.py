@@ -21,6 +21,7 @@ from typing import Any
 
 import geopandas as gpd
 import pandas as pd
+import pyogrio
 from fastapi import APIRouter, HTTPException, Query
 from shapely import wkt
 
@@ -801,6 +802,48 @@ def _scan_datasets(
                 "source": "GEE population-weighted PM2.5 on GADM admin-2 boundaries",
                 "label": "Global admin-2 (GADM) — PM2.5, population-weighted",
             })
+
+    # GHS-UCDB urban centres — global population-weighted PM2.5 from the GEE
+    # export, one parquet per year. The stats parquet has NO country column;
+    # coverage keys on country_iso3 in the (small) boundary GeoPackage. Every
+    # year file carries every centre, so years_by_country is uniform.
+    ghs_dir = DATA_ROOT / "ghs_smod_gee" / "ghs_smod"
+    ghs_gpkg = DATA_ROOT / "boundaries" / "ghs_ucdb_r2024a.gpkg"
+    if (want_concentration and (not pollutant_filter or pollutant_filter == "pm25")
+            and ghs_dir.exists() and ghs_gpkg.exists()):
+        year_files = [
+            f for f in ghs_dir.iterdir()
+            if f.suffix == ".parquet" and f.stem.isdigit()
+        ]
+        years = sorted(int(f.stem) for f in year_files)
+        if years:
+            try:
+                bdf = pyogrio.read_dataframe(
+                    ghs_gpkg, columns=["country_iso3"], read_geometry=False,
+                )
+                covered = sorted(
+                    str(x) for x in bdf["country_iso3"].dropna().unique()
+                )
+            except Exception:
+                logger.warning("Failed to read %s for coverage", ghs_gpkg,
+                               exc_info=True)
+                covered = []
+            if covered:
+                datasets.append({
+                    "id": "ghs_smod_pm25_global",
+                    "type": "concentration",
+                    "pollutant": "pm25",
+                    "pollutant_label": "PM2.5",
+                    "country": "global",
+                    "countries_covered": covered,
+                    "years": years,
+                    "years_by_country": {iso3: years for iso3 in covered},
+                    "aggregation": "urban",
+                    "source": "GEE population-weighted PM2.5 on GHS-UCDB "
+                              "R2024A urban centres",
+                    "label": "Urban centres (GHS-UCDB) — PM2.5, "
+                             "population-weighted",
+                })
 
     # Population datasets
     pop_dir = DATA_ROOT / "population"
