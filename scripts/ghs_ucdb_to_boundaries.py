@@ -61,7 +61,7 @@ def main() -> int:
     out = gpd.GeoDataFrame(
         {
             "feature_id": gdf["ID_UC_G0"].astype(int).astype(str),
-            "name": gdf["GC_UCN_MAI_2025"],
+            "name": gdf["GC_UCN_MAI_2025"].str.lstrip("﻿"),
             "country_iso3": iso3,
         },
         geometry=gdf.geometry,
