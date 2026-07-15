@@ -94,6 +94,23 @@ export async function fetchPopulation(country, year) {
 }
 
 /**
+ * List urban centres (GHS-UCDB) for a country, sorted by population desc.
+ *
+ * @param {string} country - ISO3 (or slug the backend can normalize).
+ * @param {number} [year] - Stats year; backend defaults to latest.
+ * @returns {Promise<{country: string, year: number, centres: Array<{id: string, name: string, population: number}>}|null>}
+ */
+export async function fetchUrbanCentres(country, year) {
+  const qs = year ? `?year=${year}` : ''
+  const res = await fetch(`${API_BASE}/data/urban-centres/${country}${qs}`)
+  if (!res.ok) {
+    if (res.status === 404) return null
+    throw new Error(`Failed to fetch urban centres: ${res.status}`)
+  }
+  return res.json()
+}
+
+/**
  * Fetch incidence rates for a country/cause/year.
  *
  * @param {string} country

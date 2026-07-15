@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import useAnalysisStore from '../../stores/useAnalysisStore'
-import { uploadFile } from '../../lib/api'
+import { uploadFile, fetchUrbanCentres } from '../../lib/api'
+import { filterCentres, topNIds } from '../../lib/urbanCentres'
 import countries from '../../data/countries.json'
 import usStates from '../../data/us-states.json'
 
@@ -40,6 +41,7 @@ const US_ANALYSIS_LEVELS = [
 // for the older path during the transition.
 const NON_US_ANALYSIS_LEVELS = [
   { id: 'adm2', label: 'Admin-2 (district / municipality)' },
+  { id: 'urban', label: 'Urban centres (cities)' },
   { id: 'country', label: 'Country average' },
 ]
 
@@ -81,6 +83,102 @@ function InfoTooltip({ text }) {
         </div>
       )}
     </span>
+  )
+}
+
+// ── City picker component ───────────────────────────────────────
+
+// Searchable multi-select for GHS-UCDB urban centres. Empty selection = all
+// centres in the country. Centres arrive population-sorted from the API.
+function CityPicker({ countryIso, cityIds, onChange }) {
+  const [centres, setCentres] = useState(null)   // null = loading
+  const [error, setError] = useState(null)
+  const [query, setQuery] = useState('')
+  const [topN, setTopN] = useState(10)
+
+  useEffect(() => {
+    let cancelled = false
+    setCentres(null)
+    setError(null)
+    fetchUrbanCentres(countryIso)
+      .then((data) => {
+        if (cancelled) return
+        if (!data) setError('No urban-centre data for this country.')
+        else setCentres(data.centres)
+      })
+      .catch((err) => { if (!cancelled) setError(err.message) })
+    return () => { cancelled = true }
+  }, [countryIso])
+
+  if (error) return <p className="text-xs text-red-600 mt-2">{error}</p>
+  if (!centres) return <p className="text-xs text-gray-400 mt-2">Loading urban centres…</p>
+
+  const selected = new Set(cityIds || [])
+  const visible = filterCentres(centres, query).slice(0, 200)
+
+  const toggle = (id) => {
+    const next = new Set(selected)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    onChange([...next])
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="flex items-center gap-2 text-xs text-gray-600">
+        <span>
+          {selected.size === 0
+            ? `All ${centres.length} centres`
+            : `${selected.size} of ${centres.length} centres selected`}
+        </span>
+        {selected.size > 0 && (
+          <button type="button" onClick={() => onChange([])}
+                  className="text-blue-600 underline">
+            Clear (use all)
+          </button>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text" value={query} placeholder="Search cities…"
+          onChange={(e) => setQuery(e.target.value)}
+          className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+        />
+        <input
+          type="number" min="1" value={topN}
+          onChange={(e) => setTopN(Number(e.target.value))}
+          className="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+          aria-label="Top N count"
+        />
+        <button
+          type="button"
+          onClick={() => onChange(topNIds(centres, topN))}
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
+        >
+          Top {topN} by population
+        </button>
+      </div>
+      <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+        {visible.map((c) => (
+          <label key={c.id}
+                 className="flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={selected.has(c.id)}
+              onChange={() => toggle(c.id)}
+              className="text-blue-600 focus:ring-blue-500"
+            />
+            <span className="flex-1">{c.name || `Centre ${c.id}`}</span>
+            <span className="text-xs text-gray-400">
+              {Math.round(c.population).toLocaleString()}
+            </span>
+          </label>
+        ))}
+        {visible.length === 0 && (
+          <p className="px-3 py-2 text-xs text-gray-400">No matches.</p>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -256,7 +354,7 @@ export default function Step1StudyArea() {
         // can fall back to country-scalar via the analysis-level radios.
         ...(country.iso === 'USA'
           ? { stateId: '', stateName: '', analysisLevel: 'state' }
-          : { analysisLevel: 'adm2' }),
+          : { analysisLevel: 'adm2', cityIds: [] }),
       },
     })
   }, [setStep1])
@@ -404,20 +502,35 @@ export default function Step1StudyArea() {
               <div className="mt-4">
                 <p className="text-xs text-gray-500 mb-2">Analysis level</p>
                 <div className="flex flex-wrap gap-3">
-                  {NON_US_ANALYSIS_LEVELS.map(({ id, label }) => (
-                    <label key={id} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        name="analysisLevel"
-                        value={id}
-                        checked={(studyArea.analysisLevel || 'adm2') === id}
-                        onChange={() => handleAnalysisLevel(id)}
-                        className="text-blue-600 focus:ring-blue-500"
-                      />
-                      {label}
-                    </label>
-                  ))}
+                  {NON_US_ANALYSIS_LEVELS.map(({ id, label }) => {
+                    const disabled = id === 'urban' && pollutant !== 'pm25'
+                    return (
+                      <label key={id}
+                             className={`flex items-center gap-1.5 text-sm ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
+                        <input
+                          type="radio"
+                          name="analysisLevel"
+                          value={id}
+                          disabled={disabled}
+                          checked={(studyArea.analysisLevel || 'adm2') === id}
+                          onChange={() => handleAnalysisLevel(id)}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        {label}
+                        {disabled && <InfoTooltip text="Urban-centre data is PM2.5 only." />}
+                      </label>
+                    )
+                  })}
                 </div>
+                {(studyArea.analysisLevel || 'adm2') === 'urban' && (
+                  <CityPicker
+                    countryIso={studyArea.id}
+                    cityIds={studyArea.cityIds}
+                    onChange={(ids) =>
+                      setStep1({ studyArea: { ...step1.studyArea, cityIds: ids } })
+                    }
+                  />
+                )}
               </div>
             )}
           </fieldset>
