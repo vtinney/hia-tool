@@ -109,3 +109,39 @@ describe('buildBuiltinSpatialConfig', () => {
     expect(mc.monteCarloIterations).toBe(500)
   })
 })
+
+describe('urban-centre routing', () => {
+  const step2Dataset = { baseline: { type: 'dataset', year: 2020 }, control: {} }
+
+  it('routes non-US urban runs to the backend', () => {
+    const step1 = { studyArea: { id: 'MEX', analysisLevel: 'urban' } }
+    expect(shouldUseBuiltinSpatial(step1, step2Dataset)).toBe(true)
+  })
+
+  it('builds an urban config with cityIds', () => {
+    const step1 = {
+      pollutant: 'pm25',
+      studyArea: { id: 'MEX', analysisLevel: 'urban', cityIds: ['101', '102'] },
+    }
+    const config = buildBuiltinSpatialConfig(step1, step2Dataset, {}, [])
+    expect(config.analysisLevel).toBe('urban')
+    expect(config.cityIds).toEqual(['101', '102'])
+    expect(config.country).toBe('MEX')
+  })
+
+  it('omits cityIds when none are selected (= all centres)', () => {
+    const step1 = {
+      pollutant: 'pm25',
+      studyArea: { id: 'MEX', analysisLevel: 'urban', cityIds: [] },
+    }
+    const config = buildBuiltinSpatialConfig(step1, step2Dataset, {}, [])
+    expect(config.cityIds).toBeNull()
+  })
+
+  it('still defaults missing analysisLevel to adm2', () => {
+    const step1 = { pollutant: 'pm25', studyArea: { id: 'MEX' } }
+    const config = buildBuiltinSpatialConfig(step1, step2Dataset, {}, [])
+    expect(config.analysisLevel).toBe('adm2')
+    expect(config.cityIds).toBeUndefined()
+  })
+})

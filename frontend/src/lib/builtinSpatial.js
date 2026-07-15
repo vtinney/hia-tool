@@ -5,9 +5,10 @@
 // section needs. This module decides when that path applies and builds the
 // request.
 //
-// Two families route here:
+// Three families route here:
 //   - US admin grains (tract / county / state), resolved from ACS tracts.
 //   - Non-US admin-2 (GADM), resolved from the global admin-2 parquet.
+//   - Non-US urban centres (GHS-SMOD), resolved from the global urban layer.
 // US country level stays on the scalar path: dissolving all ~85k US tracts
 // into one polygon is slow and a national scalar is just as accurate. Non-US
 // "country average" likewise stays scalar (the legacy WHO AAP fallback).
@@ -25,6 +26,8 @@ const US_SPATIAL_LEVELS = new Set(['tract', 'county', 'state'])
  *   - non-US admin-2 analysis (GADM). Step 1 defaults the non-US radio to
  *     adm2, so a study area without analysisLevel routes as adm2 to match
  *     what the UI displays.
+ *   - non-US urban-centre analysis (GHS-SMOD). Selected cities route to the
+ *     backend with their IDs; empty selection defaults to all centres.
  *
  * @param {object} step1 - Study-area step state.
  * @param {object} step2 - Concentration step state.
@@ -37,7 +40,8 @@ export function shouldUseBuiltinSpatial(step1, step2) {
   if (area.id === 'USA') {
     return US_SPATIAL_LEVELS.has(area.analysisLevel) && Boolean(area.stateId)
   }
-  return (area.analysisLevel || 'adm2') === 'adm2'
+  const level = area.analysisLevel || 'adm2'
+  return level === 'adm2' || level === 'urban'
 }
 
 /**
@@ -52,6 +56,8 @@ export function shouldUseBuiltinSpatial(step1, step2) {
  */
 export function buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFs) {
   const isUS = step1?.studyArea?.id === 'USA'
+  const nonUSLevel =
+    step1?.studyArea?.analysisLevel === 'urban' ? 'urban' : 'adm2'
   const config = {
     mode: 'builtin',
     pollutant: step1?.pollutant,
@@ -61,10 +67,10 @@ export function buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFs) {
     year: step2?.baseline?.year ?? null,
     // US: real grain from Step 1 (tract / county / state); default to tract
     // so an older persisted study area without analysisLevel still resolves
-    // safely. Non-US: always adm2 (the only backend-routed non-US grain).
+    // safely. Non-US: adm2 or urban depending on what was selected.
     analysisLevel: isUS
       ? (step1?.studyArea?.analysisLevel || 'tract')
-      : 'adm2',
+      : nonUSLevel,
     stateFilter: (isUS && step1?.studyArea?.stateId) || null,
     countyFilter: (isUS && step1?.studyArea?.countyId) || null,
     controlMode: 'benchmark',
@@ -81,6 +87,13 @@ export function buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFs) {
       functionalForm: crf.functionalForm,
       defaultRate: crf.defaultRate,
     })),
+  }
+  // Urban runs: pass the selected centres; empty selection = all centres
+  // in the country (backend treats null as no filter).
+  if (!isUS && nonUSLevel === 'urban') {
+    config.cityIds = step1?.studyArea?.cityIds?.length
+      ? [...step1.studyArea.cityIds]
+      : null
   }
   // Default to analytical (no Monte Carlo): pass an iteration count only when
   // the user explicitly set one (> 0). Omitting it → backend default of 0 →
