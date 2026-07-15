@@ -597,7 +597,65 @@ def _df_to_geojson_simplified(
 
 
 # ────────────────────────────────────────────────────────────────────
-#  5. Dataset listing
+#  5. Urban centres (GHS-UCDB city picker)
+# ────────────────────────────────────────────────────────────────────
+
+
+@router.get("/urban-centres/{country}")
+async def list_urban_centres(country: str, year: int | None = None):
+    """Urban centres (GHS-UCDB) for one country, sorted by population desc.
+
+    Feeds the Step 1 city picker. Population comes from the stats parquet
+    for ``year`` (default: latest available year on disk).
+    """
+    from backend.services.resolver import _normalize_iso3
+
+    iso3 = _normalize_iso3(country)
+    if iso3 is None:
+        raise HTTPException(status_code=404,
+                            detail=f"Cannot resolve country '{country}'")
+
+    ghs_gpkg = DATA_ROOT / "boundaries" / "ghs_ucdb_r2024a.gpkg"
+    ghs_dir = DATA_ROOT / "ghs_smod_gee" / "ghs_smod"
+    if not ghs_gpkg.exists() or not ghs_dir.exists():
+        raise HTTPException(status_code=404,
+                            detail="Urban-centre data not available")
+
+    years = sorted(int(f.stem) for f in ghs_dir.iterdir()
+                   if f.suffix == ".parquet" and f.stem.isdigit())
+    if not years:
+        raise HTTPException(status_code=404,
+                            detail="No urban-centre stats years on disk")
+    use_year = year if year in years else years[-1]
+
+    bdf = pyogrio.read_dataframe(
+        ghs_gpkg, columns=["feature_id", "name", "country_iso3"],
+        read_geometry=False,
+    )
+    bdf = bdf[bdf["country_iso3"] == iso3]
+    if len(bdf) == 0:
+        raise HTTPException(status_code=404,
+                            detail=f"No urban centres for {iso3}")
+
+    stats = pd.read_parquet(ghs_dir / f"{use_year}.parquet",
+                            columns=["feature_id", "pop_total"])
+    stats["feature_id"] = stats["feature_id"].astype(str)
+    merged = bdf.merge(stats, on="feature_id", how="left")
+    merged["pop_total"] = merged["pop_total"].fillna(0.0)
+    merged = merged.sort_values("pop_total", ascending=False)
+
+    return {
+        "country": iso3,
+        "year": use_year,
+        "centres": [
+            {"id": r.feature_id, "name": r.name, "population": float(r.pop_total)}
+            for r in merged.itertuples()
+        ],
+    }
+
+
+# ────────────────────────────────────────────────────────────────────
+#  6. Dataset listing
 # ────────────────────────────────────────────────────────────────────
 
 
