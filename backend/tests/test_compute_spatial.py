@@ -148,3 +148,45 @@ def test_builtin_mode_splits_all_cause_and_cause_specific(tmp_path, monkeypatch)
     assert body["totalDeaths"]["mean"] > 0  # cause-specific (IHD only)
     assert body["allCauseDeaths"]["mean"] > 0
     assert body["totalDeaths"]["mean"] != body["allCauseDeaths"]["mean"]
+
+
+def test_builtin_urban_routes_to_urban_resolver(monkeypatch):
+    """analysisLevel='urban' must call prepare_urban_centre_inputs with cityIds,
+    dispatched via the name it's bound to in backend.routers.compute."""
+    calls = {}
+
+    def fake_urban(pollutant, country, year, control_mode,
+                    city_ids=None, control_value=None, rollback_percent=None):
+        calls.update(dict(pollutant=pollutant, country=country, year=year,
+                           city_ids=city_ids))
+        from backend.services.resolver import ResolvedInputs, Provenance
+        return ResolvedInputs(
+            zone_ids=["101"], zone_names=["Ciudad Uno"], parent_ids=["MEX"],
+            geometries=[None],
+            c_baseline=np.array([22.0]), c_control=np.array([0.0]),
+            population=np.array([1_000_000.0]),
+            provenance=Provenance(
+                concentration={"grain": "urban_centre"},
+                population={"grain": "urban_centre"},
+                incidence={"grain": "crf_default"},
+            ),
+        )
+
+    import backend.routers.compute as compute_mod
+    monkeypatch.setattr(compute_mod, "prepare_urban_centre_inputs", fake_urban)
+
+    client = TestClient(app)
+    r = client.post("/api/compute/spatial", json={
+        "mode": "builtin",
+        "pollutant": "pm25", "country": "MEX", "year": 2020,
+        "analysisLevel": "urban", "cityIds": ["101"],
+        "controlMode": "benchmark", "controlConcentration": 0.0,
+        "selectedCRFs": [_acm_crf()],
+        "monteCarloIterations": 0,
+    })
+    assert r.status_code == 200, r.text
+    assert calls["city_ids"] == ["101"]
+    assert calls["country"] == "MEX"
+    body = r.json()
+    assert len(body["zones"]) == 1
+    assert body["zones"][0]["zoneName"] == "Ciudad Uno"

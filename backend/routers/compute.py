@@ -29,6 +29,7 @@ from backend.services.resolver import (
     prepare_builtin_inputs,
     prepare_custom_boundary_inputs,
     prepare_global_adm2_inputs,
+    prepare_urban_centre_inputs,
     ResolvedInputs,
     Provenance,
     YearGapTooLarge,
@@ -125,9 +126,12 @@ class BuiltinMode(BaseModel):
     pollutant: str
     country: str
     year: int
-    analysisLevel: Literal["country", "state", "county", "tract", "adm2"]
+    analysisLevel: Literal["country", "state", "county", "tract", "adm2", "urban"]
     stateFilter: str | None = None
     countyFilter: str | None = None
+    # Urban-centre runs only: restrict to specific GHS-UCDB centres.
+    # None/empty = every centre in the country.
+    cityIds: list[str] | None = None
     controlMode: Literal["scalar", "builtin", "rollback", "benchmark"]
     controlConcentration: float | None = None
     controlRollbackPercent: float | None = None
@@ -231,7 +235,15 @@ async def run_spatial_compute(
             # boundaries from a single GeoPackage. Used for the global PM2.5
             # template and as the default finer-than-country grain for
             # non-US countries.
-            if req.analysisLevel == "adm2" or req.country.lower() == "global":
+            if req.analysisLevel == "urban":
+                resolved = prepare_urban_centre_inputs(
+                    pollutant=req.pollutant, country=req.country, year=req.year,
+                    control_mode=req.controlMode,
+                    city_ids=req.cityIds,
+                    control_value=req.controlConcentration,
+                    rollback_percent=req.controlRollbackPercent,
+                )
+            elif req.analysisLevel == "adm2" or req.country.lower() == "global":
                 resolved = prepare_global_adm2_inputs(
                     pollutant=req.pollutant, country=req.country, year=req.year,
                     control_mode=req.controlMode,
