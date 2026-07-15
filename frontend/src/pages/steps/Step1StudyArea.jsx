@@ -377,6 +377,18 @@ export default function Step1StudyArea() {
     })
   }, [setStep1, step1.studyArea])
 
+  const handlePollutantChange = useCallback((id) => {
+    const patch = { pollutant: id }
+    // The urban-centre path is PM2.5-only; falling back to admin-2 keeps the
+    // study area consistent when the pollutant switches away from PM2.5.
+    if (id !== 'pm25' && step1.studyArea.analysisLevel === 'urban') {
+      patch.studyArea = {
+        ...step1.studyArea, type: 'adm2', analysisLevel: 'adm2', cityIds: [],
+      }
+    }
+    setStep1(patch)
+  }, [setStep1, step1.studyArea])
+
   const [boundaryUploading, setBoundaryUploading] = useState(false)
   const [boundaryError, setBoundaryError] = useState(null)
   const [boundaryMeta, setBoundaryMeta] = useState(null)
@@ -613,7 +625,7 @@ export default function Step1StudyArea() {
                     name="pollutant"
                     value={p.id}
                     checked={pollutant === p.id}
-                    onChange={() => setStep1({ pollutant: p.id })}
+                    onChange={() => handlePollutantChange(p.id)}
                     className="mt-0.5 text-blue-600 focus:ring-blue-500"
                   />
                   <div className="min-w-0">
