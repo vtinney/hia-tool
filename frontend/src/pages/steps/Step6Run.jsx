@@ -4,6 +4,7 @@ import useAnalysisStore from '../../stores/useAnalysisStore'
 import { computeHIA } from '../../lib/hia-engine'
 import { runSpatialCompute } from '../../lib/api'
 import { shouldUseBuiltinSpatial, buildBuiltinSpatialConfig } from '../../lib/builtinSpatial'
+import { detailRowsFromSpatial } from '../../lib/spatialResults'
 import crfLibrary from '../../data/crf-library.json'
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -226,6 +227,10 @@ export default function Step6Run() {
             betaHigh: crf.betaHigh,
             functionalForm: crf.functionalForm,
             defaultRate: crf.defaultRate,
+            // Keep the backend's mortality split correct (defaults to
+            // all_cause/mortality when absent).
+            cause: crf.cause,
+            endpointType: crf.endpointType,
           })),
           // Default to analytical: pass an iteration count only when the user
           // explicitly set one (> 0); otherwise omit so the backend defaults
@@ -235,7 +240,11 @@ export default function Step6Run() {
             : {}),
         }
         const results = await runSpatialCompute(spatialConfig)
-        setResults(results)
+        setResults({
+          ...results,
+          detail: detailRowsFromSpatial(results, crfLookup),
+          meta: { analysisName: step1.analysisName || '' },
+        })
       } else if (shouldUseBuiltinSpatial(step1, step2)) {
         // Built-in US tract pathway: call the backend builtin spatial engine
         // so the run returns per-tract zones (required for the EJ section),
@@ -243,7 +252,11 @@ export default function Step6Run() {
         const results = await runSpatialCompute(
           buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFDetails),
         )
-        setResults(results)
+        setResults({
+          ...results,
+          detail: detailRowsFromSpatial(results, crfLookup),
+          meta: { analysisName: step1.analysisName || '' },
+        })
       } else {
         // Scalar pathway: client-side engine
         const config = {

@@ -123,7 +123,25 @@ describe('pickVintage', () => {
   })
 })
 
-import { studyAreaToFilter } from '../demographics'
+import { studyAreaToFilter, bboxOfFeatureCollection } from '../demographics'
+
+describe('bboxOfFeatureCollection', () => {
+  it('computes the bbox across Polygon and MultiPolygon features', () => {
+    const fc = {
+      features: [
+        { geometry: { type: 'Polygon', coordinates: [[[-106, 26], [-104, 26], [-104, 28], [-106, 26]]] } },
+        { geometry: { type: 'MultiPolygon', coordinates: [[[[-94, 30], [-93, 30], [-93, 36], [-94, 30]]]] } },
+      ],
+    }
+    expect(bboxOfFeatureCollection(fc)).toEqual([-106, 26, -93, 36])
+  })
+
+  it('returns null for empty or missing collections', () => {
+    expect(bboxOfFeatureCollection({ features: [] })).toBeNull()
+    expect(bboxOfFeatureCollection(null)).toBeNull()
+    expect(bboxOfFeatureCollection({ features: [{ geometry: null }] })).toBeNull()
+  })
+})
 
 describe('studyAreaToFilter', () => {
   it('returns empty filter for nationwide US', () => {
@@ -164,5 +182,27 @@ describe('studyAreaToFilter', () => {
   it('returns null for undefined or null studyArea', () => {
     expect(studyAreaToFilter(null)).toBeNull()
     expect(studyAreaToFilter(undefined)).toBeNull()
+  })
+
+  // Current Step-1 shape: id 'USA' + stateId / countyId + analysisLevel.
+  // The wizard stopped producing the legacy us-XX ids; the EJ gate must
+  // understand what Step 1 actually stores.
+  it('returns state filter for the current USA + stateId shape', () => {
+    const sa = { type: 'tract', id: 'USA', analysisLevel: 'tract', stateId: '48', stateName: 'Texas' }
+    expect(studyAreaToFilter(sa)).toEqual({ state: '48' })
+  })
+
+  it('includes county for the current USA shape with countyId', () => {
+    const sa = { type: 'tract', id: 'USA', analysisLevel: 'tract', stateId: '48', countyId: '201' }
+    expect(studyAreaToFilter(sa)).toEqual({ state: '48', county: '201' })
+  })
+
+  it('returns empty filter for current USA shape without a state', () => {
+    const sa = { type: 'country', id: 'USA', analysisLevel: 'country', stateId: '' }
+    expect(studyAreaToFilter(sa)).toEqual({})
+  })
+
+  it('still returns null for a non-US id in the current shape', () => {
+    expect(studyAreaToFilter({ id: 'MEX', analysisLevel: 'adm2' })).toBeNull()
   })
 })

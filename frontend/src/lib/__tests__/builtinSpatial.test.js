@@ -4,6 +4,7 @@ import { shouldUseBuiltinSpatial, buildBuiltinSpatialConfig } from '../builtinSp
 const crf = {
   id: 'gbd_pm25_acm_adult', source: 'GBD 2023 MR-BRT (IHME)', endpoint: 'All-cause mortality',
   beta: 0.0062, betaLow: 0.0044, betaHigh: 0.008, functionalForm: 'mr-brt', defaultRate: 0.008,
+  cause: 'all_cause', endpointType: 'mortality',
   extraneous: 'should be dropped',
 }
 const usTract = {
@@ -79,8 +80,18 @@ describe('buildBuiltinSpatialConfig', () => {
     expect(cfg.selectedCRFs).toEqual([{
       id: 'gbd_pm25_acm_adult', source: 'GBD 2023 MR-BRT (IHME)', endpoint: 'All-cause mortality',
       beta: 0.0062, betaLow: 0.0044, betaHigh: 0.008, functionalForm: 'mr-brt', defaultRate: 0.008,
+      cause: 'all_cause', endpointType: 'mortality',
     }])
     expect(cfg.selectedCRFs[0]).not.toHaveProperty('extraneous')
+  })
+
+  it('carries cause and endpointType so the backend mortality split is correct', () => {
+    // Without these the backend defaults every CRF to cause=all_cause,
+    // which zeroes the cause-specific totalDeaths the Results hero reads.
+    const ihd = { ...crf, id: 'epa_pm25_ihd_adult', cause: 'ihd', endpointType: 'mortality' }
+    const out = buildBuiltinSpatialConfig(usTract.step1, usTract.step2, usTract.step6, [ihd])
+    expect(out.selectedCRFs[0].cause).toBe('ihd')
+    expect(out.selectedCRFs[0].endpointType).toBe('mortality')
   })
 
   it('builds a non-US admin-2 request with the real ISO3 country and no US filters', () => {

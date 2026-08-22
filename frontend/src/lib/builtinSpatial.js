@@ -86,6 +86,10 @@ export function buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFs) {
       betaHigh: crf.betaHigh,
       functionalForm: crf.functionalForm,
       defaultRate: crf.defaultRate,
+      // Backend defaults these to all_cause/mortality when absent, which
+      // collapses the totalDeaths/allCauseDeaths split — always pass them.
+      cause: crf.cause,
+      endpointType: crf.endpointType,
     })),
   }
   // Urban runs: pass the selected centres; empty selection = all centres

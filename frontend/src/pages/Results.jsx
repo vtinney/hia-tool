@@ -11,6 +11,7 @@ import EJContextSection from '../components/EJContextSection'
 import { fetchDatasets, runAnalysisForYear, fetchDemographicsVintages } from '../lib/api'
 import { yearsFor } from '../lib/datasets'
 import { studyAreaToFilter, tractResultsFromResponse } from '../lib/demographics'
+import { spatialHeadlineDeaths, spatialSummaryStats } from '../lib/spatialResults'
 import { buildTrendSeries } from '../lib/trend'
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -789,7 +790,13 @@ export default function Results() {
 
   const isSpatial = Boolean(results?.zones)
   const summary = isSpatial ? (results?.aggregate ?? {}) : (results?.summary ?? {})
-  const totalDeaths = isSpatial ? results?.totalDeaths : summary.totalDeaths
+  // Spatial runs: prefer the all-cause total, then the cause-specific one;
+  // null (both empty) lets the hero fall back to the top detail row rather
+  // than displaying a zero.
+  const totalDeaths = isSpatial ? spatialHeadlineDeaths(results) : summary.totalDeaths
+  // Fraction/rate tiles: spatial aggregates don't carry scalar summary
+  // fields, so derive them from the highest-impact CRF.
+  const statSource = isSpatial ? spatialSummaryStats(results) : summary
   const analysisName = results?.meta?.analysisName || step1?.analysisName || ''
   const detailRows = results?.detail ?? []
 
@@ -1006,12 +1013,12 @@ export default function Results() {
               <div className={`grid gap-x-10 gap-y-8 ${hasValuation ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
                 <SecondaryStat
                   label="Attributable fraction"
-                  value={fmtPercent(summary.attributableFraction)}
+                  value={fmtPercent(statSource.attributableFraction)}
                   sub="Share of deaths attributable to exposure"
                 />
                 <SecondaryStat
                   label="Rate per 100k"
-                  value={summary.attributableRate != null ? fmtNumber(summary.attributableRate, 1) : '—'}
+                  value={statSource.attributableRate != null ? fmtNumber(statSource.attributableRate, 1) : '—'}
                   sub="Per 100,000 population"
                 />
                 {hasValuation && (

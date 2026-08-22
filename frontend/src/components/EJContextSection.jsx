@@ -5,6 +5,7 @@ import {
   populationWeightedMean,
   pickVintage,
   studyAreaToFilter,
+  bboxOfFeatureCollection,
 } from '../lib/demographics'
 
 function fmtPct(v) {
@@ -82,6 +83,13 @@ export default function EJContextSection({
   const pctBelow200Pov = useMemo(
     () => populationWeightedMean(aggregationTracts, 'pct_below_200_pov'),
     [aggregationTracts],
+  )
+
+  // Fit the choropleth to the study area rather than the continental
+  // default view.
+  const mapBbox = useMemo(
+    () => (geojson ? bboxOfFeatureCollection(geojson) : null),
+    [geojson],
   )
 
   if (!hasTractResults) {
@@ -168,7 +176,7 @@ export default function EJContextSection({
           </div>
 
           {geojson ? (
-            <TractChoroplethMap geojson={geojson} field={field} />
+            <TractChoroplethMap geojson={geojson} field={field} bbox={mapBbox} />
           ) : (
             <div className="h-[480px] rounded-xl border border-zinc-200 bg-zinc-50 flex items-center justify-center text-zinc-400 font-mono text-[11px] uppercase tracking-[0.14em]">
               Loading demographics…

@@ -100,9 +100,46 @@ export function pickVintage(analysisYear, availableVintages) {
  * @param {{type: string, id: string}|null|undefined} studyArea
  * @returns {{state?: string, county?: string}|null}
  */
+/**
+ * Compute a [minLon, minLat, maxLon, maxLat] bounding box for a GeoJSON
+ * FeatureCollection of (Multi)Polygons, so the choropleth can fit the
+ * study area instead of opening on the continental default view.
+ *
+ * @param {object|null} fc - FeatureCollection.
+ * @returns {[number, number, number, number]|null} bbox, or null when empty.
+ */
+export function bboxOfFeatureCollection(fc) {
+  let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity
+  const visit = (coords) => {
+    if (typeof coords[0] === 'number') {
+      const [lon, lat] = coords
+      if (lon < minLon) minLon = lon
+      if (lat < minLat) minLat = lat
+      if (lon > maxLon) maxLon = lon
+      if (lat > maxLat) maxLat = lat
+      return
+    }
+    for (const c of coords) visit(c)
+  }
+  for (const f of fc?.features ?? []) {
+    if (f?.geometry?.coordinates) visit(f.geometry.coordinates)
+  }
+  if (!Number.isFinite(minLon)) return null
+  return [minLon, minLat, maxLon, maxLat]
+}
+
 export function studyAreaToFilter(studyArea) {
   if (!studyArea) return null
   const { type, id } = studyArea
+
+  // Current Step-1 shape: id 'USA' with stateId / countyId fields (the
+  // legacy us-XX composite ids below are kept for older persisted state).
+  if (id === 'USA') {
+    if (!studyArea.stateId) return {}
+    const filter = { state: studyArea.stateId }
+    if (studyArea.countyId) filter.county = studyArea.countyId
+    return filter
+  }
 
   if (type === 'country' && id === 'united-states') return {}
 

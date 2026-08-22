@@ -3,17 +3,18 @@ set -e
 
 echo "=== HIA Walkthrough - Development Server ==="
 
-# Create data directory if needed
+cd "$(dirname "$0")"
 mkdir -p data
 
-# Start backend
+# Backend must run from the repo root (the app imports as backend.main),
+# using the project venv's Python — uvicorn is not on the system PATH.
 echo "Starting backend on http://localhost:8000 ..."
-(cd backend && uvicorn main:app --reload --port 8000) &
+./venv/Scripts/python.exe -m uvicorn backend.main:app --reload --port 8000 &
 BACKEND_PID=$!
 
-# Start frontend
+# npm lives in the user-local Node install (not on PATH on this machine).
 echo "Starting frontend on http://localhost:3000 ..."
-(cd frontend && npm run dev) &
+(cd frontend && PATH="/c/Users/vsoutherland/nodejs:$PATH" npm run dev) &
 FRONTEND_PID=$!
 
 echo ""
