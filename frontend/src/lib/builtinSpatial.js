@@ -13,7 +13,40 @@
 // into one polygon is slow and a national scalar is just as accurate. Non-US
 // "country average" likewise stays scalar (the legacy WHO AAP fallback).
 
+import crfLibrary from '../data/crf-library.json'
+
 const US_SPATIAL_LEVELS = new Set(['tract', 'county', 'state'])
+
+// endpoint label → every library CRF id sharing it. Step 4 keys baseline
+// rates by the endpoint's *first* library CRF; a run may select a sibling
+// CRF (different framework, same endpoint), and the stored rate must still
+// resolve for it.
+const IDS_BY_ENDPOINT = crfLibrary.reduce((acc, c) => {
+  (acc[c.endpoint] ||= []).push(c.id)
+  return acc
+}, {})
+
+/**
+ * Resolve the baseline rate for each CRF: its own stored rate first, then
+ * a rate stored under any same-endpoint sibling, then the library default.
+ *
+ * @param {object} rates - Step-4 rates keyed by CRF id.
+ * @param {Array<object>} crfs - Selected CRF definitions.
+ * @returns {object} Map of crf.id → resolved rate.
+ */
+export function resolveRatesForCRFs(rates, crfs) {
+  const out = {}
+  for (const crf of crfs || []) {
+    let rate = rates?.[crf.id]
+    if (rate == null) {
+      for (const sibling of IDS_BY_ENDPOINT[crf.endpoint] || []) {
+        if (rates?.[sibling] != null) { rate = rates[sibling]; break }
+      }
+    }
+    out[crf.id] = rate ?? crf.defaultRate
+  }
+  return out
+}
 
 /**
  * True when the current run should be routed to the backend `mode:'builtin'`
@@ -52,9 +85,13 @@ export function shouldUseBuiltinSpatial(step1, step2) {
  * @param {object} step2 - Concentration step state (baseline, control).
  * @param {object} step6 - Run step state (monteCarloIterations).
  * @param {Array<object>} selectedCRFs - Resolved CRF definitions.
+ * @param {object} [rates] - Step-4 baseline rates keyed by CRF id; when a
+ *   CRF has a numeric rate here it overrides the library defaultRate, so
+ *   the engine uses the rates the wizard displays.
  * @returns {object} Spatial compute request.
  */
-export function buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFs) {
+export function buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFs, rates = {}) {
+  const resolvedRates = resolveRatesForCRFs(rates, selectedCRFs)
   const isUS = step1?.studyArea?.id === 'USA'
   const nonUSLevel =
     step1?.studyArea?.analysisLevel === 'urban' ? 'urban' : 'adm2'
@@ -85,7 +122,9 @@ export function buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFs) {
       betaLow: crf.betaLow,
       betaHigh: crf.betaHigh,
       functionalForm: crf.functionalForm,
-      defaultRate: crf.defaultRate,
+      // Step-4 rate wins when set — the engine must use the baseline rate
+      // the wizard displays, not silently fall back to the library value.
+      defaultRate: resolvedRates[crf.id],
       // Backend defaults these to all_cause/mortality when absent, which
       // collapses the totalDeaths/allCauseDeaths split — always pass them.
       cause: crf.cause,

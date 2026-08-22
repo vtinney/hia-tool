@@ -3,8 +3,15 @@
 // { year, mean, lower95, upper95 }. Points whose pooled total can't be read
 // (e.g. pooling: none) are omitted, since there's nothing to plot.
 
+import { spatialHeadlineDeaths } from './spatialResults'
+
 function extractTotal(results) {
-  const t = results?.totalDeaths ?? results?.summary?.totalDeaths ?? null
+  // Spatial runs: same preference as the hero (all-cause first, then the
+  // cause-specific total) so the trend plots the number the page leads
+  // with. Scalar runs keep the pooled/summary total.
+  const t = results?.zones
+    ? spatialHeadlineDeaths(results)
+    : (results?.totalDeaths ?? results?.summary?.totalDeaths ?? null)
   if (!t || t.mean == null) return null
   return {
     mean: t.mean,

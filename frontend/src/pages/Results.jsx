@@ -2,13 +2,13 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Papa from 'papaparse'
 import { jsPDF } from 'jspdf'
-import html2canvas from 'html2canvas'
 import useAnalysisStore from '../stores/useAnalysisStore'
 import ResultsTable from '../components/ResultsTable'
 import CompareAnotherYearCard from '../components/CompareAnotherYearCard'
 import AdditionalRunSummary from '../components/AdditionalRunSummary'
 import EJContextSection from '../components/EJContextSection'
-import { fetchDatasets, runAnalysisForYear, fetchDemographicsVintages } from '../lib/api'
+import { fetchDatasets, fetchDemographicsVintages } from '../lib/api'
+import { runAnalysisForYear, canRunAnotherYear } from '../lib/yearRun'
 import { yearsFor } from '../lib/datasets'
 import { studyAreaToFilter, tractResultsFromResponse } from '../lib/demographics'
 import { spatialHeadlineDeaths, spatialSummaryStats } from '../lib/spatialResults'
@@ -90,7 +90,7 @@ function useCountUp(target, duration = 1100) {
 }
 
 // ── Hero: massive number + CI bar ──────────────────────────
-function HeroNumber({ totalDeaths, detailRows = [], isSpatial, zoneCount }) {
+function HeroNumber({ totalDeaths, detailRows = [], isSpatial, zoneCount, method = 'analytical' }) {
   // When the pooled total isn't available (the default now that the
   // pooling UI is removed), fall back to the highest-impact CRF so the
   // hero is still a real number, not a placeholder sentence.
@@ -149,8 +149,8 @@ function HeroNumber({ totalDeaths, detailRows = [], isSpatial, zoneCount }) {
         <p className="eyebrow">Headline result</p>
         <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-zinc-400">
           {isPooled
-            ? 'Attributable deaths · 95% CI · analytical'
-            : 'Per-CRF · top endpoint · 95% CI · analytical'}
+            ? `Attributable deaths · 95% CI · ${method}`
+            : `Per-CRF · top endpoint · 95% CI · ${method}`}
         </p>
       </div>
 
@@ -598,6 +598,7 @@ const CSV_COLUMNS = [
 
 function ExportTab({ results, analysisName, hasValuation, economicValue, summaryRef, tableRef, step1, step2, step6, step7, primaryYear, additionalRuns, exportConfig, onOpenTemplateModal }) {
   const [pdfBusy, setPdfBusy] = useState(false)
+  const [pdfError, setPdfError] = useState(null)
   const slug = slugify(analysisName)
   const rows = results?.detail ?? []
   const hasSpatialUnits = rows.some((r) => r.spatialUnit != null)
@@ -643,7 +644,10 @@ function ExportTab({ results, analysisName, hasValuation, economicValue, summary
 
       pdf.setFontSize(28)
       pdf.setTextColor(15, 23, 42)
-      pdf.text(analysisName || 'HIA Analysis Report', margin, 50)
+      // jsPDF's built-in Helvetica has no subscript glyphs (PM₂.₅ prints
+      // as mojibake) — map them to plain digits.
+      const pdfSafe = (s) => String(s).replace(/[₀₁₂₃₄₅₆₇₈₉]/g, (c) => '₀₁₂₃₄₅₆₇₈₉'.indexOf(c))
+      pdf.text(pdfSafe(analysisName || 'HIA Analysis Report'), margin, 50)
       pdf.setFontSize(12)
       pdf.setTextColor(100, 116, 139)
       pdf.text(`Generated: ${new Date().toLocaleDateString()}`, margin, 65)
@@ -659,7 +663,9 @@ function ExportTab({ results, analysisName, hasValuation, economicValue, summary
         ['Study Area', step1?.studyArea?.name || '—'],
         ['Pollutant', step1?.pollutant || '—'],
         ['Year', step2?.baseline?.year ?? '—'],
-        ['Uncertainty Method', 'Analytical 95% CI'],
+        ['Uncertainty Method', step6?.monteCarloIterations > 0
+          ? `Monte Carlo (${step6.monteCarloIterations} iterations)`
+          : 'Analytical 95% CI'],
       ]
       if (hasValuation) {
         params.push(
@@ -670,35 +676,107 @@ function ExportTab({ results, analysisName, hasValuation, economicValue, summary
       }
       for (const [label, value] of params) {
         pdf.setFont(undefined, 'bold'); pdf.text(`${label}:`, margin, y)
-        pdf.setFont(undefined, 'normal'); pdf.text(value, margin + 55, y)
+        // jsPDF throws on non-string values (e.g. the numeric year).
+        pdf.setFont(undefined, 'normal'); pdf.text(String(value), margin + 55, y)
         y += 7
       }
 
-      if (summaryRef.current) {
+      // Summary page — drawn directly from the results data. (This used to
+      // html2canvas-screenshot the summary DOM, which could lock up the tab
+      // for large runs; text rendering is instant and deterministic.)
+      {
+        const isSpatial = Boolean(results?.zones)
+        const headline = isSpatial
+          ? spatialHeadlineDeaths(results)
+          : (results?.summary?.totalDeaths ?? null)
+        const stats = isSpatial
+          ? spatialSummaryStats(results)
+          : (results?.summary ?? {})
+        const topRow = rows.length
+          ? [...rows].sort((a, b) => (Number(b.attributableCases) || 0) - (Number(a.attributableCases) || 0))[0]
+          : null
+        const mean = headline?.mean ?? (topRow ? Number(topRow.attributableCases) : null)
+        const lower = headline?.lower95 ?? topRow?.lower95 ?? null
+        const upper = headline?.upper95 ?? topRow?.upper95 ?? null
+
         pdf.addPage()
         pdf.setFontSize(16); pdf.setTextColor(15, 23, 42)
         pdf.text('Summary', margin, 25)
-        const summaryCanvas = await html2canvas(summaryRef.current, { scale: 2, useCORS: true, backgroundColor: '#fafaf9' })
-        const summaryImg = summaryCanvas.toDataURL('image/png')
-        const imgW = pageW - margin * 2
-        const imgH = (summaryCanvas.height / summaryCanvas.width) * imgW
-        pdf.addImage(summaryImg, 'PNG', margin, 35, imgW, Math.min(imgH, pageH - 55))
+
+        pdf.setFontSize(44); pdf.setTextColor(15, 23, 42)
+        pdf.text(mean != null ? fmtNumber(Math.round(mean)) : '—', margin, 55)
+        pdf.setFontSize(12); pdf.setTextColor(100, 116, 139)
+        pdf.text('attributable cases', margin, 64)
+        let sy = 64
+        if (lower != null && upper != null) {
+          sy += 8
+          pdf.text(`95% CI: ${fmtNumber(Math.round(lower))} – ${fmtNumber(Math.round(upper))}`, margin, sy)
+        }
+        if (isSpatial && results?.zones?.length) {
+          sy += 8
+          pdf.text(`across ${results.zones.length.toLocaleString()} zones`, margin, sy)
+        }
+        sy += 12
+        pdf.setTextColor(71, 85, 105)
+        pdf.text(`Attributable fraction: ${fmtPercent(stats.attributableFraction)}`, margin, sy)
+        sy += 8
+        pdf.text(
+          `Rate per 100,000: ${stats.attributableRate != null ? fmtNumber(stats.attributableRate, 1) : '—'}`,
+          margin, sy,
+        )
+        if (hasValuation) {
+          sy += 8
+          pdf.text(`Economic value: ${fmtCurrency(economicValue.mean)}`, margin, sy)
+        }
+
+        // Endpoint breakdown
+        if (rows.length) {
+          sy += 14
+          pdf.setFontSize(13); pdf.setTextColor(15, 23, 42)
+          pdf.text('By endpoint', margin, sy)
+          sy += 8
+          pdf.setFontSize(10); pdf.setTextColor(71, 85, 105)
+          const sorted = [...rows].sort((a, b) => (Number(b.attributableCases) || 0) - (Number(a.attributableCases) || 0))
+          for (const r of sorted) {
+            pdf.text(`${r.endpoint}`, margin, sy)
+            pdf.text(fmtNumber(Math.round(Number(r.attributableCases) || 0)), margin + 110, sy, { align: 'right' })
+            sy += 6.5
+            if (sy > pageH - 15) break
+          }
+        }
       }
 
-      if (tableRef.current) {
+      // Detail table — same data as the CSV export, drawn as a text grid.
+      if (rows.length) {
         pdf.addPage()
         pdf.setFontSize(16); pdf.setTextColor(15, 23, 42)
         pdf.text('Detailed Results by CRF', margin, 25)
-        const tableCanvas = await html2canvas(tableRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-        const tableImg = tableCanvas.toDataURL('image/png')
-        const imgW = pageW - margin * 2
-        const imgH = (tableCanvas.height / tableCanvas.width) * imgW
-        const maxImgH = pageH - 45
-        const finalH = Math.min(imgH, maxImgH)
-        pdf.addImage(tableImg, 'PNG', margin, 35, imgW, finalH)
-        if (imgH > maxImgH) {
-          pdf.setFontSize(9); pdf.setTextColor(148, 163, 184)
-          pdf.text('Table truncated — download CSV for full data.', margin, pageH - 10)
+        const cols = [
+          { label: 'CRF Study', x: margin, w: 70, get: (r) => String(r.crfStudy ?? '—') },
+          { label: 'Endpoint', x: margin + 72, w: 55, get: (r) => String(r.endpoint ?? '—') },
+          { label: 'Cases (mean)', x: margin + 150, align: 'right', get: (r) => fmtNumber(Number(r.attributableCases) || 0, 1) },
+          { label: 'Lower 95%', x: margin + 178, align: 'right', get: (r) => r.lower95 != null ? fmtNumber(Number(r.lower95), 1) : '—' },
+          { label: 'Upper 95%', x: margin + 206, align: 'right', get: (r) => r.upper95 != null ? fmtNumber(Number(r.upper95), 1) : '—' },
+          { label: 'AF', x: margin + 226, align: 'right', get: (r) => fmtPercent(r.attributableFraction) },
+          { label: 'Per 100k', x: margin + 248, align: 'right', get: (r) => r.ratePer100k != null ? fmtNumber(Number(r.ratePer100k), 1) : '—' },
+        ]
+        let ty = 40
+        pdf.setFontSize(9); pdf.setFont(undefined, 'bold'); pdf.setTextColor(71, 85, 105)
+        for (const c of cols) pdf.text(c.label, c.x, ty, c.align ? { align: c.align } : undefined)
+        pdf.setFont(undefined, 'normal')
+        ty += 7
+        for (const r of rows) {
+          pdf.setTextColor(15, 23, 42)
+          for (const c of cols) {
+            const raw = c.get(r)
+            const txt = c.w ? pdf.splitTextToSize(raw, c.w)[0] : raw
+            pdf.text(txt, c.x, ty, c.align ? { align: c.align } : undefined)
+          }
+          ty += 6.5
+          if (ty > pageH - 15) {
+            pdf.addPage()
+            ty = 25
+          }
         }
       }
 
@@ -732,13 +810,15 @@ function ExportTab({ results, analysisName, hasValuation, economicValue, summary
       }
 
       pdf.save(`${slug}-report.pdf`)
+      setPdfError(null)
     } catch (err) {
+      // Never alert() here — a modal blocks the whole tab.
       console.error('PDF generation failed:', err)
-      alert('Failed to generate PDF. Please try again.')
+      setPdfError(err?.message || 'PDF generation failed')
     } finally {
       setPdfBusy(false)
     }
-  }, [analysisName, hasValuation, economicValue, step1, step2, step6, step7, summaryRef, tableRef, slug, results, primaryYear, additionalRuns])
+  }, [analysisName, hasValuation, economicValue, step1, step2, step6, step7, slug, results, rows, primaryYear, additionalRuns])
 
   const handleDownloadConfig = useCallback(() => {
     const config = exportConfig()
@@ -756,12 +836,19 @@ function ExportTab({ results, analysisName, hasValuation, economicValue, summary
   }, [exportConfig, analysisName, slug])
 
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <ExportTile kicker="CSV" label="Results table" description="Tidy CSV via Papaparse — every CRF, every endpoint, every CI." disabled={rows.length === 0} onClick={handleDownloadCSV} />
-      <ExportTile kicker="PDF" label="Full report" description="Title page, parameters, summary cards, and the detail table." busy={pdfBusy} onClick={handleDownloadPDF} />
-      <ExportTile kicker="JSON" label="Reproducibility config" description="The exact inputs that produced these numbers, in one file." onClick={handleDownloadConfig} />
-      <ExportTile kicker="Save" label="Reusable template" description="Save this configuration to start a new analysis from it." onClick={onOpenTemplateModal} />
-    </div>
+    <>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <ExportTile kicker="CSV" label="Results table" description="Tidy CSV via Papaparse — every CRF, every endpoint, every CI." disabled={rows.length === 0} onClick={handleDownloadCSV} />
+        <ExportTile kicker="PDF" label="Full report" description="Title page, parameters, summary cards, and the detail table." busy={pdfBusy} onClick={handleDownloadPDF} />
+        <ExportTile kicker="JSON" label="Reproducibility config" description="The exact inputs that produced these numbers, in one file." onClick={handleDownloadConfig} />
+        <ExportTile kicker="Save" label="Reusable template" description="Save this configuration to start a new analysis from it." onClick={onOpenTemplateModal} />
+      </div>
+      {pdfError && (
+        <p className="mt-3 text-[13px] text-rose-700">
+          PDF export failed: {pdfError}
+        </p>
+      )}
+    </>
   )
 }
 
@@ -1008,6 +1095,7 @@ export default function Results() {
                 detailRows={detailRows}
                 isSpatial={isSpatial}
                 zoneCount={results?.zones?.length}
+                method={step6?.monteCarloIterations > 0 ? 'monte carlo' : 'analytical'}
               />
 
               <div className={`grid gap-x-10 gap-y-8 ${hasValuation ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
@@ -1122,13 +1210,17 @@ export default function Results() {
                 </div>
               )}
 
-              <CompareAnotherYearCard
-                allowedYears={allowedYears}
-                excludeYears={usedYears}
-                additionalRunCount={additionalRuns.length}
-                onRun={handleRunAnotherYear}
-                running={running}
-              />
+              {/* Year re-runs need a built-in spatial config — manual /
+                  uploaded inputs are year-specific and can't be re-keyed. */}
+              {canRunAnotherYear({ step1, step2 }) && (
+                <CompareAnotherYearCard
+                  allowedYears={allowedYears}
+                  excludeYears={usedYears}
+                  additionalRunCount={additionalRuns.length}
+                  onRun={handleRunAnotherYear}
+                  running={running}
+                />
+              )}
 
               {runError && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">

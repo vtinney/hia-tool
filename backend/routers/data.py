@@ -187,7 +187,7 @@ def _sanitize(v: Any) -> Any:
 
 
 @router.get("/concentration/{pollutant}/{country}/{year}")
-async def get_concentration(
+def get_concentration(
     pollutant: str,
     country: str,
     year: int,
@@ -338,7 +338,7 @@ def _worldpop_population(slug: str, year: int, dataset: str) -> dict[str, Any]:
 
 
 @router.get("/population/{country}/{year}")
-async def get_population(
+def get_population(
     country: str,
     year: int,
     dataset: str | None = Query(
@@ -426,7 +426,7 @@ async def get_population(
 
 
 @router.get("/incidence/{country}/{cause}/{year}")
-async def get_incidence(
+def get_incidence(
     country: str,
     cause: str,
     year: int,
@@ -440,6 +440,13 @@ async def get_incidence(
     sex: str = Query(
         "both",
         description="Sex slug ('both', 'male', 'female'). GBD fallback only.",
+    ),
+    aggregate: bool = Query(
+        False,
+        description="Skip the per-country file and serve the national GBD "
+                    "all-ages rate directly. Use when one study-area scalar "
+                    "is needed — the primary files can be admin-unit × "
+                    "age-group tables with no aggregate row.",
     ),
 ):
     """Return JSON with baseline incidence rates by admin unit.
@@ -456,8 +463,11 @@ async def get_incidence(
     """
     slug = _canonical_country(country)
 
-    # 1. Primary path — country/cause/year parquet.
+    # 1. Primary path — country/cause/year parquet. Skipped when the
+    # caller asked for the aggregate national rate.
     try:
+        if aggregate:
+            raise FileNotFoundError
         directory = _resolve_path("incidence", slug, cause)
         file_path = _find_file(directory, str(year))
         df = _read_table(file_path)
@@ -543,7 +553,7 @@ async def get_incidence(
 
 
 @router.get("/demographics/vintages/{country}")
-async def get_demographics_vintages(country: str) -> dict[str, Any]:
+def get_demographics_vintages(country: str) -> dict[str, Any]:
     """Return the sorted list of ACS vintages on disk for a country.
 
     Lets the frontend discover which years are actually available for
@@ -571,7 +581,7 @@ async def get_demographics_vintages(country: str) -> dict[str, Any]:
 
 
 @router.get("/demographics/{country}/{year}")
-async def get_demographics(
+def get_demographics(
     country: str,
     year: int,
     state: str | None = Query(
@@ -682,7 +692,7 @@ def _df_to_geojson_simplified(
 
 
 @router.get("/urban-centres/{country}")
-async def list_urban_centres(country: str, year: int | None = None):
+def list_urban_centres(country: str, year: int | None = None):
     """Urban centres (GHS-UCDB) for one country, sorted by population desc.
 
     Feeds the Step 1 city picker. Population comes from the stats parquet
@@ -1181,7 +1191,7 @@ def _scan_datasets(
 
 
 @router.get("/datasets")
-async def list_datasets(
+def list_datasets(
     pollutant: str | None = Query(None, description="Filter by pollutant"),
     country: str | None = Query(None, description="Filter by country"),
     type: str | None = Query(None, description="Filter by type: concentration, population, incidence"),

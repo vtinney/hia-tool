@@ -121,8 +121,9 @@ export async function fetchUrbanCentres(country, year) {
  * @param {number} year
  * @returns {Promise<object|null>} { country, cause, year, units: [...] } or null if 404
  */
-export async function fetchIncidence(country, cause, year) {
-  const res = await fetch(`${API_BASE}/data/incidence/${country}/${cause}/${year}`)
+export async function fetchIncidence(country, cause, year, opts = {}) {
+  const qs = opts.aggregate ? '?aggregate=true' : ''
+  const res = await fetch(`${API_BASE}/data/incidence/${country}/${cause}/${year}${qs}`)
   if (!res.ok) {
     if (res.status === 404) return null
     throw new Error(`Failed to fetch incidence data: ${res.status}`)
@@ -179,15 +180,9 @@ export function cloneConfigWithYear(config, year) {
   return cloned
 }
 
-/**
- * Run the analysis backend with the current config re-keyed to a new year.
- * Returns the raw compute response (same shape as the primary run so the
- * caller can re-use the existing results-summary components).
- */
-export async function runAnalysisForYear(config, year) {
-  const req = cloneConfigWithYear(config, year)
-  return runSpatialCompute(req)
-}
+// "Compare another year" re-runs live in lib/yearRun.js — the old
+// implementation here posted the raw wizard config to the spatial
+// endpoint, which rejects that shape.
 
 /**
  * Fetch ACS 5-year tract demographics for a country/year.

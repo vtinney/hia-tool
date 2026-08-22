@@ -231,28 +231,43 @@ function BuiltinIncidenceLoader({ studyArea, year, uniqueEndpoints, onDataLoaded
 
   const country = studyArea?.id || ''
 
+  // Use the CRF library's `cause` field directly — it already matches
+  // GBD cause codes ("ihd", "lung_cancer", "all_cause", …). Deriving
+  // a slug from the endpoint label produced mismatches like
+  // "ischemic-heart-disease" vs "ihd", so built-in lookups silently
+  // failed (e.g., Mexico 2018).
+  const causesKey = useMemo(
+    () => [...new Set(uniqueEndpoints.map((ep) => ep.cause).filter(Boolean))].sort().join(','),
+    [uniqueEndpoints],
+  )
+
   useEffect(() => {
-    if (!country || !year) return
+    if (!country || !year || !causesKey) return
 
     setLoading(true)
     setError(null)
     setLoadedCount(0)
 
-    // Use the CRF library's `cause` field directly — it already matches
-    // GBD cause codes ("ihd", "lung_cancer", "all_cause", …). Deriving
-    // a slug from the endpoint label produced mismatches like
-    // "ischemic-heart-disease" vs "ihd", so built-in lookups silently
-    // failed (e.g., Mexico 2018).
-    const causes = [...new Set(uniqueEndpoints.map((ep) => ep.cause).filter(Boolean))]
+    const causes = causesKey.split(',')
+
+    // Cancel superseded runs: when the endpoint selection changes while a
+    // fetch is in flight, the earlier run's (smaller) ratesMap must not
+    // land after — and overwrite — the newer run's.
+    let cancelled = false
 
     Promise.all(
       causes.map((cause) =>
-        fetchIncidence(country, cause, year)
+        // aggregate=true → one national all-ages GBD rate per cause. The
+        // per-country primary files can be county × age-group tables with
+        // no aggregate row; picking a row from those blind produced an
+        // arbitrary single-county rate.
+        fetchIncidence(country, cause, year, { aggregate: true })
           .catch(() => null)
           .then((r) => [cause, r]),
       ),
     )
       .then((entries) => {
+        if (cancelled) return
         const byCause = Object.fromEntries(entries)
         if (Object.values(byCause).every((r) => r == null)) {
           setError(`No built-in incidence data for ${studyArea?.name || country} in ${year}.`)
@@ -279,9 +294,12 @@ function BuiltinIncidenceLoader({ studyArea, year, uniqueEndpoints, onDataLoaded
         if (matched > 0) onDataLoaded(ratesMap)
         else setError(`No built-in incidence data matched endpoints for ${studyArea?.name || country} in ${year}.`)
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [country, year]) // eslint-disable-line react-hooks/exhaustive-deps
+      .catch((err) => { if (!cancelled) setError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+    // Refetch when the endpoint selection changes — keying on [country,
+    // year] alone left endpoints checked after mount without a rate.
+  }, [country, year, causesKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!year) {
     return (
@@ -387,15 +405,21 @@ export default function Step4HealthData() {
     }
     const causes = [...new Set(uniqueEndpoints.map((ep) => ep.cause).filter(Boolean))]
     setAvailabilityLoading(true)
+    let stale = false
     Promise.all(
       causes.map((cause) =>
-        fetchIncidence(country, cause, effectiveYear)
+        // aggregate=true probes the same national GBD source the rate
+        // loader uses (availability must match what actually loads), and
+        // its one-row responses don't stall the backend the way full
+        // county × age tables (30k+ rows each, 14 causes) did.
+        fetchIncidence(country, cause, effectiveYear, { aggregate: true })
           .catch(() => null)
           .then((r) => [cause, r != null && (r.units || []).some((u) => u.incidence_rate != null)]),
       ),
     )
-      .then((entries) => setBuiltinAvailability(Object.fromEntries(entries)))
-      .finally(() => setAvailabilityLoading(false))
+      .then((entries) => { if (!stale) setBuiltinAvailability(Object.fromEntries(entries)) })
+      .finally(() => { if (!stale) setAvailabilityLoading(false) })
+    return () => { stale = true }
   }, [activeTab, country, effectiveYear, uniqueEndpoints])
 
   const isUnavailable = useCallback(
@@ -455,21 +479,29 @@ export default function Step4HealthData() {
     }
     const hasYear = effectiveYear != null
     let valid = false
-    if (incidenceType === 'manual') {
+    if (activeTab === 'manual') {
       // Every selected endpoint needs a positive rate (either in
       // currentRates or via its defaultRate fallback).
       valid = visibleEndpoints.every((ep) => {
         const r = currentRates[ep.id] ?? ep.defaultRate
         return r != null && r !== '' && r > 0
       })
-    } else if (incidenceType === 'file') {
+    } else if (activeTab === 'upload') {
       valid = step4.fileData?.name && !step4.fileData?.error && hasYear
-    } else if (incidenceType === 'dataset') {
-      valid = hasYear
+    } else {
+      // Built-in tab. Rates load async — the step isn't valid until every
+      // selected endpoint actually has one, or the run would silently
+      // fall back to library defaults instead of the displayed rates.
+      // (incidenceType lags the tab: it flips to 'dataset' only once the
+      // loader lands, so gate on the visible tab, not the stored type.)
+      valid = hasYear && visibleEndpoints.every((ep) => {
+        const r = currentRates[ep.id]
+        return r != null && r !== '' && r > 0
+      })
     }
     setStepValidity(4, valid)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incidenceType, currentRates, step4.fileData, effectiveYear, pollutant, visibleEndpoints])
+  }, [activeTab, currentRates, step4.fileData, effectiveYear, pollutant, visibleEndpoints])
 
   // ── Handlers ───────────────────────────────────────────────────
 
@@ -756,7 +788,11 @@ export default function Step4HealthData() {
                 year={effectiveYear}
                 uniqueEndpoints={visibleEndpoints}
                 onDataLoaded={(ratesMap) => {
-                  setStep4({ rates: { ...currentRates, ...ratesMap }, incidenceType: 'dataset' })
+                  // Merge against the live store, not this render's
+                  // closure — a stale base would drop rates that landed
+                  // since this component last rendered.
+                  const live = useAnalysisStore.getState().step4?.rates || {}
+                  setStep4({ rates: { ...live, ...ratesMap }, incidenceType: 'dataset' })
                 }}
               />
             )

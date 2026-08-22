@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { shouldUseBuiltinSpatial, buildBuiltinSpatialConfig } from '../builtinSpatial'
+import { shouldUseBuiltinSpatial, buildBuiltinSpatialConfig, resolveRatesForCRFs } from '../builtinSpatial'
 
 const crf = {
   id: 'gbd_pm25_acm_adult', source: 'GBD 2023 MR-BRT (IHME)', endpoint: 'All-cause mortality',
@@ -83,6 +83,55 @@ describe('buildBuiltinSpatialConfig', () => {
       cause: 'all_cause', endpointType: 'mortality',
     }])
     expect(cfg.selectedCRFs[0]).not.toHaveProperty('extraneous')
+  })
+
+  it('uses the Step-4 rate for a CRF when one is set, else the library default', () => {
+    // The wizard displays Step-4 baseline rates (built-in GBD load or
+    // manual entry); the spatial engine must use what the UI shows.
+    const out = buildBuiltinSpatialConfig(
+      usTract.step1, usTract.step2, usTract.step6, [crf],
+      { gbd_pm25_acm_adult: 0.0102 },
+    )
+    expect(out.selectedCRFs[0].defaultRate).toBe(0.0102)
+    const noRate = buildBuiltinSpatialConfig(
+      usTract.step1, usTract.step2, usTract.step6, [crf],
+      { some_other_crf: 0.5 },
+    )
+    expect(noRate.selectedCRFs[0].defaultRate).toBe(0.008)
+    const nullRate = buildBuiltinSpatialConfig(
+      usTract.step1, usTract.step2, usTract.step6, [crf],
+      { gbd_pm25_acm_adult: null },
+    )
+    expect(nullRate.selectedCRFs[0].defaultRate).toBe(0.008)
+  })
+
+  it('resolves a rate stored under a sibling CRF of the same endpoint', () => {
+    // Step 4 keys rates by the endpoint's first library CRF (e.g.
+    // epa_pm25_ihd_adult); a template may select a different CRF for the
+    // same endpoint (gbd_pm25_ihd). The rate must still apply.
+    const resolved = resolveRatesForCRFs(
+      { epa_pm25_ihd_adult: 0.0014 },
+      [{ id: 'gbd_pm25_ihd', endpoint: 'Ischemic heart disease', defaultRate: 0.0025 }],
+    )
+    expect(resolved.gbd_pm25_ihd).toBe(0.0014)
+    // No stored rate anywhere for the endpoint → library default
+    const fallback = resolveRatesForCRFs(
+      {},
+      [{ id: 'gbd_pm25_ihd', endpoint: 'Ischemic heart disease', defaultRate: 0.0025 }],
+    )
+    expect(fallback.gbd_pm25_ihd).toBe(0.0025)
+  })
+
+  it('applies a sibling-keyed Step-4 rate in the built config', () => {
+    const gbdIhd = {
+      ...crf, id: 'gbd_pm25_ihd', endpoint: 'Ischemic heart disease',
+      cause: 'ihd', defaultRate: 0.0025,
+    }
+    const out = buildBuiltinSpatialConfig(
+      usTract.step1, usTract.step2, usTract.step6, [gbdIhd],
+      { epa_pm25_ihd_adult: 0.0014 },
+    )
+    expect(out.selectedCRFs[0].defaultRate).toBe(0.0014)
   })
 
   it('carries cause and endpointType so the backend mortality split is correct', () => {

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import useAnalysisStore from '../../stores/useAnalysisStore'
 import { computeHIA } from '../../lib/hia-engine'
 import { runSpatialCompute } from '../../lib/api'
-import { shouldUseBuiltinSpatial, buildBuiltinSpatialConfig } from '../../lib/builtinSpatial'
+import { shouldUseBuiltinSpatial, buildBuiltinSpatialConfig, resolveRatesForCRFs } from '../../lib/builtinSpatial'
 import { detailRowsFromSpatial } from '../../lib/spatialResults'
 import crfLibrary from '../../data/crf-library.json'
 
@@ -226,7 +226,9 @@ export default function Step6Run() {
             betaLow: crf.betaLow,
             betaHigh: crf.betaHigh,
             functionalForm: crf.functionalForm,
-            defaultRate: crf.defaultRate,
+            // Step-4 rate wins when set, matching what the wizard displays
+            // (sibling-endpoint keys resolve too).
+            defaultRate: resolveRatesForCRFs(step4.rates, [crf])[crf.id],
             // Keep the backend's mortality split correct (defaults to
             // all_cause/mortality when absent).
             cause: crf.cause,
@@ -250,7 +252,7 @@ export default function Step6Run() {
         // so the run returns per-tract zones (required for the EJ section),
         // rather than the in-browser scalar engine.
         const results = await runSpatialCompute(
-          buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFDetails),
+          buildBuiltinSpatialConfig(step1, step2, step6, selectedCRFDetails, step4.rates),
         )
         setResults({
           ...results,
@@ -269,7 +271,9 @@ export default function Step6Run() {
           population: step3.totalPopulation,
           ageGroups: step3.ageGroups,
           selectedCRFs: selectedCRFDetails,
-          incidenceRates: step4.rates,
+          // Resolve sibling-endpoint keys so a rate stored under one
+          // framework's CRF id applies to any same-endpoint CRF.
+          incidenceRates: resolveRatesForCRFs(step4.rates, selectedCRFDetails),
           poolingMethod: step6.poolingMethod,
           monteCarloIterations: step6.monteCarloIterations,
         }

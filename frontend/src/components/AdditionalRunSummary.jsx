@@ -1,3 +1,5 @@
+import { spatialHeadlineDeaths } from '../lib/spatialResults'
+
 function fmtNumber(n) {
   if (n == null) return '—'
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })
@@ -5,11 +7,12 @@ function fmtNumber(n) {
 
 export default function AdditionalRunSummary({ run, onRemove }) {
   // Results shape varies by pooling mode:
-  //   - spatial with pooled total:    results.totalDeaths
+  //   - spatial: hero preference (all-cause first, then cause-specific)
   //   - non-spatial / aggregate:      results.summary.totalDeaths
   //   - pooling: none                 totalDeaths is absent
-  const totalDeaths =
-    run.results?.totalDeaths ?? run.results?.summary?.totalDeaths ?? null
+  const totalDeaths = run.results?.zones
+    ? spatialHeadlineDeaths(run.results)
+    : (run.results?.totalDeaths ?? run.results?.summary?.totalDeaths ?? null)
   const mean = totalDeaths?.mean ?? null
   const lower = totalDeaths?.lower95 ?? null
   const upper = totalDeaths?.upper95 ?? null

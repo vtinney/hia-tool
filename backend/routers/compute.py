@@ -440,8 +440,12 @@ def _run_spatial_compute_v2(
         y0 = crf.get("defaultRate") or 0.008
         if analytical:
             betas = np.array([crf["betaLow"], crf["beta"], crf["betaHigh"]], dtype=float)
+            # Positions are [lower, mean, upper] — spline forms use z to
+            # evaluate the tabulated RR band at the matching quantiles.
+            z = np.array([-1.96, 0.0, 1.96])
         else:
             betas = rng.normal(loc=crf["beta"], scale=se, size=mc_iterations)
+            z = (betas - crf["beta"]) / se if se > 0 else np.zeros_like(betas)
         n_iter = len(betas)
 
         zone_cases = np.zeros((n_iter, n_zones))
@@ -452,7 +456,7 @@ def _run_spatial_compute_v2(
                 float(resolved.c_baseline[zi]),
                 float(resolved.c_control[zi]),
                 y0, float(resolved.population[zi]),
-                crf=crf,
+                crf=crf, z=z,
             )
             zone_cases[:, zi] = cases_zi
             zone_paf[:, zi] = paf_zi

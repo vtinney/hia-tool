@@ -73,10 +73,14 @@ _CRF_ID_TO_FUSION = {
 
 
 def _load_tabulated_rr(root: Path, pollutant: str, endpoint: str) -> np.ndarray | None:
-    """Read a [exposure, rr_mean] table from ``root/pollutant/endpoint.parquet``.
+    """Read a tabulated RR curve from ``root/pollutant/endpoint.parquet``.
 
-    Returns ``None`` when the file doesn't exist or lacks the expected
-    columns so callers can fall back gracefully.
+    Returns a ``(N, 4)`` array — [exposure, rr_lower, rr_mean, rr_upper] —
+    so downstream evaluation can propagate the RR uncertainty band. Files
+    without CI columns fall back to duplicating the mean (the band then
+    collapses, matching the old mean-only behaviour). Returns ``None``
+    when the file doesn't exist or lacks the expected columns so callers
+    can fall back gracefully.
     """
     path = root / pollutant / f"{endpoint}.parquet"
     if not path.exists():
@@ -85,8 +89,11 @@ def _load_tabulated_rr(root: Path, pollutant: str, endpoint: str) -> np.ndarray 
     if "exposure" not in df.columns or "rr_mean" not in df.columns:
         return None
     df = df.sort_values("exposure")
+    mean = df["rr_mean"].to_numpy()
+    lower = df["rr_lower"].to_numpy() if "rr_lower" in df.columns else mean
+    upper = df["rr_upper"].to_numpy() if "rr_upper" in df.columns else mean
     return np.column_stack(
-        [df["exposure"].to_numpy(), df["rr_mean"].to_numpy()]
+        [df["exposure"].to_numpy(), lower, mean, upper]
     ).astype(np.float64)
 
 
@@ -289,6 +296,47 @@ def _interpolate_rr(
     return np.interp(c, concs, rrs)
 
 
+def _tabulated_paf(
+    table: np.ndarray,
+    c_base: float,
+    c_ctrl: float,
+    z: np.ndarray | None,
+) -> np.ndarray | float:
+    """PAF from a tabulated RR curve, propagating its uncertainty band.
+
+    2-column [exposure, rr] tables (or ``z=None``) evaluate the mean
+    curve only. 4-column [exposure, rr_lower, rr_mean, rr_upper] tables
+    with a ``z`` array scale the mean RR by ``exp(z · se_log_rr)``, with
+    ``se_log_rr`` derived from the curve's own 95% bounds — exact at the
+    analytical positions z = −1.96 / 0 / +1.96, and consistent draws for
+    Monte Carlo (the same z shifts baseline and control together).
+    """
+    concs = table[:, 0]
+    banded = table.shape[1] >= 4
+    mean_col = 2 if banded else 1
+    rr_base = float(np.interp(c_base, concs, table[:, mean_col]))
+    rr_ctrl = float(np.interp(c_ctrl, concs, table[:, mean_col]))
+
+    if banded and z is not None:
+        z = np.asarray(z, dtype=np.float64)
+
+        def draws(rr_m: float, c: float) -> np.ndarray:
+            lo = float(np.interp(c, concs, table[:, 1]))
+            hi = float(np.interp(c, concs, table[:, 3]))
+            se = (
+                (np.log(hi) - np.log(lo)) / (2 * 1.96)
+                if rr_m > 0 and lo > 0 and hi > 0
+                else 0.0
+            )
+            return rr_m * np.exp(z * se)
+
+        rr_b = draws(rr_base, c_base)
+        rr_c = draws(rr_ctrl, c_ctrl)
+        return np.where(rr_b > 0, (rr_b - rr_c) / rr_b, 0.0)
+
+    return (rr_base - rr_ctrl) / rr_base if rr_base > 0 else 0.0
+
+
 def mr_brt(
     beta: np.ndarray,
     c_base: float | np.ndarray,
@@ -296,6 +344,7 @@ def mr_brt(
     y0: float,
     pop: float | np.ndarray,
     spline_table: np.ndarray | None = None,
+    z: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """MR-BRT spline concentration-response function.
 
@@ -316,7 +365,12 @@ def mr_brt(
     pop : float or np.ndarray
         Exposed population.
     spline_table : np.ndarray or None
-        Shape (N, 2) — [concentration, RR].  ``None`` triggers fallback.
+        Shape (N, 2) [concentration, RR] or (N, 4)
+        [concentration, RR lower, RR mean, RR upper].
+        ``None`` triggers fallback.
+    z : np.ndarray or None
+        Standard-normal deviates of each beta draw — propagates the RR
+        band on 4-column tables.
 
     Returns
     -------
@@ -325,9 +379,7 @@ def mr_brt(
     global _mr_brt_warned
 
     if spline_table is not None and len(spline_table) >= 2:
-        rr_base = _interpolate_rr(spline_table, c_base)
-        rr_ctrl = _interpolate_rr(spline_table, c_ctrl)
-        paf = np.where(rr_base > 0, (rr_base - rr_ctrl) / rr_base, 0.0)
+        paf = _tabulated_paf(spline_table, float(c_base), float(c_ctrl), z)
         # Broadcast paf to match beta shape for MC consistency
         paf = np.broadcast_to(paf, beta.shape).copy()
         cases = paf * y0 * pop
@@ -441,6 +493,7 @@ def fusion(
     y0: float,
     pop: float | np.ndarray,
     spline_table: np.ndarray | None = None,
+    z: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Fusion-CanCHEC hybrid concentration-response function.
 
@@ -475,9 +528,7 @@ def fusion(
     global _fusion_warned
 
     if spline_table is not None and len(spline_table) >= 2:
-        rr_base = _interpolate_rr(spline_table, c_base)
-        rr_ctrl = _interpolate_rr(spline_table, c_ctrl)
-        paf = np.where(rr_base > 0, (rr_base - rr_ctrl) / rr_base, 0.0)
+        paf = _tabulated_paf(spline_table, float(c_base), float(c_ctrl), z)
         # Broadcast paf to match beta shape for MC consistency
         paf = np.broadcast_to(paf, beta.shape).copy()
         cases = paf * y0 * pop
@@ -507,6 +558,7 @@ def _compute_single_crf(
     y0: float,
     pop: float | np.ndarray,
     crf: dict[str, Any] | None = None,
+    z: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Route a CRF to the correct functional form.
 
@@ -532,12 +584,12 @@ def _compute_single_crf(
         return log_linear(beta, delta_c, y0, pop)
     elif form == "mr-brt":
         spline = _spline_for_crf(crf)
-        return mr_brt(beta, c_base, c_ctrl, y0, pop, spline_table=spline)
+        return mr_brt(beta, c_base, c_ctrl, y0, pop, spline_table=spline, z=z)
     elif form == "gemm-nlt":
         return gemm(beta, c_base, c_ctrl, y0, pop)
     elif form == "fusion-hybrid":
         table = _fusion_table_for_crf(crf)
-        return fusion(beta, c_base, c_ctrl, y0, pop, spline_table=table)
+        return fusion(beta, c_base, c_ctrl, y0, pop, spline_table=table, z=z)
     else:
         logger.warning(
             'Unknown functional form "%s", falling back to log-linear.', form
@@ -636,9 +688,12 @@ def compute_hia(config: dict[str, Any]) -> dict[str, Any]:
 
         # Vectorised MC sampling
         betas = rng.normal(loc=crf["beta"], scale=se, size=n_iter)
+        # Standard-normal deviates of the draws — spline forms use these
+        # to propagate the tabulated RR uncertainty band.
+        z = (betas - crf["beta"]) / se if se > 0 else np.zeros_like(betas)
 
         cases, paf = _compute_single_crf(
-            form, betas, c_base, c_ctrl, y0, pop, crf=crf,
+            form, betas, c_base, c_ctrl, y0, pop, crf=crf, z=z,
         )
 
         # Rate per 100 000
