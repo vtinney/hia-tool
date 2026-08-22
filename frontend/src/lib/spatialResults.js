@@ -41,8 +41,12 @@ export function detailRowsFromSpatial(response, frameworkById = {}) {
  */
 /**
  * Attributable fraction / rate for the secondary stat tiles on a spatial
- * run, taken from the highest-impact aggregate CRF (the same endpoint the
- * hero number reflects for typical runs).
+ * run. Must describe the same CRF the hero number reflects: when the
+ * headline is the all-cause (or cause-specific) mortality total, prefer
+ * the aggregate row whose cases match that total; otherwise fall back to
+ * the highest-impact CRF. Without this, a run mixing mortality and
+ * incidence endpoints (e.g. NO₂ ACM + pediatric asthma) shows a deaths
+ * headline next to the asthma CRF's fraction and rate.
  *
  * @param {object} response - /api/compute/spatial response.
  * @returns {{attributableFraction: number|null, attributableRate: number|null}}
@@ -52,12 +56,18 @@ export function spatialSummaryStats(response) {
   if (!Array.isArray(results) || results.length === 0) {
     return { attributableFraction: null, attributableRate: null }
   }
-  const top = [...results].sort(
+  const headline = spatialHeadlineDeaths(response)
+  const matching = headline
+    ? results.find(
+        (r) => Math.abs((r.attributableCases?.mean ?? NaN) - headline.mean) < 0.5,
+      )
+    : null
+  const chosen = matching ?? [...results].sort(
     (a, b) => (b.attributableCases?.mean ?? 0) - (a.attributableCases?.mean ?? 0),
   )[0]
   return {
-    attributableFraction: top.attributableFraction?.mean ?? null,
-    attributableRate: top.attributableRate?.mean ?? null,
+    attributableFraction: chosen.attributableFraction?.mean ?? null,
+    attributableRate: chosen.attributableRate?.mean ?? null,
   }
 }
 

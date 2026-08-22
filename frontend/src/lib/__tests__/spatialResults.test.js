@@ -62,10 +62,41 @@ describe('detailRowsFromSpatial', () => {
 })
 
 describe('spatialSummaryStats', () => {
-  it('takes fraction and rate from the highest-impact CRF', () => {
+  it('takes fraction and rate from the CRF behind the headline total', () => {
     expect(spatialSummaryStats(response)).toEqual({
       attributableFraction: 0.0531,
       attributableRate: 42.5,
+    })
+  })
+
+  it('follows the headline CRF even when another endpoint has more cases', () => {
+    // NO₂-style run: pediatric asthma incidence (68k cases) dwarfs the
+    // all-cause deaths headline (19.7k) — the tiles must describe the
+    // mortality CRF the hero shows, not the asthma row.
+    const mixed = {
+      zones: [{}],
+      aggregate: {
+        results: [
+          {
+            crfId: 'epa_no2_acm_adult', endpoint: 'All-cause mortality',
+            attributableCases: ci(19701, 8094, 30722),
+            attributableFraction: ci(0.067, 0.028, 0.105),
+            attributableRate: ci(68.8, 28.3, 107.3),
+          },
+          {
+            crfId: 'gbd_no2_asthma_child', endpoint: 'Asthma incidence (pediatric)',
+            attributableCases: ci(68454, -84784, 166286),
+            attributableFraction: ci(0.202, -0.25, 0.49),
+            attributableRate: ci(239.1, -296.1, 580.8),
+          },
+        ],
+      },
+      totalDeaths: ci(0, 0, 0),
+      allCauseDeaths: ci(19701, 8094, 30722),
+    }
+    expect(spatialSummaryStats(mixed)).toEqual({
+      attributableFraction: 0.067,
+      attributableRate: 68.8,
     })
   })
 
